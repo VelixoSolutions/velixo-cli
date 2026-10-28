@@ -1,9 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
-using Velixo.Cli.Commands;
 using Velixo.Cli.Output;
-using Velixo.Cli.Screen;
-using Velixo.Cli.Tests.Fakes;
 
 namespace Velixo.Cli.Tests.Screen;
 
@@ -21,7 +18,7 @@ public sealed class ScreenAttachmentTests
         test.Http.ThenStatus(HttpStatusCode.OK);
 
         var exit = await test.RunAsync(
-            "command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach", $"{file}:Signed quote 4471", "--yes", "--intent", ScreenHarness.Intent);
+            "command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach", file, "--attach-comment", "Signed quote 4471", "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.Success, exit);
         Assert.Equal(["get_upload_url", "execute_commands"], test.Mcp.Calls.Select(call => call.Name));
@@ -113,36 +110,47 @@ public sealed class ScreenAttachmentTests
     }
 
     [Fact]
-    public void Attach_splits_the_comment_on_the_last_colon()
+    public async Task Each_comment_goes_with_the_file_just_before_it_and_a_colon_stays_in_the_path()
     {
-        using var directory = new TempDirectory();
-        File.WriteAllText(Path.Combine(directory.Path, "a.pdf"), "x");
+        using var test = new ScreenHarness();
+        var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
+        var invoice = test.Write("invoice.pdf", "1");
+        var note = test.Write("delivery: note.pdf", "2");
+        var order = test.Write("po.pdf", "3");
+        test.Mcp
+            .ThenText("""{"fileToken":"ft_1","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/1"}""")
+            .ThenText("""{"fileToken":"ft_2","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/2"}""")
+            .ThenText("""{"fileToken":"ft_3","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/3"}""")
+            .ThenText(ScreenHarness.Done());
+        test.Http.ThenStatus(HttpStatusCode.OK).ThenStatus(HttpStatusCode.OK).ThenStatus(HttpStatusCode.OK);
 
-        ScreenAttachment spec = ScreenCommands.ParseAttachment("a.pdf:Signed quote", directory.Path);
-        ScreenAttachment empty = ScreenCommands.ParseAttachment("a.pdf:", directory.Path);
+        var exit = await test.RunAsync(
+            "command", "run", "--batch", batch, "--param", "CustomerID=ACME",
+            "--attach", invoice, "--attach-comment", "Vendor invoice 4411",
+            "--attach", note,
+            "--attach", order, "--attach-comment", "Customer PO",
+            "--yes", "--intent", ScreenHarness.Intent);
 
-        Assert.Equal(Path.Combine(directory.Path, "a.pdf"), spec.Path);
-        Assert.Equal("a.pdf", spec.FileName);
-        Assert.Equal(1, spec.SizeBytes);
-        Assert.Equal("Signed quote", spec.Comment);
-        Assert.Null(empty.Comment);
+        Assert.Equal(ExitCodes.Success, exit);
+        JsonArray attachments = test.Executed["attachments"]!.AsArray();
+        Assert.Equal(["invoice.pdf", "delivery: note.pdf", "po.pdf"], attachments.Select(file => (string?)file!["fileName"]));
+        Assert.Equal(["Vendor invoice 4411", null, "Customer PO"], attachments.Select(file => (string?)file!["comment"]));
     }
 
-    [Fact]
-    public void Attach_keeps_a_colon_that_belongs_to_the_path()
+    [Theory]
+    [InlineData("--attach-comment", "Orphan", "--attach", "FILE")]
+    [InlineData("--attach", "FILE", "--attach-comment", "One", "--attach-comment", "Two")]
+    [InlineData("--attach", "missing.pdf")]
+    public async Task A_comment_without_its_file_a_second_comment_or_a_missing_file_is_exit_2_before_any_call(params string[] flags)
     {
-        using var directory = new TempDirectory();
-        File.WriteAllText(Path.Combine(directory.Path, @"C:\scan.pdf"), "x");
-        File.WriteAllText(Path.Combine(directory.Path, "b.pdf"), "x");
+        using var test = new ScreenHarness();
+        var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
+        var file = test.Write("a.pdf", "x");
 
-        ScreenAttachment drive = ScreenCommands.ParseAttachment(@"C:\scan.pdf", directory.Path);
-        ScreenAttachment driveWithComment = ScreenCommands.ParseAttachment(@"C:\scan.pdf:Scan", directory.Path);
-        ScreenAttachment plain = ScreenCommands.ParseAttachment("b.pdf", directory.Path);
+        var exit = await test.RunAsync(
+            ["command", "run", "--batch", batch, "--param", "CustomerID=ACME", .. flags.Select(flag => flag == "FILE" ? file : flag), "--yes", "--intent", ScreenHarness.Intent]);
 
-        Assert.Null(drive.Comment);
-        Assert.Equal("Scan", driveWithComment.Comment);
-        Assert.Null(plain.Comment);
-        Assert.Throws<CliException>(() => ScreenCommands.ParseAttachment("b.pdf:/elsewhere", directory.Path));
-        Assert.Contains("'C:report.pdf'", Assert.Throws<CliException>(() => ScreenCommands.ParseAttachment("C:report.pdf", directory.Path)).Message, StringComparison.Ordinal);
+        Assert.Equal(ExitCodes.Usage, exit);
+        Assert.Empty(test.Mcp.Calls);
     }
 }

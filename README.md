@@ -255,21 +255,24 @@ Without a terminal and without `--yes`, the command exits with code 2 and does n
 
 ### Upload a file and attach it
 
-`command run --attach` uploads a file from its path and attaches it to the record that the batch saves. Add a comment after a colon:
+`command run --attach` uploads a file from your disk and attaches it to the record that the batch saves. Give one `--attach` per file, with its path relative to the current folder or absolute. To store a comment with a file on the record, put `--attach-comment` right after that file's `--attach`:
 
 ```sh
-velixo command run create-bill \
-  --param VendorID=ACME \
-  --attach "invoice-4411.pdf:Vendor invoice" \
-  --yes --intent "Enter the vendor bill with its invoice"
+velixo command run create-bill --param VendorID=ACME \
+  --attach bills/invoice-4411.pdf --attach-comment "Vendor invoice 4411" \
+  --attach bills/delivery-note.pdf \
+  --attach bills/po-8812.pdf --attach-comment "Customer PO" \
+  --yes --intent "Enter the vendor bill with its documents"
 ```
+
+All three files go on the one bill this run saves: `invoice-4411.pdf` and `po-8812.pdf` with their comments, `delivery-note.pdf` without one. A run takes up to 5 files, 5 MB each and 20 MB in all. Files for another record take another run, with a batch that opens that record.
 
 To upload the file ahead of the run, or from another machine, stage it and pass its token:
 
 ```sh
 velixo files stage invoice-4411.pdf                   # uploads it and prints the fileToken
 velixo files stage invoice-4411.pdf --size 48213      # or prints an upload URL and the curl command that sends it
-velixo command run create-bill --param VendorID=ACME --attach-token "TOKEN:Vendor invoice" --yes
+velixo command run create-bill --param VendorID=ACME --attach-token TOKEN --attach-comment "Vendor invoice 4411" --yes
 ```
 
 To fetch the reports and files that a batch produced, add `--download-dir out/`. A download link needs no sign-in, so `curl -o` works too.

@@ -1,13 +1,14 @@
 <!-- commands: files stage, files download -->
 # Files: sending files to the ERP, velixo files stage, velixo files download
 
-A file goes to the ERP by its path: `velixo command run --attach PATH[:COMMENT]` attaches it to the record the batch saves, and `velixo import run --file PATH` imports it. Both upload the file themselves. `velixo files stage` uploads a file ahead of the run instead, or hands out a URL to upload it from elsewhere, for example with `curl`. A file comes back from the ERP as a link: a rendered report, an attachment read off a record, a workbook. `velixo files download` saves it, and so does `curl`.
+A file goes to the ERP by its path: `velixo command run --attach PATH` attaches it to the record the batch saves, and `velixo import run --file PATH` imports it. Both upload the file themselves. `velixo files stage` uploads a file ahead of the run instead, or hands out a URL to upload it from elsewhere, for example with `curl`. A file comes back from the ERP as a link: a rendered report, an attachment read off a record, a workbook. `velixo files download` saves it, and so does `curl`.
 
 ## Send a file
 
 ```sh
 velixo command run create-bill --param VendorID=ACME \
-  --attach "invoice-4411.pdf:Vendor invoice" --yes
+  --attach bills/invoice-4411.pdf --attach-comment "Vendor invoice 4411" \
+  --attach bills/delivery-note.pdf --yes
 velixo import run --connection gab-dev --scenario "Import Customers" --file customers.csv --validate-only
 ```
 
@@ -19,7 +20,7 @@ The file must be on a disk you can read. When only the user holds it, ask them t
 
 ```sh
 velixo files stage invoice-4411.pdf                     # uploads it, prints the token
-velixo command run create-bill --param VendorID=ACME --attach-token "TOKEN:Vendor invoice" --yes
+velixo command run create-bill --param VendorID=ACME --attach-token TOKEN --attach-comment "Vendor invoice 4411" --yes
 velixo import run --scenario "Import Customers" --file-token TOKEN --validate-only
 ```
 

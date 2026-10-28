@@ -219,8 +219,9 @@ Tool: `execute_commands`.
 | `--param-null NAME` | Pass an explicit null. This drops every command that writes the placeholder, so the ERP sets the field by default. |
 | `--params FILE` | Bind variables from a JSON object. `--param` and `--param-null` win over the file. |
 | `--rows FILE` | A JSON array of detail rows, `[{ "values": {...}, "rows": [...] }]`, bound to `lineCommands` and `splitCommands`. Use `[]` for no rows. |
-| `--attach PATH[:COMMENT]` | Stage a file with `get_upload_url`, upload it, and attach it to the record. The comment follows the last `:`, unless that colon belongs to the path, as in `C:\scan.pdf`. Repeat as needed. |
-| `--attach-token TOKEN[:COMMENT]` | Attach a file `files stage` staged, by its token, under the name it was staged with. Repeatable, and combines with `--attach`. |
+| `--attach PATH` | Stage a file with `get_upload_url`, upload it, and attach it to the record. One file per `--attach`; repeat as needed. |
+| `--attach-token TOKEN` | Attach a file `files stage` staged, by its token, under the name it was staged with. Repeatable, and combines with `--attach`. |
+| `--attach-comment TEXT` | The comment stored with the file of the `--attach` or `--attach-token` just before it. At most one per file; a comment with no file before it exits 2. |
 | `--leave-open` | Leave the record open for a later call (see Continuations). |
 | `--continue` | Continue the record that the last `--leave-open` call left open. |
 | `--continuation FILE` | Continue a record from a saved continuation: the `continuation` object, or a whole saved `command run` result. |
@@ -340,7 +341,7 @@ Files go to the ERP by their path: `command run --attach PATH` and `import run -
 
 Tool: `get_upload_url`. Stages one file and prints `{ fileName, sizeBytes, fileToken, expiresAt, uploaded }`. A file on this machine is uploaded, with its size and SHA-256. With `--no-upload`, or for a file that is not on this machine (`--size`, with `--sha256` when you have it), nothing is uploaded and the output adds `uploadUrl` and `curl`, the command that sends the file: `curl -T 'invoice.pdf' 'https://...'` (`curl.exe` in PowerShell). The URL takes the file once; opened in a browser, it shows an upload page.
 
-The profile keeps each token with its file name in `state/<profile>.staged.json`, so `command run --attach-token TOKEN[:COMMENT]` and `import run --file-token TOKEN` take the token alone. A token expires in about an hour and is spent by the run that files it. A bad name, size or checksum exits 2 before any call.
+The profile keeps each token with its file name in `state/<profile>.staged.json`, so `command run --attach-token TOKEN` and `import run --file-token TOKEN` take the token alone. A token expires in about an hour and is spent by the run that files it. A bad name, size or checksum exits 2 before any call.
 
 ### `velixo files download URL... [--out PATH | --dir DIR] [--from RESULT.json]`
 

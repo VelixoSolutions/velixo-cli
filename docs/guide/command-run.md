@@ -106,7 +106,7 @@ Each report error says what happened in the ERP. If the batch wrote, that write 
 
 ## Attachments
 
-`--attach PATH[:COMMENT]` stages a file and attaches it to the record the batch leaves loaded. Repeat it for several files. `--attach-token TOKEN[:COMMENT]` attaches a file `velixo files stage` already staged, by the token it printed: see `velixo guide files`.
+`--attach PATH` stages a file and attaches it to the record the batch leaves loaded: one `--attach` per file, all on the same record. `--attach-comment TEXT` right after a file's `--attach` stores a comment with that file. `--attach-token TOKEN` attaches a file `velixo files stage` already staged, by the token it printed: see `velixo guide files`.
 
 - Attach only a file the user gave you. Never one you generated, re-encoded or guessed. If you have no file, say you cannot attach one.
 - The batch must create or load the record the file goes on. Every file in one run lands on that one record; two records take two runs.

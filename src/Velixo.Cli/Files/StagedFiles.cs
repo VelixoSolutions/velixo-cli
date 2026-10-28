@@ -58,31 +58,6 @@ internal static class StagedFiles
         return staged.FirstOrDefault(file => file.FileToken == token) ?? throw Unknown(token);
     }
 
-    /// <summary>
-    /// Splits <c>TOKEN</c> or <c>TOKEN:COMMENT</c> against the tokens this profile staged, so a token that
-    /// holds a colon itself is still found whole.
-    /// </summary>
-    /// <exception cref="CliException">Exit 2 when no staged token starts the value.</exception>
-    public static (StoredStagedFile File, string? Comment) FindWithComment(IReadOnlyList<StoredStagedFile> staged, string value)
-    {
-        ArgumentNullException.ThrowIfNull(staged);
-        ArgumentNullException.ThrowIfNull(value);
-
-        var trimmed = value.Trim();
-        StoredStagedFile? match = staged
-            .Where(file => trimmed == file.FileToken || trimmed.StartsWith(file.FileToken + ":", StringComparison.Ordinal))
-            .OrderByDescending(file => file.FileToken.Length)
-            .FirstOrDefault();
-        if (match is null)
-        {
-            var separator = trimmed.IndexOf(':', StringComparison.Ordinal);
-            throw Unknown(separator < 0 ? trimmed : trimmed[..separator]);
-        }
-
-        var comment = trimmed.Length > match.FileToken.Length ? trimmed[(match.FileToken.Length + 1)..].Trim() : null;
-        return (match, string.IsNullOrEmpty(comment) ? null : comment);
-    }
-
     private static CliException Unknown(string token) =>
         CliException.Usage(
             $"No file was staged on this profile under the token '{token}'.",

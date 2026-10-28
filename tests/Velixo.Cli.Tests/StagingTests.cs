@@ -72,7 +72,7 @@ public sealed class StagingTests
         await test.RunAsync("files", "stage", "quote.pdf", "--size", "4");
 
         var exit = await test.RunAsync(
-            "command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach-token", "ft_1:Signed quote", "--yes", "--intent", ScreenHarness.Intent);
+            "command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach-token", "ft_1", "--attach-comment", "Signed quote", "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.Success, exit);
         Assert.Equal(["get_upload_url", "execute_commands"], test.Mcp.Calls.Select(call => call.Name));
@@ -83,7 +83,7 @@ public sealed class StagingTests
     }
 
     [Fact]
-    public async Task A_token_with_a_colon_in_it_is_found_whole_and_the_rest_is_the_comment()
+    public async Task A_token_with_a_colon_in_it_is_found_whole()
     {
         using var test = new ScreenHarness();
         var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
@@ -92,7 +92,7 @@ public sealed class StagingTests
             .ThenText(ScreenHarness.Done());
         await test.RunAsync("files", "stage", "quote.pdf", "--size", "4");
 
-        await test.RunAsync("command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach-token", "ft:a1:Signed: quote", "--yes", "--intent", ScreenHarness.Intent);
+        await test.RunAsync("command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--attach-token", "ft:a1", "--attach-comment", "Signed: quote", "--yes", "--intent", ScreenHarness.Intent);
 
         JsonNode attachment = Assert.Single(test.Executed["attachments"]!.AsArray())!;
         Assert.Equal("ft:a1", (string?)attachment["fileToken"]);

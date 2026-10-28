@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Config;
 using Velixo.Cli.Files;
@@ -14,6 +15,12 @@ namespace Velixo.Cli.Commands;
 /// </summary>
 public static class ScreenCommands
 {
+    private const string AttachOption = "--attach";
+
+    private const string AttachTokenOption = "--attach-token";
+
+    private const string AttachCommentOption = "--attach-comment";
+
     public static Command Build(CliServices services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -84,16 +91,22 @@ public static class ScreenCommands
         };
         var variables = new Option<string?>("--params") { Description = "The values as a JSON object in a file.", HelpName = "file" };
         var rows = new Option<string?>("--rows") { Description = "The detail rows as a JSON array in a file.", HelpName = "file" };
-        var attach = new Option<string[]>("--attach")
+        var attach = new Option<string[]>(AttachOption)
         {
-            Description = "Stage a file and attach it to the record: PATH or PATH:COMMENT. Repeatable.",
-            HelpName = "path[:comment]",
+            Description = "Upload a file from this path and attach it to the record. Repeatable, one file each.",
+            HelpName = "path",
             Arity = ArgumentArity.ZeroOrMore,
         };
-        var attachToken = new Option<string[]>("--attach-token")
+        var attachToken = new Option<string[]>(AttachTokenOption)
         {
-            Description = "Attach a file 'velixo files stage' staged: TOKEN or TOKEN:COMMENT. Repeatable.",
-            HelpName = "token[:comment]",
+            Description = "Attach a file 'velixo files stage' staged, by its token. Repeatable.",
+            HelpName = "token",
+            Arity = ArgumentArity.ZeroOrMore,
+        };
+        var attachComment = new Option<string[]>(AttachCommentOption)
+        {
+            Description = "The comment stored with the file of the --attach or --attach-token just before it.",
+            HelpName = "text",
             Arity = ArgumentArity.ZeroOrMore,
         };
         var leaveOpen = new Option<bool>("--leave-open") { Description = "Leave the record open for a later --continue." };
@@ -117,6 +130,7 @@ public static class ScreenCommands
             rows,
             attach,
             attachToken,
+            attachComment,
             leaveOpen,
             continueOpen,
             continuation,
@@ -159,9 +173,7 @@ public static class ScreenCommands
                 NullVariables = parse.GetValue(variableNull) ?? [],
                 VariablesFile = parse.GetValue(variables),
                 RowsFile = parse.GetValue(rows),
-                Attachments = (parse.GetValue(attach) ?? []).Select(value => ParseAttachment(value, services.Environment.CurrentDirectory))
-                    .Concat(ParseStagedAttachments(services, parse.GetValue(attachToken) ?? []))
-                    .ToList(),
+                Attachments = ReadAttachments(services, parse),
                 LeaveOpen = parse.GetValue(leaveOpen),
                 Continue = parse.GetValue(continueOpen),
                 ContinuationFile = parse.GetValue(continuation),
@@ -173,64 +185,75 @@ public static class ScreenCommands
             cancellationToken);
     }
 
-    /// <summary>Reads each <c>--attach-token</c>, <c>TOKEN</c> or <c>TOKEN:COMMENT</c>, and finds the file each token was staged for on this profile.</summary>
-    /// <exception cref="CliException">Exit 2 when this profile staged no file under a token.</exception>
-    internal static IEnumerable<ScreenAttachment> ParseStagedAttachments(CliServices services, IReadOnlyList<string> values)
-    {
-        if (values.Count == 0)
-        {
-            return [];
-        }
-
-        IReadOnlyList<StoredStagedFile> staged = StagedFiles.Load(services);
-        return values
-            .Select(value =>
-            {
-                (StoredStagedFile file, string? comment) = StagedFiles.FindWithComment(staged, value);
-                return new ScreenAttachment(string.Empty, comment)
-                {
-                    FileToken = file.FileToken,
-                    StagedName = file.FileName,
-                    StagedSize = file.SizeBytes,
-                };
-            })
-            .ToList();
-    }
-
     /// <summary>
-    /// Reads one <c>--attach</c>, <c>PATH</c> or <c>PATH:COMMENT</c>, resolving a relative path against
-    /// <paramref name="currentDirectory"/>. The value splits on its last colon, except when that colon
-    /// belongs to the path: a drive letter (<c>C:\x.pdf</c>), a path separator right after it, or a file
-    /// whose own name holds the colon.
+    /// Reads the files to attach in the order the command line gives them: each <c>--attach PATH</c> or
+    /// <c>--attach-token TOKEN</c> is one file, and an <c>--attach-comment TEXT</c> right after it is that
+    /// file's comment. A token is looked up among the files this profile staged, for the name it was issued for.
     /// </summary>
-    /// <exception cref="CliException">Exit 2 when the file does not exist, so nothing is confirmed or staged for a typo.</exception>
-    internal static ScreenAttachment ParseAttachment(string value, string currentDirectory)
+    /// <exception cref="CliException">
+    /// Exit 2 for a file that does not exist, a token this profile did not stage, a comment with no file
+    /// before it, or a second comment for one file.
+    /// </exception>
+    internal static List<ScreenAttachment> ReadAttachments(CliServices services, ParseResult parse)
     {
-        ArgumentNullException.ThrowIfNull(value);
+        var attachments = new List<ScreenAttachment>();
+        var commented = new HashSet<int>();
+        IReadOnlyList<StoredStagedFile>? staged = null;
+        IReadOnlyList<Token> tokens = parse.Tokens;
 
-        var path = value;
-        string? comment = null;
-
-        var colon = value.LastIndexOf(':');
-        if (colon > 0 && !File.Exists(Path.GetFullPath(value, currentDirectory)))
+        for (var index = 0; index + 1 < tokens.Count; index++)
         {
-            var before = value[..colon];
-            var after = value[(colon + 1)..];
-            var isDrive = before.Length == 1 && char.IsAsciiLetter(before[0]);
-            var isPath = after.Length > 0 && after[0] is '/' or '\\';
-            if (!isDrive && !isPath)
+            if (tokens[index].Type != TokenType.Option)
             {
-                path = before;
-                comment = after.Length == 0 ? null : after;
+                continue;
+            }
+
+            var value = tokens[index + 1].Value;
+            switch (tokens[index].Value)
+            {
+                case AttachOption:
+                    attachments.Add(LocalAttachment(value, services.Environment.CurrentDirectory));
+                    break;
+                case AttachTokenOption:
+                    StoredStagedFile file = StagedFiles.Find(staged ??= StagedFiles.Load(services), value.Trim());
+                    attachments.Add(new ScreenAttachment(string.Empty, Comment: null)
+                    {
+                        FileToken = file.FileToken,
+                        StagedName = file.FileName,
+                        StagedSize = file.SizeBytes,
+                    });
+                    break;
+                case AttachCommentOption:
+                    if (attachments.Count == 0)
+                    {
+                        throw CliException.Usage(
+                            "--attach-comment names no file: put it right after the --attach or --attach-token it describes.",
+                            "velixo command run NUMBER --attach invoice.pdf --attach-comment \"Vendor invoice\"");
+                    }
+
+                    if (!commented.Add(attachments.Count - 1))
+                    {
+                        throw CliException.Usage($"The file '{attachments[^1].FileName}' has two --attach-comment; give it one.");
+                    }
+
+                    attachments[^1] = attachments[^1] with { Comment = string.IsNullOrWhiteSpace(value) ? null : value.Trim() };
+                    break;
             }
         }
 
+        return attachments;
+    }
+
+    /// <summary>Reads one <c>--attach</c>: the path of a file that exists, relative to <paramref name="currentDirectory"/> or absolute.</summary>
+    /// <exception cref="CliException">Exit 2 when the file does not exist, so nothing is confirmed or staged for a typo.</exception>
+    internal static ScreenAttachment LocalAttachment(string path, string currentDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
         var fullPath = Path.GetFullPath(path, currentDirectory);
         return File.Exists(fullPath)
-            ? new ScreenAttachment(fullPath, comment)
-            : throw CliException.Usage(
-                $"The file to attach, '{path}', does not exist.",
-                "Pass the path of a file the user gave you, optionally followed by :COMMENT.");
+            ? new ScreenAttachment(fullPath, Comment: null)
+            : throw CliException.Usage($"The file to attach, '{path}', does not exist.", "Pass the path of a file the user gave you.");
     }
 
     /// <summary>Calls <c>prepare_commands</c>, saves the batch when <paramref name="savePath"/> names a file, and prints it.</summary>
