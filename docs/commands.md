@@ -76,7 +76,7 @@ Tool: `tool_guidance`. Prints the Markdown sections of the server's tool guidanc
 
 ### `velixo query build "REQUEST" [--base-query FILE|-]...`
 
-Tool: `prepare_query`. The request is a natural-language data question. Write every user value as a `{{Placeholder}}`. `--base-query` passes a query you hold, to refine it; repeat it once per query of a multi-query plan. The CLI waits for the build (usually 10 to 60 seconds) and prints the plan:
+Tool: `prepare_query`. Needs `--intent`. The request is a natural-language data question. Write every user value as a `{{Placeholder}}`. `--base-query` passes a query you hold, to refine it; repeat it once per query of a multi-query plan, and the CLI sends them as one `baseQuery`, separated by a blank line. The CLI waits for the build (usually 10 to 60 seconds, progress on stderr) and prints the plan:
 
 ```json
 {
@@ -93,29 +93,33 @@ Tool: `prepare_query`. The request is a natural-language data question. Write ev
 }
 ```
 
-The query is VQL, the Velixo Query Language. VQL is one language for Acumatica, Sage Intacct and Business Central, and a plain GIQL query runs unchanged. Query files use the `.vql` extension. A plan item can hold `inquiry: { name, parameters }` instead of `query` when the request named a saved inquiry.
+The query is VQL, the Velixo Query Language. VQL is one language for Acumatica, Sage Intacct and Business Central, and a plain GIQL query runs unchanged. Query files use the `.vql` extension. The server still names an item's query text `giql`; the CLI prints it as `query`, so the shape does not change when the server renames it, and `query run` reads either. A plan item can hold `inquiry: { name, parameters }` instead of `query` when the request named a saved inquiry. With `--output table` the items print as a table of purpose and query, with the note under it.
 
-When the builder refuses, the command exits 3 with `error.code: "BUILDER_REFUSAL"` and the `ERROR:` text in `error.message`. Put the question to the user in plain words, then build again.
+When the builder refuses, the command exits 3 with `error.code: "BUILDER_REFUSAL"` and the `ERROR:` text in `error.message`. The server reports a refusal as a failed build task; the CLI gives it exit 3 all the same. Put the question to the user in plain words, then build again.
 
 Save a plan with a redirect: `velixo query build "..." > ar-balance.plan.json`.
 
 ### `velixo query run (--plan FILE | --query FILE|- | --inquiry NAME) [flags]`
 
-Tool: `execute_query`.
+Tool: `execute_query`. Needs `--intent` and exactly one of `--plan`, `--query` and `--inquiry`.
 
 | Flag | Meaning |
 |---|---|
-| `--plan FILE` | Run every item of a saved plan. The output is an array with one entry per item, with the plan's `note` at the top. |
-| `--query FILE\|-` | Run one query from a file or from stdin. |
+| `--plan FILE` | Run every item of a saved plan, in order. The file is the whole output of `query build`, or only its `result.data` object. |
+| `--query FILE\|-` | Run one query from a file or from stdin. The CLI sends it as the tool's `giql` argument. |
 | `--inquiry NAME` | Run a saved inquiry as saved. |
-| `--param "LABEL=VALUE"` | Set a parameter by its display label, the text after `AS` in its `DECLARE` line. Repeat for each parameter. |
-| `--params FILE` | Set parameters from a JSON object. |
-| `--top N` | Rows per call. Default 250. Sent on every call. |
-| `--skip N` | Rows to skip. |
-| `--all` | Read every window until a page comes back short. |
+| `--param "LABEL=VALUE"` | Set a parameter by its display label, the text after `AS` in its `DECLARE` line. The text splits at the first `=`. Repeat for each parameter. |
+| `--params FILE\|-` | Set parameters from a JSON object. A `--param` with the same key wins. |
+| `--top N` | Rows per call, from 1 to 10,000. Default 250. Sent on every call. |
+| `--skip N` | Rows to skip. Default 0. |
+| `--all` | Read every window from `--skip` until a page comes back short. Not with `--no-wait`. |
 | `--max-rows N` | The limit for `--all`. Default 10,000. |
 
-A parameter that has a `TYPE` and no label is keyed by its name. A label that matches no parameter is silently discarded by Acumatica, so the CLI compares your labels with the `DECLARE` lines it can see and warns on stderr when one matches nothing. `--all` warns when the query has no `ORDER BY`, because paging an unordered query is not stable.
+Before a `--query` or a plan runs, the CLI reads its `DECLARE` lines. A parameter that has a label is keyed by the label; one declared with `TYPE` and no label is keyed by its name. The CLI warns on stderr for every key that matches no parameter, because Acumatica discards an unknown key without an error, and for every `REQUIRED` parameter without a `DEFAULT` that has no value, because the query then matches nothing. A `--inquiry` run is not checked: the CLI cannot see the inquiry's parameters.
+
+In a plan, each query gets only the keys it declares, because Sage Intacct and Business Central refuse a key their query does not take. An item that runs a saved inquiry takes the plan's own parameters: a value given under the inquiry parameter's label replaces it, and each `{{Placeholder}}` in it takes the value given under the placeholder's name, as in `--param "BranchID=HQ"`. A parameter whose placeholder has no value is left out, so the inquiry uses its default, and the CLI warns.
+
+`--all` warns when the query has no `ORDER BY`, because paging an unordered query is not stable. It merges every window into one `rows` array with one `totalCount`. When `--max-rows` stops it before the last row, the merged result carries `truncated: true` and a `warning`.
 
 Output for one query:
 
@@ -130,21 +134,45 @@ Output for one query:
         { "objectName": "ARInvoice", "fieldName": "Balance", "caption": "Natural Net", "type": "decimal", "precision": 2 }
       ],
       "rows": [["ABARTENDE", 12500.00], ["BCORP", 980.15]],
-      "totalCount": 2,
-      "truncated": false,
-      "warnings": []
+      "totalCount": 2
     }
   }
 }
 ```
 
-With `--output csv` the first line holds the captions and each row follows. With `--output table` a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`. With `--all`, JSON holds one `rows` array and one `totalCount`. `truncated: true` means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr.
+Output for a plan, one entry per item in the plan's order:
+
+```json
+{
+  "note": "Join the two results on CustomerID.",
+  "results": [
+    { "purpose": "Outstanding AR balance per customer", "result": { "taskId": "t_9a...", "status": "done", "result": { "data": { "columns": [], "rows": [], "totalCount": 0 } } } }
+  ]
+}
+```
+
+With `--output csv` the first line holds the captions and each row follows; a plan of more than one item cannot be written as CSV. With `--output table` the captions head the table and a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`; a plan prints its note, then each item's purpose and table. `truncated: true` or a `warning` in a result means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr, with any `warnings` the ERP sent.
 
 An HTTP 400 from the ERP, such as a conversion error in the built query, exits 6 with the ERP's message in `error.detail`. Build the query again and quote that message.
 
-### `velixo query workbook (--query FILE | --plan FILE [--item N]) [--param ...] [--download PATH]`
+### `velixo query workbook (--query FILE|- | --plan FILE [--item N]) [--param ...] [--params FILE] [--download PATH]`
 
-Tool: `create_workbook_from_query`. Prints a link to a Velixo workbook that holds the VQL query as a live formula. `--download` fetches the file to `PATH` and adds `"path"` to the output. A plan item that runs a saved inquiry cannot become a workbook: the command exits 2. Build a VQL query over the inquiry instead.
+Tool: `create_workbook_from_query`. Needs `--intent`. Sends the query text as `query` and the parameters as a JSON object in a string, as the tool takes them; the CLI warns about the parameters as `query run` does. `--item` chooses the plan item, from 1; a plan with one item needs none. Prints the tool's result, a link to a Velixo workbook that holds the VQL query as a live formula:
+
+```json
+{
+  "result": {
+    "data": {
+      "attachments": [
+        { "fileName": "AR balance.xlsx", "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sizeBytes": 18234, "downloadUrl": "https://app.velixo.com/mcp/download/...", "kind": "queryWorkbook", "path": "ar.xlsx" }
+      ],
+      "note": "..."
+    }
+  }
+}
+```
+
+`--download` fetches the first `downloadUrl` in the result to `PATH`, or into `PATH` under the file's own name when it is a directory, and adds `"path"` to the object that holds the link. A plan item that runs a saved inquiry cannot become a workbook: the command exits 2. Build again, asking for that inquiry as a workbook; the builder then returns a VQL query over the inquiry.
 
 ## Screen commands (Acumatica)
 
@@ -243,7 +271,7 @@ velixo screen run --batch order.batch.json --continue --rows lines-3.json --fini
 
 ### `velixo task status TASKID [--wait]`
 
-Tool: `get_status`. Without `--wait`, the command holds once (up to about 40 seconds) and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`. The final output has the same shape as the command that started the task. A task that was started in another organization, or that the server evicted, comes back `expired` with exit 6.
+Tool: `get_status`. Needs no `--intent`. Without `--wait`, the command calls the tool once, which holds up to about 40 seconds, and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`; `--timeout` still applies and exits 124. The final output has the same shape as the command that started the task: a plan's items carry `query`, and a query result prints as a table or CSV in those formats. A `failed` or `expired` task exits 6 with the server's text in `error.message`; a failed build whose text starts with `ERROR:` is a builder refusal and exits 3. A task that was started in another organization, or that the server evicted, comes back `expired`.
 
 Every command that starts a task accepts `--no-wait`.
 
