@@ -251,7 +251,7 @@ Every command that starts a task accepts `--no-wait`.
 
 ### `velixo files upload PATH... [--comment TEXT]`
 
-Tool: `get_upload_url` (named mode). Stages each file and prints one entry per file:
+Tool: `get_upload_url` (named mode). For each file, the command computes the size and the SHA-256, asks for an upload link with them, and streams the bytes to that link with an HTTP PUT. It needs no `--intent`. It prints one entry per file:
 
 ```json
 [
@@ -259,29 +259,41 @@ Tool: `get_upload_url` (named mode). Stages each file and prints one entry per f
 ]
 ```
 
+`--comment` adds a `comment` to each printed entry. It is the note a later `execute_commands` call stores beside the file on the record; the upload itself sends no comment.
+
+A file the server will not stage (a type or size it refuses) exits 5 with the server's code, such as `ATTACHMENT_TYPE_NOT_ALLOWED`. An upload endpoint that refuses the bytes exits 5 with `ATTACHMENT_UPLOAD_FAILED` and the HTTP status. A file that does not exist exits 2 before any call.
+
 `screen run --attach` and `import run` stage files themselves. Use this command to stage first and run later, within the hour.
 
 ### `velixo files request [--max-files N]`
 
-Tool: `get_upload_url` (unnamed mode). Prints `{ uploadPageUrl, uploadBatchToken, maxFiles, expiresAt }`. Give the page URL to a user who holds the file and wants to upload it.
+Tool: `get_upload_url` (unnamed mode). Prints `{ uploadPageUrl, uploadBatchToken, maxFiles, expiresAt }`. `--max-files` is sent only when you give it. Give the page URL to a user who holds the file and wants to upload it.
 
 ### `velixo files staged BATCH-TOKEN [--wait]`
 
-Tool: `list_staged_files`. Prints `{ maxFiles, submitted, expiresAt, note, files: [{ fileName, sizeBytes, fileToken, alreadyFiled }] }`. `--wait` repeats the server's 40-second hold until `submitted` is true or a `note` says the user went quiet.
+Tool: `list_staged_files`. Prints `{ maxFiles, submitted, expiresAt, note, files: [{ fileName, sizeBytes, fileToken, alreadyFiled }] }`.
+
+Without `--wait`, the command makes one call that does not hold. With `--wait`, it calls again until `submitted` is true or the server returns a `note`, and prints progress on stderr. A `note` also prints as a warning on stderr: it says what to ask the user, so ask it and do not call the command again until they answer. `--timeout` limits the wait and exits 124.
 
 ### `velixo files download URL... [--out PATH | --dir DIR] [--from RESULT.json]`
 
-Fetches a download link that the server issued: a rendered report, an ERP attachment or a workbook. `--from` reads every `attachments[].downloadUrl` from a saved `screen run` output. Prints `[{ "fileName", "path", "bytes", "contentType" }]`. A link expires in about an hour; an expired link exits 5 with `ATTACHMENT_TOKEN_INVALID`.
+Fetches download links that the server issued: a rendered report, an ERP attachment or a workbook. The links need no sign-in.
+
+`--from` reads every `attachments[].downloadUrl` from a saved `screen run` output. The command searches the whole document for `attachments` arrays, wherever they sit, and downloads each link once. `--out` saves one file to an exact path and replaces a file that is already there. `--dir` (default: the working directory) saves each file under the name the server gives it, from the `Content-Disposition` header or else from the URL. It never overwrites: when `report.pdf` exists, the new file is `report (2).pdf`. Read `path` in the output for the name each file got.
+
+Prints `[{ "fileName", "path", "bytes", "contentType" }]`. A link expires in about an hour. A link the server refuses with a 4xx exits 5 with `ATTACHMENT_TOKEN_INVALID`; run the command that issued the link again.
 
 ## Import scenarios (Acumatica)
 
 ### `velixo import scenarios --connection C [--screen SCREENID] [--filter PATTERN]`
 
-Tool: `list_import_scenarios`. Prints `[{ name, screenId, apiEnabled, columns }]`. `columns` is absent when `apiEnabled` is false. Show the columns to the user before they build a file.
+Tool: `list_import_scenarios`. `--connection` is required here: without it the command exits 2. It needs no `--intent`. Prints `[{ name, screenId, apiEnabled, columns }]`. `columns` is absent when `apiEnabled` is false. Show the columns to the user before they build a file.
+
+On a terminal, the default output is a table with the columns name, screen, apiEnabled and columns, the last one joined by commas.
 
 ### `velixo import run --connection C --scenario NAME --file PATH [flags]`
 
-Tool: `execute_import_scenario`.
+Tool: `execute_import_scenario`. Requires `--connection` and an `--intent`.
 
 | Flag | Meaning |
 |---|---|
@@ -291,7 +303,17 @@ Tool: `execute_import_scenario`.
 | `--break-on-error` | Stop at the first row that fails. |
 | `--yes` | Confirm the real run. |
 
-The command runs the fixed sequence: it stages the file, calls the tool with `validateOnly: true`, prints the preview (scenario, screen, connection, row count, warnings) on stderr, asks or requires `--yes`, then runs for real on the same upload. A real run spends the upload, so a second run uploads again. The output is the import report:
+The command runs the fixed sequence:
+
+1. It stages the file, as `files upload` does.
+2. It calls the tool with `validateOnly: true`. The preview prints on stderr: scenario, screen, connection, row count and every warning, then a reminder that an import is not atomic.
+3. With `--validate-only`, it prints the preview on stdout and exits 0. The preview is `{ "result": { "data": { "scenario", "screenId", "screenTitle", "file": { "name", "sheet", "range", "rows" }, "columns", "sample", "warnings", "executed": false } } }`.
+4. It asks for confirmation: on a terminal, `Import 15 rows with scenario Import Customers into screen AR303000 on connection gab-dev? [y/N]`. With `--yes` it does not ask. Without a terminal and without `--yes` it exits 2 with `CONFIRMATION_REQUIRED`, after the preview has printed.
+5. It calls the tool again without `validateOnly` on the same upload and follows the task, with progress on stderr.
+
+A real run spends the upload, so a second run uploads again. If the server answers `ATTACHMENT_TOKEN_ALREADY_USED`, the import already happened: the command exits 5 and its `nextStep` says to read the ERP first and to upload again only if the file must run again. An `IMPORT_*` refusal exits 5 with its code; each one names what to change in the file.
+
+The output is the import report. A task that finishes inside the first hold prints the same document as a long one:
 
 ```json
 {
@@ -301,36 +323,41 @@ The command runs the fixed sequence: it stages the file, calls the tool with `va
     "data": {
       "scenario": "Import Customers",
       "screenId": "AR303000",
-      "rowsTotal": 15,
-      "rowsProcessed": 14,
+      "executed": true,
+      "totalRows": 15,
+      "processed": 14,
+      "failed": 1,
+      "notAttempted": 0,
       "rows": [
         { "row": 2, "processed": true, "keys": { "CustomerID": "CA000123" }, "error": null },
         { "row": 9, "processed": false, "keys": null, "error": "'Customer Class' cannot be empty." }
       ],
-      "warnings": []
+      "failures": [ { "row": 9, "error": "'Customer Class' cannot be empty." } ],
+      "warnings": [],
+      "durationMs": 4210
     }
   }
 }
 ```
 
-Row numbers are the lines of your file, the header being line 1. A partial failure is not atomic: read the ERP back before you report the result.
+Row numbers are the lines of your file, the header being line 1. A report with failed rows still exits 0. The command then prints a warning on stderr that names how many rows failed. A partial failure is not atomic: read the ERP back before you report the result.
 
 ## Notifications
 
 ### `velixo notify --subject TEXT --body TEXT [flags]`
 
-Tool: `send_notification`.
+Tool: `send_notification`. Requires an `--intent`.
 
 | Flag | Meaning |
 |---|---|
-| `--target EMAIL\|TEAMS-CHANNEL-LINK` | Where to send it. |
-| `--payload FILE` | A saved `query run` output. The CLI passes its `result.data` unchanged, so each surface draws the table itself. |
+| `--target EMAIL\|TEAMS-CHANNEL-LINK` | Where to send it. Default: the signed-in user. |
+| `--payload FILE` | A saved `query run` output. The CLI sends its `result.data` unchanged as one JSON string, or the whole file when it is a query result with `columns` and `rows`. Each surface draws the table itself. Any other file exits 2. |
 | `--link URL` | A link to include. |
 | `--link-label TEXT` | The text of the link. |
 | `--severity Info\|Warning\|Error` | The severity. |
 | `--source-name NAME` | The sender name. Default `velixo-cli`. |
 
-Prints `{ accepted, reachedNobody, target, deliveries: [...] }`. The CLI warns on stderr when `reachedNobody` is true.
+Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, channels }], note }`. When `reachedNobody` is true, the notification is recorded but nothing pushed it to anyone, and the CLI prints a warning on stderr. Do not report the recipient as notified.
 
 ## Raw access and discovery
 
