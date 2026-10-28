@@ -50,11 +50,16 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 
 ## The symbol on the welcome screen
 
-`src/Velixo.Cli/Output/VelixoSymbol.cs` is generated. To regenerate it from the brand symbol as a PNG
-with a transparent background (the gradient version gives exact colours; a black-and-white one gets
-the brand gradient computed per bar):
+`src/Velixo.Cli/Output/VelixoSymbol.cs` is generated from the brand artwork in `assets/`: the colours
+come from `symbol-gradient.svg`, the pixels drawn from `symbol-flat-black.svg`, whose gaps keep the
+weave readable at 24 pixels. To regenerate it:
 
 ```bash
 python3 -m pip install pillow
-python3 scripts/render-symbol.py path/to/symbol.png 24
+npm install playwright            # or any installed Chromium that playwright finds
+node scripts/render-svg.cjs assets/symbol-gradient.svg /tmp/gradient.png
+node scripts/render-svg.cjs assets/symbol-flat-black.svg /tmp/flat.png
+python3 scripts/render-symbol.py /tmp/gradient.png 24 --shape /tmp/flat.png
 ```
+
+`render-svg.cjs` crops nothing: both files share the same canvas, so the two renders line up.

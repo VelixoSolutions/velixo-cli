@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Renders the Velixo symbol as terminal half-block cells and writes src/Velixo.Cli/Output/VelixoSymbol.cs.
 
-Usage: python3 scripts/render-symbol.py <symbol.png> [columns]
+Usage: python3 scripts/render-symbol.py <symbol.png> [columns] [--shape <flat.png>]
+
+With --shape, the colours come from the first image and the pixels drawn come from the second,
+which is how the gradient artwork (no gaps between the bars) keeps the weave of the flat artwork.
 
 Each terminal cell covers one pixel column and two pixel rows: the upper half block carries the
 top pixel's colour in the foreground, the lower pixel's colour in the background. A PNG that
@@ -35,14 +38,15 @@ def brand_colour(x, y):
     return ramp(UNDER, (x - y + 2) / 4)
 
 
-def cells(image, columns):
+def cells(image, columns, shape=None):
     rows = columns // 2
     small = image.convert("RGBA").resize((columns, rows * 2), Image.LANCZOS)
+    mask = shape.convert("RGBA").resize((columns, rows * 2), Image.LANCZOS) if shape is not None else small
     width, height = small.size
 
     def sample(px, py):
         r, g, b, a = small.getpixel((px, py))
-        if a < 128:
+        if mask.getpixel((px, py))[3] < 128 or a < 128:
             return None
         if r > 40 or g > 40 or b > 40:
             return (r, g, b)
@@ -64,9 +68,12 @@ def hex6(c):
 
 
 def main():
-    source = Path(sys.argv[1])
-    columns = int(sys.argv[2]) if len(sys.argv) > 2 else 24
-    table = cells(Image.open(source), columns)
+    arguments = sys.argv[1:]
+    shape = Image.open(arguments[arguments.index("--shape") + 1]) if "--shape" in arguments else None
+    positional = [a for i, a in enumerate(arguments) if a != "--shape" and (i == 0 or arguments[i - 1] != "--shape")]
+    source = Path(positional[0])
+    columns = int(positional[1]) if len(positional) > 1 else 24
+    table = cells(Image.open(source), columns, shape)
     target = Path(__file__).resolve().parent.parent / "src" / "Velixo.Cli" / "Output" / "VelixoSymbol.cs"
     lines = [
         "namespace Velixo.Cli.Output;",
