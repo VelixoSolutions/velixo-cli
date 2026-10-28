@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SOLUTION: Velixo.Cli.slnx
+  MAIN_PROJECT: src/Velixo.Cli/Velixo.Cli.csproj
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION }} -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION }} -c Release --no-build
+
+      - name: Install the NativeAOT toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish with NativeAOT (linux-x64)
+        run: dotnet publish ${{ env.MAIN_PROJECT }} -c Release -r linux-x64 -p:PublishAot=true -o out
+
+      - name: Smoke test the published binary
+        run: |
+          ./out/velixo --version
+          ./out/velixo help --all --output json | jq -e . > /dev/null

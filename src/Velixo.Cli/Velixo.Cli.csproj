@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>velixo</AssemblyName>
+    <RootNamespace>Velixo.Cli</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <StripSymbols>true</StripSymbols>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <!-- docs/agent-guide.md is the text of the guide command; the Resources copy is the fallback for a build without the docs folder. -->
+    <VelixoAgentGuide Condition="'$(VelixoAgentGuide)' == ''">$(MSBuildThisFileDirectory)../../docs/agent-guide.md</VelixoAgentGuide>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(VelixoAgentGuide)" LogicalName="Velixo.Cli.AgentGuide.md" Condition="Exists('$(VelixoAgentGuide)')" />
+    <EmbeddedResource Include="Resources/agent-guide.md" LogicalName="Velixo.Cli.AgentGuide.md" Condition="!Exists('$(VelixoAgentGuide)')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Velixo.Cli.Tests" />
+  </ItemGroup>
+
+</Project>

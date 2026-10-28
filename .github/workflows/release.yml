@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SOLUTION: Velixo.Cli.slnx
+  MAIN_PROJECT: src/Velixo.Cli/Velixo.Cli.csproj
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore ${{ env.SOLUTION }}
+      - run: dotnet build ${{ env.SOLUTION }} -c Release --no-restore -warnaserror
+      - run: dotnet test ${{ env.SOLUTION }} -c Release --no-build
+
+  publish:
+    needs: test
+    name: publish ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+            archive: tar.gz
+            smoke: true
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+            archive: tar.gz
+            smoke: true
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+            archive: tar.gz
+            smoke: true
+            # Built inside the Alpine NativeAOT SDK image, so the binary links against musl.
+            container: mcr.microsoft.com/dotnet/sdk:10.0-alpine-aot
+          - rid: osx-arm64
+            os: macos-14
+            archive: tar.gz
+            smoke: true
+          - rid: osx-x64
+            os: macos-15-intel
+            archive: tar.gz
+            smoke: true
+          - rid: win-x64
+            os: windows-latest
+            archive: zip
+            smoke: true
+          - rid: win-arm64
+            os: windows-latest
+            archive: zip
+            # Cross-compiled on an x64 runner, so the binary cannot run here.
+            smoke: false
+    defaults:
+      run:
+        shell: bash
+    env:
+      RID: ${{ matrix.rid }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from the tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@v4
+        if: ${{ !matrix.container }}
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the NativeAOT toolchain (Linux)
+        if: ${{ startsWith(matrix.rid, 'linux-') && !matrix.container }}
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish with NativeAOT
+        if: ${{ !matrix.container }}
+        run: >
+          dotnet publish "$MAIN_PROJECT" -c Release -r "$RID"
+          -p:PublishAot=true -p:Version="$VERSION"
+          -o "publish/$RID"
+
+      - name: Publish with NativeAOT (Alpine container)
+        if: ${{ matrix.container }}
+        run: >
+          docker run --rm -v "$PWD:/src" -w /src
+          -e RID -e VERSION -e MAIN_PROJECT
+          ${{ matrix.container }}
+          sh -c 'dotnet publish "$MAIN_PROJECT" -c Release -r "$RID" -p:PublishAot=true -p:Version="$VERSION" -o "publish/$RID"'
+
+      - name: Smoke test the binary
+        if: ${{ matrix.smoke && !matrix.container }}
+        run: |
+          exe="publish/$RID/velixo"
+          if [ "${RID#win-}" != "$RID" ]; then exe="$exe.exe"; fi
+          "./$exe" --version | grep -F "$VERSION"
+          "./$exe" help --all --output json > /dev/null
+
+      - name: Smoke test the binary (Alpine container)
+        if: ${{ matrix.smoke && matrix.container }}
+        run: >
+          docker run --rm -v "$PWD:/src" -w /src
+          -e RID -e VERSION
+          ${{ matrix.container }}
+          sh -c './publish/$RID/velixo --version | grep -F "$VERSION" && ./publish/$RID/velixo help --all --output json > /dev/null'
+
+      # TODO: sign the binary here, before it is archived and checksummed. This step is a
+      # placeholder: it signs nothing, and the binaries of this release are unsigned.
+      #
+      # macOS (osx-*): codesign with a Developer ID Application certificate, then notarize with
+      # `xcrun notarytool` and staple. Secrets needed:
+      #   APPLE_CERTIFICATE_P12_BASE64, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+      #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD
+      # A bare binary cannot be stapled, so decide whether macOS ships a signed .pkg or .zip.
+      #
+      # Windows (win-*): Authenticode-sign velixo.exe. Secrets needed, for example with
+      # Azure Trusted Signing: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+      # AZURE_TRUSTED_SIGNING_ENDPOINT, AZURE_TRUSTED_SIGNING_ACCOUNT,
+      # AZURE_TRUSTED_SIGNING_PROFILE. With a certificate file instead: WINDOWS_CERTIFICATE_PFX_BASE64
+      # and WINDOWS_CERTIFICATE_PASSWORD.
+      #
+      # Open question in the design: who signs the binaries.
+      - name: Sign and notarize (TODO, not implemented)
+        run: echo "::warning::Binaries for $RID are not signed or notarized. See the TODO in release.yml."
+
+      - name: Package the binary
+        run: |
+          name="velixo-$VERSION-$RID"
+          stage="stage/$name"
+          mkdir -p "$stage" dist
+          if [ "${RID#win-}" != "$RID" ]; then
+            cp "publish/$RID/velixo.exe" "$stage/"
+          else
+            cp "publish/$RID/velixo" "$stage/"
+            chmod 755 "$stage/velixo"
+          fi
+          cp LICENSE README.md "$stage/"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd "$stage" && 7z a -tzip "$GITHUB_WORKSPACE/dist/$name.zip" ./* > /dev/null)
+          else
+            tar -czf "dist/$name.tar.gz" -C "$stage" .
+          fi
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velixo-${{ matrix.rid }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: velixo-*
+          merge-multiple: true
+
+      - name: Compute checksums
+        working-directory: dist
+        run: |
+          sha256sum velixo-* > checksums.txt
+          cat checksums.txt
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags="--generate-notes --verify-tag"
+          case "$GITHUB_REF_NAME" in *-*) flags="$flags --prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            $flags
