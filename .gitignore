@@ -9,3 +9,4 @@ publish/
 .vscode/
 TestResults/
 *.swp
+.claude/worktrees/
