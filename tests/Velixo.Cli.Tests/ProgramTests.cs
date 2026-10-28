@@ -90,7 +90,7 @@ public sealed class ProgramTests
     {
         using var test = new TestServices();
 
-        var exit = await test.RunAsync("task", "status", "t_1");
+        var exit = await test.RunAsync("agent", "setup");
 
         Assert.Equal(ExitCodes.Usage, exit);
         Assert.Equal(ErrorCodes.NotImplemented, (string?)JsonNode.Parse(test.Console.StdOut)!["error"]!["code"]);
