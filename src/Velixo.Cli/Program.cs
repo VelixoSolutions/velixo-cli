@@ -73,7 +73,7 @@ public static class Program
         ArgumentNullException.ThrowIfNull(services);
 
         RootCommand root = BuildRootCommand(services);
-        ParseResult parse = root.Parse(args.Length == 0 ? ["--help"] : args, ParserConfiguration);
+        ParseResult parse = root.Parse(args, ParserConfiguration);
 
         try
         {
@@ -83,6 +83,18 @@ public static class Program
         {
             services.BindFallbackOutput().WriteError(exception);
             return exception.ExitCode;
+        }
+
+        if (args.Length == 0)
+        {
+            // A person at a terminal gets the welcome screen; a pipe, a script or an agent gets the help
+            // text, which is what they can parse.
+            if (services.Settings.IsInteractive && !services.Console.IsOutputRedirected)
+            {
+                return WelcomeScreen.Show(services);
+            }
+
+            parse = root.Parse(["--help"], ParserConfiguration);
         }
 
         if (parse.Errors.Count > 0 && parse.Action is ParseErrorAction)

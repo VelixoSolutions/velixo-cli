@@ -8,6 +8,8 @@ First version. The CLI is one binary named `velixo` for Linux, macOS and Windows
 
 ### Added
 
+- A welcome screen on a bare `velixo` in a terminal: the Velixo mark, the version, the sign-in state and the first commands. A pipe or an agent gets the help text.
+
 - Sign in and status: `login` (browser sign-in with PKCE on a loopback redirect, `--no-browser` and `--complete` for a machine without a browser, dynamic client registration once per environment), `logout` (`--all`), `whoami`, `status` and `auth token`. `VELIXO_TOKEN` and `VELIXO_CLIENT_ID` for jobs that cannot sign in.
 - Environments and profiles: `--env` (`prod`, `nx-staging`, `nx-stage-zero`, `nx-dev`, `local`), `--url`, `--profile`, with `config.json`, `credentials.json` (mode 0600), `state/<profile>.json` and the project file `.velixo.json`. `VELIXO_CONFIG_DIR` moves the folder.
 - Connections and guidance: `connections list` (`--status`), `guide [TOPIC...]` for the server's tool guidance and `guide --cli` for the embedded agent guide.

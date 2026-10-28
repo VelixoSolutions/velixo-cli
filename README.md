@@ -135,6 +135,9 @@ For jobs that cannot sign in, set `VELIXO_TOKEN`. It holds a refresh token, whic
 
 ## Usage
 
+Run `velixo` with no arguments in a terminal to see the welcome screen: the version, whether you are signed in, and the four commands that start the work. In a pipe, a script or an agent session the same bare `velixo` prints the help text instead. `NO_COLOR` or `--no-color` turns the colours off.
+
+
 ```sh
 velixo [command] [flags]
 velixo [command] --help
