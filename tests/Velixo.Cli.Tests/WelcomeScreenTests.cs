@@ -62,4 +62,23 @@ public sealed class WelcomeScreenTests
         Assert.Equal("Velixo", VelixoLogo.Render(useColor: false, width: 40));
         Assert.Contains("██", VelixoLogo.Render(useColor: false, width: 0));
     }
+
+    [Fact]
+    public void A_wide_terminal_gets_the_symbol_beside_the_name_and_a_medium_one_the_name_alone()
+    {
+        var full = VelixoLogo.Render(useColor: false, width: 120);
+        var nameOnly = VelixoLogo.Render(useColor: false, width: 60);
+
+        Assert.Equal(VelixoSymbol.Rows, full.Split('\n').Length);
+        Assert.Contains("▀", full);
+        Assert.Equal(6, nameOnly.Split('\n').Length);
+        Assert.DoesNotContain("▀", nameOnly);
+    }
+
+    [Fact]
+    public void The_symbol_cells_are_well_formed()
+    {
+        Assert.Equal(VelixoSymbol.Rows, VelixoSymbol.Cells.Length);
+        Assert.All(VelixoSymbol.Cells, row => Assert.Equal(VelixoSymbol.Columns * 12, row.Length));
+    }
 }

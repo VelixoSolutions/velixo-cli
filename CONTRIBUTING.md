@@ -47,3 +47,14 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
   holds the `nextStep` of each server code. `docs/commands.md` lists every code with its exit code.
 - Files move through `Files/FileTransfer.cs`: staging, uploading and downloading. A download into a
   directory never replaces a file; a download to an exact path does.
+
+## The symbol on the welcome screen
+
+`src/Velixo.Cli/Output/VelixoSymbol.cs` is generated. To regenerate it from the brand symbol as a PNG
+with a transparent background (the gradient version gives exact colours; a black-and-white one gets
+the brand gradient computed per bar):
+
+```bash
+python3 -m pip install pillow
+python3 scripts/render-symbol.py path/to/symbol.png 24
+```
