@@ -14,12 +14,6 @@ namespace Velixo.Cli.Files;
 /// </summary>
 public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
 {
-    /// <summary>The code of an upload that the server's upload endpoint refused.</summary>
-    public const string UploadFailedCode = "ATTACHMENT_UPLOAD_FAILED";
-
-    /// <summary>The code of a download link that is expired, spent or not the caller's.</summary>
-    public const string TokenInvalidCode = "ATTACHMENT_TOKEN_INVALID";
-
     private const string FallbackDownloadName = "download";
 
     /// <summary>
@@ -28,7 +22,8 @@ public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
     /// </summary>
     /// <exception cref="CliException">
     /// Exit 2 when the file cannot be read, exit 5 with the server's code when it refuses the file's
-    /// name or size, and exit 5 <see cref="UploadFailedCode"/> when the upload endpoint refuses the bytes.
+    /// name or size, exit 5 <see cref="ErrorCodes.AttachmentUploadFailed"/> when the upload endpoint
+    /// refuses the bytes with a 4xx, and exit 1 when it fails with a 5xx.
     /// </exception>
     public async Task<StagedFile> StageAsync(string path, string? comment, CancellationToken cancellationToken)
     {
@@ -61,22 +56,23 @@ public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
     }
 
     /// <summary>
-    /// Fetches a download link and writes the file it serves. The file takes the name from the
-    /// <c>Content-Disposition</c> header, or from the last segment of the URL when the header has none.
-    /// With <paramref name="outPath"/> the file goes to that exact path and replaces what is there. With
-    /// <paramref name="directory"/> (the working directory when both are null) it goes under its own name,
-    /// and an existing file of that name is kept: the new one is saved as <c>name (2).ext</c>.
+    /// Fetches a download link and writes the file it serves. With <paramref name="outPath"/> the file
+    /// goes to that exact path and replaces what is there. With <paramref name="directory"/> it goes
+    /// under its own name, and an existing file of that name is kept: the new one is saved as
+    /// <c>name (2).ext</c>. Its own name is <paramref name="fileName"/> when the caller has one from the
+    /// result that issued the link, else the <c>Content-Disposition</c> header's, else the URL's last segment.
     /// </summary>
     /// <exception cref="CliException">
-    /// Exit 2 for a URL that is not http or https, exit 5 <see cref="TokenInvalidCode"/> when the server
-    /// answers with a 4xx, which is how an expired or spent link answers, and exit 1 for any other failure.
+    /// Exit 2 for a URL that is not http or https, exit 5 <see cref="ErrorCodes.AttachmentTokenInvalid"/>
+    /// when the server answers with a 4xx, which is how an expired or spent link answers, and exit 1 for
+    /// any other failure.
     /// </exception>
-    public async Task<DownloadedFile> DownloadAsync(string url, string? directory, string? outPath, CancellationToken cancellationToken)
+    public async Task<DownloadedFile> DownloadAsync(string url, string? directory, string? outPath, string? fileName, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
-        if (directory is not null && outPath is not null)
+        if ((directory is null) == (outPath is null))
         {
-            throw new ArgumentException("Give a directory or an output path, not both.", nameof(outPath));
+            throw new ArgumentException("Give a directory or an output path, exactly one of them.", nameof(outPath));
         }
 
         Uri uri = ParseHttpUri(url, "download link");
@@ -90,15 +86,16 @@ public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
             throw await DownloadRefusedAsync(response, uri, cancellationToken).ConfigureAwait(false);
         }
 
-        var fileName = SafeFileName(HeaderFileName(response.Content.Headers.ContentDisposition))
+        var name = SafeFileName(fileName)
+            ?? SafeFileName(HeaderFileName(response.Content.Headers.ContentDisposition))
             ?? SafeFileName(UrlFileName(uri))
             ?? FallbackDownloadName;
         var target = outPath is not null
             ? Path.GetFullPath(outPath)
-            : AvoidExisting(Path.GetFullPath(Path.Combine(directory ?? Directory.GetCurrentDirectory(), fileName)));
+            : AvoidExisting(Path.GetFullPath(Path.Combine(directory!, name)));
 
         var bytes = await SaveAsync(response, target, cancellationToken).ConfigureAwait(false);
-        return new DownloadedFile(fileName, target, bytes, response.Content.Headers.ContentType?.MediaType);
+        return new DownloadedFile(name, target, bytes, response.Content.Headers.ContentType?.MediaType);
     }
 
     private static async Task<string> HashAsync(FileInfo file, CancellationToken cancellationToken)
@@ -126,12 +123,24 @@ public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
             return;
         }
 
+        var status = (int)response.StatusCode;
         var reason = await HttpCalls.ReadSnippetAsync(response, cancellationToken).ConfigureAwait(false);
-        throw new CliException(
-            ExitCodes.ServerRefused,
-            UploadFailedCode,
-            $"{UploadFailedCode}: the server refused the upload of '{file.Name}' with HTTP {(int)response.StatusCode}. {reason}".TrimEnd(),
-            "Stage the file again for a new token; an upload link accepts one file once and lasts about an hour.");
+        if (ToolResultUnwrapper.IsCodedError(reason))
+        {
+            throw ToolResultUnwrapper.MapErrorText(reason);
+        }
+
+        throw status is >= 400 and < 500
+            ? new CliException(
+                ExitCodes.ServerRefused,
+                ErrorCodes.AttachmentUploadFailed,
+                $"{ErrorCodes.AttachmentUploadFailed}: the server refused the upload of '{file.Name}' with HTTP {status}. {reason}".TrimEnd(),
+                "Stage the file again for a new token; an upload link accepts one file once and lasts about an hour.")
+            : new CliException(
+                ExitCodes.Failure,
+                ErrorCodes.Http,
+                $"The upload of '{file.Name}' failed with HTTP {status}. {reason}".TrimEnd(),
+                "Retry once; nothing that needed the file has run yet.");
     }
 
     private static async Task<CliException> DownloadRefusedAsync(HttpResponseMessage response, Uri uri, CancellationToken cancellationToken)
@@ -143,8 +152,8 @@ public sealed class FileTransfer(IMcpClient mcp, HttpClient http)
         return status is >= 400 and < 500
             ? new CliException(
                 ExitCodes.ServerRefused,
-                TokenInvalidCode,
-                $"{TokenInvalidCode}: {host} refused the download link with HTTP {status}. {reason}".TrimEnd(),
+                ErrorCodes.AttachmentTokenInvalid,
+                $"{ErrorCodes.AttachmentTokenInvalid}: {host} refused the download link with HTTP {status}. {reason}".TrimEnd(),
                 "Run the command that issued the link again for a new one; a link lasts about an hour.")
             : new CliException(
                 ExitCodes.Failure,

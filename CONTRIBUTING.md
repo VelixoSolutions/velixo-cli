@@ -30,12 +30,20 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 
 - One command group per file in `src/Velixo.Cli/Commands/`, each with one
   `public static Command Build(CliServices services)`. `Program.BuildRootCommand` adds each group once.
+- A relative path from the command line resolves against `services.Environment.CurrentDirectory`, never
+  the process's current directory, so tests can run commands in a temporary folder.
 - A command reads its settings, output writer and MCP client from `CliServices`. It calls
   `services.RequireIntent()` before calling a working tool, runs a task tool through
-  `services.Tasks.RunAsync(...)`, and ends a failure with a `CliException`. It never writes the error
-  envelope itself.
+  `services.Tasks.RunAsync(..., services.FollowOptions(), ...)` so that every call of the command shares
+  one `--timeout`, asks for a write's go-ahead with `Confirmation.Require`, and ends a failure with a
+  `CliException`. It never writes the error envelope itself.
 - `ToolResultUnwrapper` maps every tool result to the output document or to its exit code, so a
-  server error means the same exit code in every command.
-- `velixo guide --cli` embeds `../velixo-cli-docs/docs/agent-guide.md` when that checkout sits beside
-  this one, and `src/Velixo.Cli/Resources/agent-guide.md` otherwise. Pass
-  `-p:VelixoAgentGuide=<path>` to embed another file.
+  server error means the same exit code in every command: a failed task whose error starts with
+  `ERROR:` is exit 3, one that starts with a server code is exit 5, any other is exit 6. A command
+  does not re-map them.
+- `velixo guide --cli` embeds `docs/agent-guide.md`, and `src/Velixo.Cli/Resources/agent-guide.md`
+  only in a build without the `docs` folder. Pass `-p:VelixoAgentGuide=<path>` to embed another file.
+- Every error code the CLI raises is a constant in `Output/ErrorCodes.cs`, and `Mcp/ErrorGuidance.cs`
+  holds the `nextStep` of each server code. `docs/commands.md` lists every code with its exit code.
+- Files move through `Files/FileTransfer.cs`: staging, uploading and downloading. A download into a
+  directory never replaces a file; a download to an exact path does.

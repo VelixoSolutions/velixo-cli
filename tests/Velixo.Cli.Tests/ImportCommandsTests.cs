@@ -209,7 +209,7 @@ public sealed class ImportCommandsTests : IDisposable
 
         Assert.Equal(ExitCodes.Usage, exit);
         Assert.Equal(2, terminal.Mcp.Calls.Count);
-        Assert.Equal(ErrorCodes.ConfirmationRequired, (string?)JsonNode.Parse(terminal.Console.StdOut)!["error"]!["code"]);
+        Assert.Equal(ErrorCodes.ConfirmationDeclined, (string?)JsonNode.Parse(terminal.Console.StdOut)!["error"]!["code"]);
     }
 
     [Fact]

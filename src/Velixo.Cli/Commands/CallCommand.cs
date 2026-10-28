@@ -45,7 +45,7 @@ public static class CallCommand
             }
 
             UnwrappedToolResult result = await services.Tasks
-                .RunAsync(token => services.Mcp.CallToolAsync(name, arguments, token), TaskFollowOptions.From(services.Settings), cancellationToken)
+                .RunAsync(token => services.Mcp.CallToolAsync(name, arguments, token), services.FollowOptions(), cancellationToken)
                 .ConfigureAwait(false);
 
             CommandText.RelayWarnings(services.Output, result.Document);
@@ -77,7 +77,7 @@ public static class CallCommand
         }
         else if (args is { Length: > 0 } && args[0] == '@')
         {
-            var path = args[1..];
+            var path = Path.GetFullPath(args[1..], services.Environment.CurrentDirectory);
             json = File.Exists(path) ? File.ReadAllText(path) : throw CliException.Usage($"The arguments file '{path}' does not exist.");
             source = path;
         }

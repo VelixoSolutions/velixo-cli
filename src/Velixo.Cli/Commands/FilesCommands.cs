@@ -101,7 +101,7 @@ public static class FilesCommands
     /// </summary>
     private static async Task<UnwrappedToolResult> ReadStagedAsync(CliServices services, string batchToken, bool wait, CancellationToken cancellationToken)
     {
-        TimeSpan? timeout = services.Settings.Timeout;
+        TimeSpan? timeout = services.FollowOptions().Timeout;
         using CancellationTokenSource deadline = timeout is { } limit ? new CancellationTokenSource(limit, services.Clock) : new CancellationTokenSource();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
 
@@ -129,7 +129,7 @@ public static class FilesCommands
             throw new CliException(
                 ExitCodes.Timeout,
                 ErrorCodes.Timeout,
-                $"The user had not pressed Send after {DurationText.Format(timeout ?? TimeSpan.Zero)}.",
+                "The user had not pressed Send when --timeout ran out.",
                 $"velixo files staged {batchToken} --wait");
         }
     }
@@ -171,7 +171,7 @@ public static class FilesCommands
             var saved = new JsonArray();
             foreach (var link in links)
             {
-                DownloadedFile file = await transfer.DownloadAsync(link, directoryPath, outPath, cancellationToken).ConfigureAwait(false);
+                DownloadedFile file = await transfer.DownloadAsync(link, directoryPath, outPath, fileName: null, cancellationToken).ConfigureAwait(false);
                 saved.Add((JsonNode)file.ToJson());
             }
 

@@ -17,15 +17,14 @@ Each command that talks to the server calls one tool of the Velixo MCP server wi
 | `--compact` | Print the JSON document on one line. |
 | `--quiet` | Silence stderr except errors. |
 | `--no-color` | Turn colors off. `NO_COLOR` does the same. |
-| `--no-pager` | Do not page long output on a terminal. |
-| `--non-interactive` | Never prompt, open a browser or page. Turns on by itself when stdin is not a terminal or an agent is detected. |
+| `--non-interactive` | Never prompt or open a browser. Turns on by itself when stdin is not a terminal or an agent is detected. |
 | `--yes` | Confirm a write. |
-| `--timeout SECONDS` | Stop waiting for a task after this many seconds (exit code 124). |
+| `--timeout SECONDS` | Stop waiting after this many seconds (exit code 124). It is one budget for the whole command, however many calls the command makes. |
 | `--no-wait` | Print `{ "taskId", "status": "running" }` after the first hold and return. |
 
 A tool returns `{ taskId, status, result }`. The CLI parses the JSON text in `result` and prints it as `result.data`. It keeps `result.attachments`, `result.processStatus`, `result.skippedFields` and `result.feedback` beside it. Text that is not JSON stays a string under `result.text`.
 
-Exit codes, the error document and the environment variables are in the [README](../README.md).
+A relative path in any flag or argument is read against the working directory. Exit codes and the error document are in the [README](../README.md); every error code is in [Error codes](#error-codes) below.
 
 ## Sign in and status
 
@@ -172,7 +171,7 @@ Tool: `create_workbook_from_query`. Needs `--intent`. Sends the query text as `q
 }
 ```
 
-`--download` fetches the first `downloadUrl` in the result to `PATH`, or into `PATH` under the file's own name when it is a directory, and adds `"path"` to the object that holds the link. A plan item that runs a saved inquiry cannot become a workbook: the command exits 2. Build again, asking for that inquiry as a workbook; the builder then returns a VQL query over the inquiry.
+`--download` fetches the first `downloadUrl` in the result to `PATH`, or into `PATH` under the file's own name when it is a directory, and adds `"path"` to the object that holds the link. It follows the rule of `files download`: a file path is replaced, and a file already in a directory is kept, the new one saved as `name (2).ext`. A plan item that runs a saved inquiry cannot become a workbook: the command exits 2. Build again, asking for that inquiry as a workbook; the builder then returns a VQL query over the inquiry.
 
 ## Screen commands (Acumatica)
 
@@ -216,7 +215,7 @@ Tool: `execute_commands`.
 | `--continue` | Continue the record that the last `--leave-open` call left open. |
 | `--continuation FILE` | Continue a record from a saved continuation: the `continuation` object, or a whole saved `screen run` result. |
 | `--finish` | Run the finish commands on a continued record, or on a `--leave-open` call. |
-| `--download-dir DIR` | Fetch every report and file in `result.attachments` into `DIR`, under its `fileName`, and add `"path"` to each entry. |
+| `--download-dir DIR` | Fetch every report and file in `result.attachments` into `DIR`, under its `fileName`, and add the full `"path"` to each entry. A file already in `DIR` is kept, as with `files download --dir`. |
 | `--dry-run` | Send nothing. Check the batch on your machine and print the summary document (below). Exit 0 when the checks pass. |
 | `--yes` | Confirm the write. |
 | `--force` | Run a batch that the duplicate guard refused. |
@@ -229,9 +228,9 @@ Tool: `execute_commands`.
 |---|---|---|
 | `SCREEN_VARIABLE_MISSING` | 5 | A placeholder that no `--var`, `--var-null`, `--vars` or row value binds. The message lists every problem at once, row by row. |
 | `SCREEN_VARIABLE_UNKNOWN` | 5 | Only keys that match no placeholder in the sets this call sends. |
-| `SCREEN_SETS_ROWS_WITHOUT_LINE` | 2 | `--rows` for a batch without `lineCommands`. |
-| `SCREEN_SETS_LINE_WITHOUT_ROWS` | 2 | A batch with `lineCommands` and no `--rows`. |
-| `SCREEN_SETS_SPLIT_ROWS_WITHOUT_SPLIT` | 2 | Sub-detail rows for a batch without `splitCommands`. |
+| `SCREEN_SETS_ROWS_WITHOUT_LINE` | 5 | `--rows` for a batch without `lineCommands`. |
+| `SCREEN_SETS_LINE_WITHOUT_ROWS` | 5 | A batch with `lineCommands` and no `--rows`. |
+| `SCREEN_SETS_SPLIT_ROWS_WITHOUT_SPLIT` | 5 | Sub-detail rows for a batch without `splitCommands`. |
 
 **Dry run.** `--dry-run` prints the confirmation summary on stderr and this document on stdout:
 
@@ -271,14 +270,14 @@ Output:
       "enabledActions": ["Release", "Hold"]
     },
     "attachments": [
-      { "kind": "report", "fileName": "SO641010.pdf", "downloadUrl": "https://...", "path": "out/SO641010.pdf" }
+      { "kind": "report", "fileName": "SO641010.pdf", "downloadUrl": "https://...", "path": "/work/out/SO641010.pdf" }
     ],
     "continuation": null
   }
 }
 ```
 
-`feedback.savedKey` holds the key that the ERP assigned. When the ERP refuses an action because of the record's state (`The Release button is disabled.`, `... is on hold`, `... requires approval`), the command exits 6 with `error.code: "ERP_ACTION_REFUSED"` and the ERP's sentence in `error.detail`. Do not run the batch again. A task that fails with a server code, such as `SCREEN_SESSION_LOST`, exits 5 with that code.
+`feedback.savedKey` holds the key that the ERP assigned. When the ERP refuses an action because of the record's state (`The Release button is disabled.`, `... is on hold`, `... requires approval`), the command exits 6 with `error.code: "ERP_ACTION_REFUSED"` and the ERP's sentence in `error.detail`. Do not run the batch again. A task that fails with a server code, such as `SCREEN_SESSION_LOST`, exits 5 with that code. When the batch ran but a `--download-dir` download failed, the command exits with the download's code and its `nextStep` says not to run the batch again.
 
 ### Continuations
 
@@ -309,7 +308,7 @@ velixo screen run --batch order.batch.json --continue --rows lines-3.json --fini
 
 ### `velixo task status TASKID [--wait]`
 
-Tool: `get_status`. Needs no `--intent`. Without `--wait`, the command calls the tool once, which holds up to about 40 seconds, and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`; `--timeout` still applies and exits 124. The final output has the same shape as the command that started the task: a plan's items carry `query`, and a query result prints as a table or CSV in those formats. A `failed` or `expired` task exits 6 with the server's text in `error.message`; a failed build whose text starts with `ERROR:` is a builder refusal and exits 3. A task that was started in another organization, or that the server evicted, comes back `expired`.
+Tool: `get_status`. Needs no `--intent`. Without `--wait`, the command calls the tool once, which holds up to about 40 seconds, and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`; `--timeout` still applies and exits 124. The final output has the same shape as the command that started the task: a plan's items carry `query`, and a query result prints as a table or CSV in those formats. A `failed` or `expired` task exits 6 with the server's text in `error.message`. Two failed tasks exit otherwise, in every command: a failed build whose text starts with `ERROR:` is a builder refusal and exits 3, and a text that starts with a server code (`ATTACHMENT_`, `SCREEN_`, `IMPORT_`, `REPORT_`, `BC_`) exits 5 with that code. A task that was started in another organization, or that the server evicted, comes back `expired`.
 
 Every command that starts a task accepts `--no-wait`.
 
@@ -327,7 +326,7 @@ Tool: `get_upload_url` (named mode). For each file, the command computes the siz
 
 `--comment` adds a `comment` to each printed entry. It is the note a later `execute_commands` call stores beside the file on the record; the upload itself sends no comment.
 
-A file the server will not stage (a type or size it refuses) exits 5 with the server's code, such as `ATTACHMENT_TYPE_NOT_ALLOWED`. An upload endpoint that refuses the bytes exits 5 with `ATTACHMENT_UPLOAD_FAILED` and the HTTP status. A file that does not exist exits 2 before any call.
+A file the server will not stage (a type or size it refuses) exits 5 with the server's code, such as `ATTACHMENT_TYPE_NOT_ALLOWED`. An upload endpoint that refuses the bytes with a 4xx exits 5 with `ATTACHMENT_UPLOAD_FAILED` and the HTTP status; a 5xx exits 1 with `HTTP_ERROR`. A file that does not exist exits 2 before any call.
 
 `screen run --attach` and `import run` stage files themselves. Use this command to stage first and run later, within the hour.
 
@@ -374,7 +373,7 @@ The command runs the fixed sequence:
 1. It stages the file, as `files upload` does.
 2. It calls the tool with `validateOnly: true`. The preview prints on stderr: scenario, screen, connection, row count and every warning, then a reminder that an import is not atomic.
 3. With `--validate-only`, it prints the preview on stdout and exits 0. The preview is `{ "result": { "data": { "scenario", "screenId", "screenTitle", "file": { "name", "sheet", "range", "rows" }, "columns", "sample", "warnings", "executed": false } } }`.
-4. It asks for confirmation: on a terminal, `Import 15 rows with scenario Import Customers into screen AR303000 on connection gab-dev? [y/N]`. With `--yes` it does not ask. Without a terminal and without `--yes` it exits 2 with `CONFIRMATION_REQUIRED`, after the preview has printed.
+4. It asks for confirmation: on a terminal, `Import 15 rows with scenario Import Customers into screen AR303000 on connection gab-dev? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. With `--yes` it does not ask. Without a terminal and without `--yes` it exits 2 with `CONFIRMATION_REQUIRED`, after the preview has printed.
 5. It calls the tool again without `validateOnly` on the same upload and follows the task, with progress on stderr.
 
 A real run spends the upload, so a second run uploads again. If the server answers `ATTACHMENT_TOKEN_ALREADY_USED`, the import already happened: the command exits 5 and its `nextStep` says to read the ERP first and to upload again only if the file must run again. An `IMPORT_*` refusal exits 5 with its code; each one names what to change in the file.
@@ -431,7 +430,13 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 |---|---|
 | `velixo tools list [--names]` | Calls `tools/list`. Prints the tools with their input schemas, or only the names. |
 | `velixo call TOOL [--args JSON \| --args @FILE \| --stdin]` | Calls any tool with the arguments as given. Prints the result with the same unwrapping as the commands. A tool error exits 5 with the text in `error.message`. |
-| `velixo help --all [--output json]` | Prints the whole command tree with flags and one-line descriptions. |
+| `velixo help [COMMAND...] [--all] [--output json]` | Prints the help of one command, or with `--all` the whole command tree with flags and one-line descriptions. |
+
+## Agent setup
+
+### `velixo agent setup [--client claude-code|codex|cursor] [--scope local|global] [--json]`
+
+Planned: it will install the `velixo-cli` skill for your agent. In 0.1.0 the command exists so that scripts can find it, and it exits 2 with `NOT_IMPLEMENTED`.
 
 ## Configuration and version
 
@@ -439,3 +444,44 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 |---|---|
 | `velixo config get\|set\|list\|path` | Reads and writes `config.json`. `path` prints its location. |
 | `velixo version [--check]` | Prints the version. With `--check`, also prints the latest release. |
+
+## Error codes
+
+`error.code` is one of these codes, or a code the server sent, which the CLI passes on unchanged. A server code in the `ATTACHMENT_`, `SCREEN_`, `IMPORT_`, `REPORT_` or `BC_` family always exits 5, whether the tool returned it as an error or a task failed with it.
+
+| Code | Exit | Meaning |
+|---|---|---|
+| `USAGE` | 2 | A bad flag or argument, or an input file that is missing or not valid. |
+| `INTENT_REQUIRED` | 2 | A command that calls a working tool has no `--intent` and no `VELIXO_INTENT`. |
+| `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal to ask on. Nothing ran. |
+| `CONFIRMATION_DECLINED` | 2 | The person answered no at the terminal prompt. Nothing ran. |
+| `DUPLICATE_RUN` | 2 | The same screen write ran within the last 10 minutes. `--force` runs it again. |
+| `NO_CONTINUATION` | 2 | `screen run --continue` with no record left open on this profile. |
+| `NOT_IMPLEMENTED` | 2 | A command that is planned and not in this version, such as `agent setup`. |
+| `CONFIG_INVALID` | 2 | `config.json` or `.velixo.json` is not valid JSON. |
+| `BUILDER_REFUSAL` | 3 | A builder answered with an `ERROR:` question. `message` holds the question verbatim. |
+| `NOT_SIGNED_IN` | 4 | No sign-in on the profile, or the server does not know the caller. |
+| `SESSION_ENDED` | 4 | The 30-day session ended, or the server refused the token even after a refresh. |
+| `ACCESS_DENIED` | 4 | The Velixo gate refused the caller: no `mcpServerEnabled`, no credits or no account. |
+| `SIGN_IN_FAILED` | 4 | The sign-in did not complete. Exit 1 when the sign-in server itself failed. |
+| `CREDENTIALS_INVALID` | 4 | `credentials.json` is not valid. Sign in again. |
+| `TOOL_ERROR` | 5 | The tool returned an error without a code. |
+| `ATTACHMENT_UPLOAD_FAILED` | 5 | The upload endpoint refused a file's bytes with a 4xx. |
+| `ATTACHMENT_TOKEN_INVALID` | 5 | A download link or upload token expired, was spent or is not the caller's. |
+| `ATTACHMENT_TOKEN_ALREADY_USED` | 5 | The upload was already spent, so nothing was sent again. Read the ERP first. |
+| `SCREEN_VARIABLE_MISSING` | 5 | A placeholder has no value. The CLI checks it before the call. |
+| `SCREEN_VARIABLE_UNKNOWN` | 5 | A value names no placeholder. The CLI checks it before the call. |
+| `SCREEN_SESSION_LOST` | 5 | The screen session that held the open record is gone. |
+| `SCREEN_CONTINUATION_MISMATCH` | 5 | The session holds another record than the continuation names. |
+| `SCREEN_CONTINUATION_UNVERIFIABLE` | 5 | The open record cannot be named. |
+| `SCREEN_SETS_ROWS_WITHOUT_LINE`, `SCREEN_SETS_LINE_WITHOUT_ROWS`, `SCREEN_SETS_SPLIT_ROWS_WITHOUT_SPLIT` | 5 | The batch's command sets and the rows do not fit together. The CLI checks them before the call. |
+| `BC_RECORD_SESSION_UNSUPPORTED` | 5 | Business Central keeps no record open, so `--leave-open` and `--continue` do not apply. |
+| `TASK_FAILED` | 6 | The task failed in the ERP. `detail` holds the ERP's text. |
+| `TASK_EXPIRED` | 6 | The server no longer knows the task. |
+| `ERP_ACTION_REFUSED` | 6 | The ERP refused an action because of the record's state. Do not run the batch again. |
+| `NETWORK_ERROR` | 1 | The server could not be reached, or a transfer stopped part-way. |
+| `HTTP_ERROR` | 1 | An HTTP 5xx or another answer the CLI cannot use. |
+| `MCP_PROTOCOL_ERROR` | 1 | The server answered in a shape the CLI does not know. |
+| `INTERNAL_ERROR` | 1 | A bug in the CLI. |
+| `TIMEOUT` | 124 | `--timeout` ran out. A task keeps running on the server. |
+| `INTERRUPTED` | 130 | Ctrl-C. A task keeps running on the server. |

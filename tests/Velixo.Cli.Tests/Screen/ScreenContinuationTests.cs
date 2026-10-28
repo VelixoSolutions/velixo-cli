@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Velixo.Cli.Config;
 using Velixo.Cli.Output;
-using Velixo.Cli.Screen;
+using Velixo.Cli.Mcp;
 
 namespace Velixo.Cli.Tests.Screen;
 
@@ -79,7 +79,7 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--var", "Note=x", "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.VariableUnknown, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenVariableUnknown, (string?)test.Error["code"]);
         Assert.Contains("--finish", (string?)test.Error["message"], StringComparison.Ordinal);
         Assert.Empty(test.Mcp.Calls);
     }
@@ -95,9 +95,9 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.SessionLost, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenSessionLost, (string?)test.Error["code"]);
         Assert.Contains("Nothing was sent", (string?)test.Error["message"], StringComparison.Ordinal);
-        Assert.Equal(ScreenErrors.SessionLostNothingRanStep, (string?)test.Error["nextStep"]);
+        Assert.Equal(ErrorGuidance.SessionLostNothingRanStep, (string?)test.Error["nextStep"]);
         Assert.Empty(test.Mcp.Calls);
     }
 
@@ -113,7 +113,7 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.SessionLost, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenSessionLost, (string?)test.Error["code"]);
         Assert.Contains("expired at 2026-10-28T14:02:00Z", (string?)test.Error["message"], StringComparison.Ordinal);
         Assert.Empty(test.Mcp.Calls);
     }
@@ -145,8 +145,8 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.ContinuationMismatch, (string?)test.Error["code"]);
-        Assert.Equal(ScreenErrors.MismatchStep, (string?)test.Error["nextStep"]);
+        Assert.Equal(ErrorCodes.ScreenContinuationMismatch, (string?)test.Error["code"]);
+        Assert.Equal(ErrorGuidance.ContinuationMismatchStep, (string?)test.Error["nextStep"]);
         Assert.Empty(test.Mcp.Calls);
     }
 
@@ -160,7 +160,7 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ScreenErrorCodes.NoContinuation, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.NoContinuation, (string?)test.Error["code"]);
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public sealed class ScreenContinuationTests
         var expired = await test.RunAsync("screen", "run", "--batch", batch, "--continuation", saved, "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, expired);
-        Assert.Equal(ScreenErrorCodes.SessionLost, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenSessionLost, (string?)test.Error["code"]);
 
         test.Console.OutWriter.GetStringBuilder().Clear();
         File.WriteAllText(saved, $$"""{ {{ScreenHarness.Continuation(42)}} }""");
@@ -244,8 +244,8 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.SessionLost, (string?)test.Error["code"]);
-        Assert.Equal(ScreenErrors.SessionLostUnknownStep, (string?)test.Error["nextStep"]);
+        Assert.Equal(ErrorCodes.ScreenSessionLost, (string?)test.Error["code"]);
+        Assert.Equal(ErrorGuidance.SessionLostUnknownStep, (string?)test.Error["nextStep"]);
         Assert.Equal("t_7", (string?)test.Error["taskId"]);
         Assert.Null(test.State.LastContinuation);
     }
@@ -264,8 +264,8 @@ public sealed class ScreenContinuationTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--continue", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.ContinuationMismatch, (string?)test.Error["code"]);
-        Assert.Equal(ScreenErrors.MismatchStep, (string?)test.Error["nextStep"]);
+        Assert.Equal(ErrorCodes.ScreenContinuationMismatch, (string?)test.Error["code"]);
+        Assert.Equal(ErrorGuidance.ContinuationMismatchStep, (string?)test.Error["nextStep"]);
         Assert.Null(test.State.LastContinuation);
     }
 

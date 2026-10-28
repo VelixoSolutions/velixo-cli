@@ -117,6 +117,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/rpt_Abc123",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken);
 
         var expected = Path.Combine(_directory.Path, "report-2026-09.pdf");
@@ -134,6 +135,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/open%20items.csv?x=1",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal("open items.csv", file.FileName);
@@ -150,6 +152,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/dl_1",
             target,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.Combine(target, "escape.txt"), file.Path);
@@ -166,6 +169,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/rpt_2",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.Combine(_directory.Path, "report (2).pdf"), file.Path);
@@ -184,6 +188,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/rpt_3",
             directory: null,
             outPath,
+            fileName: null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(outPath, file.Path);
@@ -200,6 +205,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/rpt_old",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken));
 
         Assert.Equal(ExitCodes.ServerRefused, error.ExitCode);
@@ -218,6 +224,7 @@ public sealed class FileTransferTests : IDisposable
             "https://nx-dev.velixo.com/mcp/download/rpt_1",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken));
 
         Assert.Equal(ExitCodes.Failure, error.ExitCode);
@@ -231,6 +238,7 @@ public sealed class FileTransferTests : IDisposable
             "file:///etc/passwd",
             _directory.Path,
             outPath: null,
+            fileName: null,
             TestContext.Current.CancellationToken));
 
         Assert.Equal(ExitCodes.Usage, error.ExitCode);

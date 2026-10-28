@@ -37,7 +37,7 @@ internal sealed class ScreenRunPlan
 
     public bool LeaveOpen { get; private init; }
 
-    public IReadOnlyList<ScreenAttachmentSpec> Attachments { get; private init; } = [];
+    public IReadOnlyList<ScreenAttachment> Attachments { get; private init; } = [];
 
     /// <summary>
     /// Gets a value indicating whether the call can write. The client cannot know which batches write,
@@ -58,7 +58,7 @@ internal sealed class ScreenRunPlan
     /// unless it leaves the record open without <c>--finish</c>, the finish set. A continuation sends no
     /// header, and the finish set only with <c>--finish</c>.
     /// </summary>
-    /// <exception cref="CliException">Exit 2 when the sets and the rows do not fit together, in the server's <c>SCREEN_SETS_*</c> words.</exception>
+    /// <exception cref="CliException">Exit 5 when the sets and the rows do not fit together, with the server's <c>SCREEN_SETS_*</c> code.</exception>
     public static ScreenRunPlan Create(
         ScreenBatch batch,
         JsonObject variables,
@@ -66,7 +66,7 @@ internal sealed class ScreenRunPlan
         ScreenContinuationSource? continuation,
         bool leaveOpen,
         bool finish,
-        IReadOnlyList<ScreenAttachmentSpec> attachments)
+        IReadOnlyList<ScreenAttachment> attachments)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(variables);
@@ -80,7 +80,7 @@ internal sealed class ScreenRunPlan
         if (rows is not null && batch.LineCommands is null)
         {
             throw SetsMisfit(
-                ScreenErrorCodes.RowsWithoutLine,
+                ErrorCodes.ScreenSetsRowsWithoutLine,
                 "--rows was given, but the batch carries no `lineCommands` to run for each row. Nothing was sent.",
                 "Leave out --rows, or build the batch again for a document with any number of lines.");
         }
@@ -88,7 +88,7 @@ internal sealed class ScreenRunPlan
         if (batch.LineCommands is not null && rows is null)
         {
             throw SetsMisfit(
-                ScreenErrorCodes.LineWithoutRows,
+                ErrorCodes.ScreenSetsLineWithoutRows,
                 "the batch carries `lineCommands` but no --rows was given, so the number of lines is unknown. Nothing was sent.",
                 "Pass --rows FILE with one entry per line, or a file holding [] for none.");
         }
@@ -96,7 +96,7 @@ internal sealed class ScreenRunPlan
         if (batch.SplitCommands is null && rows?.Any(row => row?["rows"] is JsonArray { Count: > 0 }) == true)
         {
             throw SetsMisfit(
-                ScreenErrorCodes.SplitRowsWithoutSplit,
+                ErrorCodes.ScreenSetsSplitRowsWithoutSplit,
                 "a line in --rows carries sub-detail `rows`, but the batch carries no `splitCommands` to run for them. Nothing was sent.",
                 "Remove the sub-detail rows, or build the batch again for them.");
         }
@@ -185,12 +185,12 @@ internal sealed class ScreenRunPlan
             return;
         }
 
-        var code = anyMissing ? ScreenErrorCodes.VariableMissing : ScreenErrorCodes.VariableUnknown;
+        var code = anyMissing ? ErrorCodes.ScreenVariableMissing : ErrorCodes.ScreenVariableUnknown;
         throw new CliException(
             ExitCodes.ServerRefused,
             code,
             $"{code}: {string.Join(" ", problems)} Nothing was sent.",
-            ErrorGuidance.For(code));
+            ErrorGuidance.For(code, string.Empty));
     }
 
     /// <summary>Returns the <c>execute_commands</c> arguments, with <paramref name="attachments"/> already staged.</summary>
@@ -322,7 +322,7 @@ internal sealed class ScreenRunPlan
     }
 
     private static CliException SetsMisfit(string code, string message, string nextStep) =>
-        new(ExitCodes.Usage, code, $"{code}: {message}", nextStep);
+        new(ExitCodes.ServerRefused, code, $"{code}: {message}", nextStep);
 
     private JsonObject Describe(string? connection, string? intent)
     {

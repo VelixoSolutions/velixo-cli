@@ -298,6 +298,7 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 | Notifications | `notify` |
 | Raw access and discovery | `tools list`, `call`, `help --all` |
 | Configuration | `config get`, `config set`, `config list`, `config path`, `version` |
+| Agent setup (planned) | `agent setup`, which exits 2 with `NOT_IMPLEMENTED` in this version |
 
 [docs/commands.md](docs/commands.md) lists the flags and the output of each command. `velixo [command] --help` shows the same on the command line.
 
@@ -317,12 +318,12 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 | `--no-color` | Turn colors off. |
 | `--non-interactive` | Never prompt. |
 | `--yes` | Confirm a write. |
-| `--timeout <seconds>` | Stop waiting for a task after this many seconds. |
+| `--timeout <seconds>` | Stop waiting after this many seconds: one budget for the whole command. |
 | `--no-wait` | Print the task id and return. |
 
 ### Output
 
-stdout carries the result: one JSON document on a pipe, or a table on a terminal. stderr carries progress, warnings and the confirmation summary. JSON is never shortened or paged. A table that you view on a terminal can go through a pager (`VELIXO_PAGER` or `PAGER`); use `--no-pager` to turn that off.
+stdout carries the result: one JSON document on a pipe, or a table on a terminal. stderr carries progress, warnings and the confirmation summary. JSON is never shortened. The CLI has no pager. A relative path in any flag is read against the working directory.
 
 On a non-zero exit in JSON mode, stdout holds one error document:
 
@@ -354,6 +355,21 @@ On a non-zero exit in JSON mode, stdout holds one error document:
 | 124 | `--timeout` ran out while waiting. The task still runs. | `velixo task status <taskId> --wait` |
 | 130 | Interrupted with Ctrl-C. A running task keeps running on the server. | |
 
+The codes you meet most often:
+
+| `error.code` | Exit | Meaning |
+|---|---|---|
+| `INTENT_REQUIRED` | 2 | No `--intent` on a command that calls a working tool. |
+| `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal. Nothing ran. |
+| `CONFIRMATION_DECLINED` | 2 | The answer at the terminal prompt was no. Nothing ran. |
+| `DUPLICATE_RUN` | 2 | The same screen write ran in the last 10 minutes. |
+| `BUILDER_REFUSAL` | 3 | The builder asks a question. `message` holds it verbatim. |
+| `NOT_SIGNED_IN`, `SESSION_ENDED`, `ACCESS_DENIED` | 4 | Sign in again, or relay the reason. |
+| `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*`, `BC_*` | 5 | The server's code, whether the tool refused the call or the task failed with it. |
+| `TASK_FAILED`, `ERP_ACTION_REFUSED` | 6 | The ERP failed the task, or refused an action because of the record's state. |
+
+[docs/commands.md](docs/commands.md#error-codes) lists every code.
+
 ## Environment variables
 
 | Variable | Meaning |
@@ -365,7 +381,8 @@ On a non-zero exit in JSON mode, stdout holds one error document:
 | `VELIXO_INTENT` | The intent for every call of a script. |
 | `VELIXO_TOKEN` | A refresh token for jobs that cannot sign in. |
 | `VELIXO_OUTPUT` | The default output format. |
-| `VELIXO_PAGER` | The pager for long output on a terminal. `PAGER` is the fallback. |
+| `VELIXO_CONFIG_DIR` | Moves the configuration folder. |
+| `VELIXO_CLIENT_ID` | The OAuth client id a `VELIXO_TOKEN` was issued to, on a machine that never signed in itself. |
 | `VELIXO_INSTALL_DIR` | The install folder of `install.sh`. |
 | `NO_COLOR` | Turns colors off. |
 | `XDG_CONFIG_HOME` | Moves the configuration folder on Linux and macOS. |
@@ -376,8 +393,8 @@ The CLI reads settings in this order, highest first: flag, environment variable,
 
 | Location | Holds |
 |---|---|
-| `$XDG_CONFIG_HOME/velixo/config.json`. Linux and macOS: `~/.config/velixo/config.json`. Windows: `%APPDATA%\velixo\config.json`. | The default profile, the default output and the update-check preference. |
-| The operating system credential store, entry `velixo:<profile>`. File fallback: `credentials.json` with mode 0600. | The access and refresh tokens of each profile. |
+| `$XDG_CONFIG_HOME/velixo/config.json`. Linux and macOS: `~/.config/velixo/config.json`. Windows: `%APPDATA%\velixo\config.json`. | The default profile, the default output and each profile's environment, URL and connection. |
+| `credentials.json` in the configuration folder, mode 0600 | The access and refresh tokens of each profile. |
 | `state/<profile>.json` in the configuration folder | The MCP session id, the last continuation and the recent write fingerprints. |
 | `.velixo.json` in the working directory or a parent | Project defaults: the profile and the connection. Never credentials. |
 
@@ -394,7 +411,7 @@ If you are an AI agent, read this section and follow it.
 5. Every write needs `--yes`. Describe the change to the user in business words and wait for their yes before you add `--yes`. The CLI never assumes consent.
 6. Read the exit code. On a non-zero code, read `error.code` and `error.nextStep` in the JSON on stdout.
 
-When the CLI detects an agent (`CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `GEMINI_CLI`, `CLINE_ACTIVE`, `OPENCODE`, `KIRO_SESSION_ID` or `AI_AGENT`), it turns on non-interactive mode: it never prompts, never opens a browser and never pages.
+When the CLI detects an agent (`CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `GEMINI_CLI`, `CLINE_ACTIVE`, `OPENCODE`, `KIRO_SESSION_ID` or `AI_AGENT`), it turns on non-interactive mode: it never prompts and never opens a browser.
 
 ## Telemetry
 

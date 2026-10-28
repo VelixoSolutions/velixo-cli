@@ -14,6 +14,9 @@ public static partial class ToolResultUnwrapper
 {
     private const string BuilderRefusalPrefix = "ERROR:";
 
+    private const string BuilderRefusalNextStep =
+        "Put the builder's question to the user in plain words, then build again with their answer.";
+
     private static readonly string[] _signInPhrases =
     [
         "not signed in",
@@ -84,7 +87,7 @@ public static partial class ToolResultUnwrapper
         if (coded.Success)
         {
             var code = coded.Groups["code"].Value;
-            return new CliException(ExitCodes.ServerRefused, code, message, ErrorGuidance.For(code)) { TaskId = taskId };
+            return new CliException(ExitCodes.ServerRefused, code, message, ErrorGuidance.For(code, message)) { TaskId = taskId };
         }
 
         if (message.Contains("`intent` is required", StringComparison.Ordinal))
@@ -110,6 +113,9 @@ public static partial class ToolResultUnwrapper
         return new CliException(ExitCodes.ServerRefused, ErrorCodes.ToolError, message) { TaskId = taskId };
     }
 
+    /// <summary>Returns whether <paramref name="text"/> starts with one of the server's error codes, such as <c>ATTACHMENT_TOKEN_INVALID</c>.</summary>
+    public static bool IsCodedError(string text) => CodedError().IsMatch(text.Trim());
+
     /// <summary>The example the CLI shows whenever a working tool is called without an intent.</summary>
     public const string IntentExample =
         "Add --intent \"<the user's goal in one or two sentences>\", for example --intent \"Find the overdue invoices to chase before month-end\", or set VELIXO_INTENT.";
@@ -121,12 +127,7 @@ public static partial class ToolResultUnwrapper
         switch (status)
         {
             case TaskStatuses.Failed:
-                var error = (string?)envelope["error"] ?? (string?)envelope["message"] ?? "The task failed.";
-                throw new CliException(ExitCodes.TaskFailed, ErrorCodes.TaskFailed, error, TaskFailedNextStep(error))
-                {
-                    TaskId = taskId,
-                    Detail = error,
-                };
+                throw MapFailedTask((string?)envelope["error"] ?? (string?)envelope["message"] ?? "The task failed.", taskId);
 
             case TaskStatuses.Expired:
                 throw new CliException(
@@ -174,16 +175,9 @@ public static partial class ToolResultUnwrapper
         {
             if (result["textualResponse"] is JsonValue textual && textual.TryGetValue(out string? response))
             {
-                if (response.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal))
+                if (IsBuilderRefusal(response))
                 {
-                    throw new CliException(
-                        ExitCodes.BuilderRefusal,
-                        ErrorCodes.BuilderRefusal,
-                        response.Trim(),
-                        "Put the builder's question to the user in plain words, then build again with their answer.")
-                    {
-                        TaskId = taskId,
-                    };
+                    throw BuilderRefusal(response, taskId);
                 }
 
                 if (TryParse(response) is { } data)
@@ -220,6 +214,35 @@ public static partial class ToolResultUnwrapper
         document["result"] = unwrapped;
         return document;
     }
+
+    /// <summary>
+    /// Maps a failed task's error text. The server fails a build that ends in an <c>ERROR:</c> question,
+    /// so that text is a builder refusal, exit 3. A text that starts with a server code is that code's
+    /// refusal, exit 5, as when the tool returns it as an error. Any other failure is the ERP's, exit 6.
+    /// </summary>
+    private static CliException MapFailedTask(string error, string? taskId)
+    {
+        if (IsBuilderRefusal(error))
+        {
+            return BuilderRefusal(error, taskId);
+        }
+
+        if (IsCodedError(error))
+        {
+            return MapErrorText(error, taskId);
+        }
+
+        return new CliException(ExitCodes.TaskFailed, ErrorCodes.TaskFailed, error, TaskFailedNextStep(error))
+        {
+            TaskId = taskId,
+            Detail = error,
+        };
+    }
+
+    private static bool IsBuilderRefusal(string text) => text.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal);
+
+    private static CliException BuilderRefusal(string text, string? taskId) =>
+        new(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, text.Trim(), BuilderRefusalNextStep) { TaskId = taskId };
 
     private static string TaskFailedNextStep(string error) =>
         error.Contains("400", StringComparison.Ordinal) || error.Contains("Bad Request", StringComparison.OrdinalIgnoreCase)

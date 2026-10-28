@@ -29,7 +29,7 @@ public sealed class ConfigPaths(string root)
         var overridden = environment.GetVariable(EnvironmentVariables.ConfigDirectory);
         if (!string.IsNullOrWhiteSpace(overridden))
         {
-            return new ConfigPaths(Path.GetFullPath(overridden));
+            return new ConfigPaths(Path.GetFullPath(overridden, environment.CurrentDirectory));
         }
 
         if (environment.IsWindows)

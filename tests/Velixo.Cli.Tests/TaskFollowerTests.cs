@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 using Velixo.Cli.Tests.Fakes;
+using Velixo.Cli.Tests.Screen;
 
 namespace Velixo.Cli.Tests;
 
@@ -56,6 +57,22 @@ public sealed class TaskFollowerTests
         Assert.Equal(ExitCodes.Timeout, error.ExitCode);
         Assert.Equal("t_1", error.TaskId);
         Assert.Equal("velixo task status t_1 --wait", error.NextStep);
+    }
+
+    [Fact]
+    public void Timeout_is_one_budget_for_every_call_of_a_command()
+    {
+        using var test = new ScreenHarness();
+        test.Services.Bind(Program.BuildRootCommand(test.Services).Parse(["import", "run", "--timeout", "60"]));
+
+        test.Clock.Advance(TimeSpan.FromSeconds(45));
+        TaskFollowOptions second = test.Services.FollowOptions();
+        test.Clock.Advance(TimeSpan.FromSeconds(20));
+        CliException spent = Assert.Throws<CliException>(test.Services.FollowOptions);
+
+        Assert.Equal(TimeSpan.FromSeconds(15), second.Timeout);
+        Assert.Equal(ExitCodes.Timeout, spent.ExitCode);
+        Assert.Equal(ErrorCodes.Timeout, spent.Code);
     }
 
     [Fact]

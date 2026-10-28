@@ -50,7 +50,7 @@ public sealed class TokenStore(ConfigPaths paths) : ITokenStore
         {
             throw new CliException(
                 ExitCodes.AuthenticationRequired,
-                "CREDENTIALS_INVALID",
+                ErrorCodes.CredentialsInvalid,
                 $"{paths.CredentialsFile} is not valid JSON: {exception.Message}",
                 "Delete the file and sign in again with 'velixo login'.");
         }

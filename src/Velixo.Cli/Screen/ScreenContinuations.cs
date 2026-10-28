@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Commands;
 using Velixo.Cli.Config;
+using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 
 namespace Velixo.Cli.Screen;
@@ -32,7 +33,7 @@ internal static class ScreenContinuations
         {
             throw new CliException(
                 ExitCodes.Usage,
-                ScreenErrorCodes.NoContinuation,
+                ErrorCodes.NoContinuation,
                 "No record is open from an earlier 'screen run --leave-open' on this profile.",
                 "Run the batch from its header with --leave-open first, or pass a saved continuation with --continuation FILE.");
         }
@@ -113,30 +114,30 @@ internal static class ScreenContinuations
         {
             throw new CliException(
                 ExitCodes.ServerRefused,
-                ScreenErrorCodes.SessionLost,
-                $"{ScreenErrorCodes.SessionLost}: the record was left open in an MCP session this CLI no longer uses, so the screen "
+                ErrorCodes.ScreenSessionLost,
+                $"{ErrorCodes.ScreenSessionLost}: the record was left open in an MCP session this CLI no longer uses, so the screen "
                 + "session that held it is gone. Nothing was sent. Edits that were never saved are lost with the session.",
-                ScreenErrors.SessionLostNothingRanStep);
+                ErrorGuidance.SessionLostNothingRanStep);
         }
 
         if (source.ExpiresAt is { } expiresAt && now > expiresAt + Margin)
         {
             throw new CliException(
                 ExitCodes.ServerRefused,
-                ScreenErrorCodes.SessionLost,
-                $"{ScreenErrorCodes.SessionLost}: the continuation expired at {FormatTime(expiresAt)}. A screen session closes after "
+                ErrorCodes.ScreenSessionLost,
+                $"{ErrorCodes.ScreenSessionLost}: the continuation expired at {FormatTime(expiresAt)}. A screen session closes after "
                 + "2 minutes without a call, and edits that were never saved are lost with it. Nothing was sent.",
-                ScreenErrors.SessionLostNothingRanStep);
+                ErrorGuidance.SessionLostNothingRanStep);
         }
 
         if (!string.Equals(source.ScreenId?.Trim(), target.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             throw new CliException(
                 ExitCodes.ServerRefused,
-                ScreenErrorCodes.ContinuationMismatch,
-                $"{ScreenErrorCodes.ContinuationMismatch}: the continuation is for screen '{source.ScreenId}', and the batch targets "
+                ErrorCodes.ScreenContinuationMismatch,
+                $"{ErrorCodes.ScreenContinuationMismatch}: the continuation is for screen '{source.ScreenId}', and the batch targets "
                 + $"'{target}'. Nothing was sent.",
-                ScreenErrors.MismatchStep);
+                ErrorGuidance.ContinuationMismatchStep);
         }
     }
 

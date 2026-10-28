@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Mcp;
-using Velixo.Cli.Output;
 
 namespace Velixo.Cli.Query;
 
 /// <summary>
 /// Runs query text or a saved inquiry through <c>execute_query</c>, one window or, with <c>--all</c>,
-/// every window merged into one result. All the calls of one command share its <c>--timeout</c>.
+/// every window merged into one result. All the calls of one command share its <c>--timeout</c>
+/// through <see cref="CliServices.FollowOptions"/>.
 /// </summary>
 internal sealed class QueryRunner
 {
@@ -19,14 +19,12 @@ internal sealed class QueryRunner
     private readonly CliServices _services;
     private readonly string _intent;
     private readonly QueryRunOptions _options;
-    private readonly long _started;
 
     public QueryRunner(CliServices services, string intent, QueryRunOptions options)
     {
         _services = services;
         _intent = intent;
         _options = options;
-        _started = services.Clock.GetTimestamp();
     }
 
     public Task<JsonObject> RunQueryAsync(string query, JsonObject parameters, CancellationToken cancellationToken) =>
@@ -117,27 +115,8 @@ internal sealed class QueryRunner
         }
 
         return await _services.Tasks
-            .RunAsync(token => _services.Mcp.CallToolAsync(McpToolNames.ExecuteQuery, arguments, token), FollowOptions(), cancellationToken)
+            .RunAsync(token => _services.Mcp.CallToolAsync(McpToolNames.ExecuteQuery, arguments, token), _services.FollowOptions(), cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    /// <summary>The follow options for the next call: what is left of the command's <c>--timeout</c>.</summary>
-    private TaskFollowOptions FollowOptions()
-    {
-        TaskFollowOptions options = TaskFollowOptions.From(_services.Settings);
-        if (options.Timeout is not { } timeout)
-        {
-            return options;
-        }
-
-        TimeSpan left = timeout - _services.Clock.GetElapsedTime(_started);
-        return left > TimeSpan.Zero
-            ? options with { Timeout = left }
-            : throw new CliException(
-                ExitCodes.Timeout,
-                ErrorCodes.Timeout,
-                $"--timeout of {DurationText.Format(timeout)} elapsed between calls; the rows read so far are not printed.",
-                "Run the command again with a longer --timeout.");
     }
 
     /// <summary>

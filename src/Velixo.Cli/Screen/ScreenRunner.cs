@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Velixo.Cli.Commands;
 using Velixo.Cli.Config;
+using Velixo.Cli.Files;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 
@@ -33,7 +34,6 @@ internal static class ScreenRunner
             options.Variables,
             options.NullVariables);
         JsonArray? rows = options.RowsFile is null ? null : ScreenRows.Read(FullPath(options.RowsFile));
-        var attachments = options.Attachments.Select(value => ScreenAttachmentSpec.Parse(value, directory)).ToList();
 
         var profile = services.Settings.ProfileName;
         ProfileState state = services.Profiles.LoadState(profile);
@@ -44,7 +44,7 @@ internal static class ScreenRunner
             _ => null,
         };
 
-        var plan = ScreenRunPlan.Create(batch, variables, rows, continuation, options.LeaveOpen, options.Finish, attachments);
+        var plan = ScreenRunPlan.Create(batch, variables, rows, continuation, options.LeaveOpen, options.Finish, options.Attachments);
         plan.CheckBindings();
 
         if (continuation is not null)
@@ -69,11 +69,17 @@ internal static class ScreenRunner
         {
             fingerprint = ScreenDuplicateGuard.Fingerprint(plan.Fingerprinted(connection));
             ScreenDuplicateGuard.Check(state, fingerprint, services.Clock.GetUtcNow(), options.Force);
-            Confirm(services, plan.Summary(connection));
+            Confirmation.Require(
+                services,
+                plan.Summary(connection),
+                question: "Run this batch?",
+                notAsked: "This batch can write to the ERP, and nothing confirmed it: the CLI cannot ask without a terminal. The summary is on stderr.",
+                notAskedNextStep: "Tell the user in business terms what the batch will do and ask them; once they agree, run the same command again with --yes.",
+                declined: "The batch did not run: the confirmation was declined.");
         }
 
-        JsonArray? staged = attachments.Count > 0
-            ? await ScreenAttachmentStager.StageAsync(services, attachments, cancellationToken).ConfigureAwait(false)
+        JsonArray? staged = options.Attachments.Count > 0
+            ? await StageAsync(services, options.Attachments, cancellationToken).ConfigureAwait(false)
             : null;
         JsonObject arguments = plan.ToArguments(intent, connection, staged);
 
@@ -81,7 +87,7 @@ internal static class ScreenRunner
         try
         {
             result = await services.Tasks
-                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.ExecuteCommands, arguments, token), TaskFollowOptions.From(services.Settings), cancellationToken)
+                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.ExecuteCommands, arguments, token), services.FollowOptions(), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (CliException error)
@@ -99,12 +105,71 @@ internal static class ScreenRunner
 
         if (options.DownloadDirectory is { } downloads && result.Document["result"]?["attachments"] is JsonArray files)
         {
-            await ScreenAttachmentDownloader.DownloadAsync(services, files, downloads, cancellationToken).ConfigureAwait(false);
+            await DownloadAsync(services, files, FullPath(downloads), cancellationToken).ConfigureAwait(false);
         }
 
         CommandText.RelayWarnings(services.Output, result.Document);
         services.Output.WriteResult(result.Document);
         return ExitCodes.Success;
+    }
+
+    /// <summary>Stages each <c>--attach</c> file and returns the <c>attachments</c> argument of <c>execute_commands</c>.</summary>
+    private static async Task<JsonArray> StageAsync(CliServices services, IReadOnlyList<ScreenAttachment> files, CancellationToken cancellationToken)
+    {
+        var transfer = new FileTransfer(services.Mcp, services.Http);
+        var attachments = new JsonArray();
+        foreach (ScreenAttachment file in files)
+        {
+            services.Output.Progress($"staging {file.FileName}");
+            StagedFile staged = await transfer.StageAsync(file.Path, file.Comment, cancellationToken).ConfigureAwait(false);
+
+            var attachment = new JsonObject { ["fileName"] = staged.FileName, ["fileToken"] = staged.FileToken };
+            if (staged.Comment is not null)
+            {
+                attachment["comment"] = staged.Comment;
+            }
+
+            attachments.Add((JsonNode)attachment);
+        }
+
+        return attachments;
+    }
+
+    /// <summary>
+    /// Saves every <c>result.attachments[]</c> entry that carries a <c>downloadUrl</c> into
+    /// <paramref name="directory"/> under the entry's <c>fileName</c>, and adds the saved <c>path</c> to the entry.
+    /// </summary>
+    /// <exception cref="CliException">
+    /// The download's own exit code and code, with a <c>nextStep</c> that says not to run the batch again,
+    /// because the batch already ran.
+    /// </exception>
+    private static async Task DownloadAsync(CliServices services, JsonArray attachments, string directory, CancellationToken cancellationToken)
+    {
+        var transfer = new FileTransfer(services.Mcp, services.Http);
+        foreach (JsonObject entry in attachments.OfType<JsonObject>())
+        {
+            if (CommandText.String(entry["downloadUrl"]) is not { Length: > 0 } url)
+            {
+                continue;
+            }
+
+            var fileName = CommandText.String(entry["fileName"]);
+            services.Output.Progress($"downloading {fileName ?? "an attachment"}");
+            try
+            {
+                DownloadedFile saved = await transfer.DownloadAsync(url, directory, outPath: null, fileName, cancellationToken).ConfigureAwait(false);
+                entry["path"] = saved.Path;
+            }
+            catch (CliException error)
+            {
+                throw new CliException(
+                    error.ExitCode,
+                    error.Code,
+                    $"The batch ran, but a download failed: {error.Message}",
+                    "Do not run the batch again. Run a read-only batch that delivers the file again, or open the record in the ERP.",
+                    error);
+            }
+        }
     }
 
     /// <summary>
@@ -114,46 +179,6 @@ internal static class ScreenRunner
     private static string? CurrentSessionId(CliServices services, ProfileState state) =>
         services.Mcp.SessionId
         ?? (string.Equals(state.McpUrl, services.Settings.McpUrl.ToString(), StringComparison.Ordinal) ? state.McpSessionId : null);
-
-    /// <summary>
-    /// Asks for the go-ahead of a write: <c>--yes</c> gives it, a terminal asks <c>Run this batch? [y/N]</c>,
-    /// and without either the command stops with exit 2. The summary goes to stderr in every case.
-    /// </summary>
-    private static void Confirm(CliServices services, IReadOnlyList<string> summary)
-    {
-        if (services.Settings.AssumeYes || !services.Settings.IsInteractive)
-        {
-            foreach (var line in summary)
-            {
-                services.Output.Progress(line);
-            }
-
-            if (services.Settings.AssumeYes)
-            {
-                return;
-            }
-
-            throw new CliException(
-                ExitCodes.Usage,
-                ErrorCodes.ConfirmationRequired,
-                "This batch can write to the ERP, and nothing confirmed it: the CLI cannot ask without a terminal. The summary is on stderr.",
-                "Tell the user in business terms what the batch will do and ask them; once they agree, run the same command again with --yes.");
-        }
-
-        foreach (var line in summary)
-        {
-            services.Console.Error.WriteLine(line);
-        }
-
-        services.Console.Error.Write("Run this batch? [y/N] ");
-        var answer = services.Console.In.ReadLine()?.Trim();
-        if (string.Equals(answer, "y", StringComparison.OrdinalIgnoreCase) || string.Equals(answer, "yes", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        throw new CliException(ExitCodes.Usage, ScreenErrorCodes.ConfirmationDeclined, "The batch did not run: the confirmation was declined.");
-    }
 
     /// <summary>A call that failed in one of these ways may have written, so the duplicate guard counts it.</summary>
     private static bool MightHaveRun(int exitCode) =>

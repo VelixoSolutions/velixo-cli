@@ -86,6 +86,20 @@ public sealed class ProgramTests
     }
 
     [Fact]
+    public async Task Call_reads_an_arguments_file_against_the_working_directory()
+    {
+        using var test = new TestServices();
+        FakeMcpClient mcp = new FakeMcpClient().ThenText("""[{"name":"gab-dev"}]""");
+        test.Services.McpClientFactory = _ => mcp;
+        File.WriteAllText(Path.Combine(test.Directory, "args.json"), """{"giql":"SELECT 1"}""");
+
+        var exit = await test.RunAsync("call", McpToolNames.ExecuteQuery, "--args", "@args.json", "--intent", "Check the AR balance");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("SELECT 1", (string?)mcp.Calls[0].Arguments["giql"]);
+    }
+
+    [Fact]
     public async Task A_stub_command_is_exit_2_not_implemented()
     {
         using var test = new TestServices();

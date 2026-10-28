@@ -14,8 +14,8 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
     private static readonly TimeSpan _stallNotice = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Starts a task with <paramref name="start"/> and follows it to its end, all within one
-    /// <c>--timeout</c>. With <c>--no-wait</c> it returns the first answer, which is the
+    /// Starts a task with <paramref name="start"/> and follows it to its end, all within
+    /// <see cref="TaskFollowOptions.Timeout"/>. With <c>--no-wait</c> it returns the first answer, which is the
     /// <c>{ taskId, status: "running" }</c> envelope when the task did not finish in the first hold.
     /// </summary>
     public async Task<UnwrappedToolResult> RunAsync(
@@ -36,7 +36,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            throw TimedOut(taskId: null, options.Timeout);
+            throw TimedOut(taskId: null);
         }
 
         return await FollowCoreAsync(first, options, deadline, linked.Token, cancellationToken).ConfigureAwait(false);
@@ -77,11 +77,11 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
         return string.Join(", ", parts);
     }
 
-    private static CliException TimedOut(string? taskId, TimeSpan? timeout) =>
+    private static CliException TimedOut(string? taskId) =>
         new(
             ExitCodes.Timeout,
             ErrorCodes.Timeout,
-            $"The task was still running after {DurationText.Format(timeout ?? TimeSpan.Zero)}; it keeps running on the server.",
+            "The task was still running when --timeout ran out; it keeps running on the server.",
             taskId is null ? "Run the command again with a longer --timeout." : $"velixo task status {taskId} --wait")
         {
             TaskId = taskId,
@@ -116,7 +116,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !callerToken.IsCancellationRequested)
         {
-            throw TimedOut(current.TaskId, options.Timeout);
+            throw TimedOut(current.TaskId);
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {

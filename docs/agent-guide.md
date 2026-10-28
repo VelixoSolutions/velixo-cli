@@ -17,7 +17,7 @@ This guide holds only what is specific to the CLI. The rules for each tool (how 
 - stdout holds the result: one JSON document when stdout is not a terminal. stderr holds progress and warnings. Parse stdout only.
 - In JSON mode, a non-zero exit puts `{ "error": { "code", "exitCode", "message", "taskId", "nextStep" } }` on stdout. `message` is the server's text. `nextStep` is the recovery. Read both.
 - Do not show the user a raw `ERROR:` text or an error code. Put the question or the problem to the user in plain words.
-- The CLI runs without prompts when stdin is not a terminal or it detects an agent. It never opens a browser and never pages.
+- The CLI runs without prompts when stdin is not a terminal or it detects an agent. It never opens a browser.
 - A long task makes the CLI wait and print progress on stderr. To start a task and collect it later, pass `--no-wait` and use `velixo task status <taskId> --wait`.
 
 ## Which command replaces which tool

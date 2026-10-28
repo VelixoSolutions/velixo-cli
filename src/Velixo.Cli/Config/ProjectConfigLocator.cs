@@ -25,7 +25,7 @@ public static class ProjectConfigLocator
             {
                 throw new CliException(
                     ExitCodes.Usage,
-                    "CONFIG_INVALID",
+                    ErrorCodes.ConfigInvalid,
                     $"{candidate} is not valid JSON: {exception.Message}",
                     "Fix the file, or delete it to use no project defaults.");
             }

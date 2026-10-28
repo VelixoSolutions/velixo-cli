@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Velixo.Cli.Output;
-using Velixo.Cli.Screen;
 
 namespace Velixo.Cli.Tests.Screen;
 
@@ -48,7 +47,7 @@ public sealed class ScreenRunTests
             "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.VariableMissing, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenVariableMissing, (string?)test.Error["code"]);
         var message = (string?)test.Error["message"];
         Assert.StartsWith("SCREEN_VARIABLE_MISSING: ", message, StringComparison.Ordinal);
         Assert.Contains("'CustomerID'", message, StringComparison.Ordinal);
@@ -69,13 +68,13 @@ public sealed class ScreenRunTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--var", "CustomerID=ACME", "--var", "customerid=acme", "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.ServerRefused, exit);
-        Assert.Equal(ScreenErrorCodes.VariableUnknown, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ScreenVariableUnknown, (string?)test.Error["code"]);
         Assert.Contains("'customerid'", (string?)test.Error["message"], StringComparison.Ordinal);
         Assert.Empty(test.Mcp.Calls);
     }
 
     [Fact]
-    public async Task Rows_for_a_batch_without_lineCommands_is_a_usage_error()
+    public async Task Rows_for_a_batch_without_lineCommands_is_refused_locally_with_the_server_code()
     {
         using var test = new ScreenHarness();
         var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
@@ -83,21 +82,21 @@ public sealed class ScreenRunTests
 
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--var", "CustomerID=ACME", "--rows", rows, "--yes", "--intent", ScreenHarness.Intent);
 
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ScreenErrorCodes.RowsWithoutLine, (string?)test.Error["code"]);
+        Assert.Equal(ExitCodes.ServerRefused, exit);
+        Assert.Equal(ErrorCodes.ScreenSetsRowsWithoutLine, (string?)test.Error["code"]);
         Assert.Empty(test.Mcp.Calls);
     }
 
     [Fact]
-    public async Task LineCommands_without_rows_is_a_usage_error()
+    public async Task LineCommands_without_rows_is_refused_locally_with_the_server_code()
     {
         using var test = new ScreenHarness();
         var batch = test.Write("order.batch.json", ScreenHarness.OrderBatch);
 
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--var", "CustomerID=ACME", "--var", "Note=", "--yes", "--intent", ScreenHarness.Intent);
 
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ScreenErrorCodes.LineWithoutRows, (string?)test.Error["code"]);
+        Assert.Equal(ExitCodes.ServerRefused, exit);
+        Assert.Equal(ErrorCodes.ScreenSetsLineWithoutRows, (string?)test.Error["code"]);
         Assert.Contains("[]", (string?)test.Error["nextStep"], StringComparison.Ordinal);
     }
 
@@ -162,7 +161,7 @@ public sealed class ScreenRunTests
 
         Assert.Equal(ExitCodes.Usage, exit);
         Assert.Contains("Run this batch? [y/N]", test.Console.StdErr, StringComparison.Ordinal);
-        Assert.Contains($"[{ScreenErrorCodes.ConfirmationDeclined}]", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains($"[{ErrorCodes.ConfirmationDeclined}]", test.Console.StdErr, StringComparison.Ordinal);
         Assert.Empty(test.Mcp.Calls);
     }
 
@@ -232,7 +231,7 @@ public sealed class ScreenRunTests
         var exit = await test.RunAsync("screen", "run", "--batch", batch, "--var", "CustomerID=ACME", "--yes", "--intent", ScreenHarness.Intent);
 
         Assert.Equal(ExitCodes.TaskFailed, exit);
-        Assert.Equal(ScreenErrorCodes.ErpActionRefused, (string?)test.Error["code"]);
+        Assert.Equal(ErrorCodes.ErpActionRefused, (string?)test.Error["code"]);
         Assert.Contains("The Release button is disabled.", (string?)test.Error["detail"], StringComparison.Ordinal);
         Assert.StartsWith("Do not run the batch again", (string?)test.Error["nextStep"], StringComparison.Ordinal);
     }

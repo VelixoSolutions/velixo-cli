@@ -12,6 +12,13 @@ public static class Program
         "The Velixo CLI: the tools of the Velixo MCP server as commands. Query an ERP, run screen commands, "
         + "move files and run imports from a shell. Start with 'velixo login', then 'velixo guide'.";
 
+    /// <summary>
+    /// How every command line is parsed. Response files are off: <c>@FILE</c> is the CLI's own way to
+    /// pass a file, as in <c>call --args @args.json</c>, and the parser would otherwise splice the
+    /// file's words into the command line.
+    /// </summary>
+    public static ParserConfiguration ParserConfiguration { get; } = new() { ResponseFileTokenReplacer = null };
+
     public static Task<int> Main(string[] args) => RunAsync(args, CliServices.CreateDefault());
 
     /// <summary>
@@ -66,7 +73,7 @@ public static class Program
         ArgumentNullException.ThrowIfNull(services);
 
         RootCommand root = BuildRootCommand(services);
-        ParseResult parse = root.Parse(args.Length == 0 ? ["--help"] : args);
+        ParseResult parse = root.Parse(args.Length == 0 ? ["--help"] : args, ParserConfiguration);
 
         try
         {

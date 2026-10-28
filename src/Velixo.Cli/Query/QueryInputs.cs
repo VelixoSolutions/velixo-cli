@@ -6,9 +6,10 @@ namespace Velixo.Cli.Query;
 
 /// <summary>
 /// Reads what the query commands take from files and flags: query text, plan and parameter files,
-/// and <c>--param</c> pairs. Every bad input is a usage error, exit 2, raised before any call.
+/// and <c>--param</c> pairs. A relative path is read against <paramref name="currentDirectory"/>. Every
+/// bad input is a usage error, exit 2, raised before any call.
 /// </summary>
-internal sealed class QueryInputs(ICliConsole console)
+internal sealed class QueryInputs(ICliConsole console, string currentDirectory)
 {
     private const string StandardInput = "-";
 
@@ -32,7 +33,7 @@ internal sealed class QueryInputs(ICliConsole console)
 
         try
         {
-            return File.ReadAllText(path);
+            return File.ReadAllText(Path.GetFullPath(path, currentDirectory));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

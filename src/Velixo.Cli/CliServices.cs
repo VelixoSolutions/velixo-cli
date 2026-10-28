@@ -19,6 +19,7 @@ public sealed class CliServices
     private OutputWriter? _output;
     private IAccessTokenProvider? _accessTokens;
     private IMcpClient? _mcp;
+    private long _boundAt;
 
     public CliServices(
         ICliConsole console,
@@ -119,9 +120,33 @@ public sealed class CliServices
     public void Bind(ResolvedSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _boundAt = Clock.GetTimestamp();
         _output = new OutputWriter(Console, settings.Output);
         _accessTokens = null;
         _mcp = null;
+    }
+
+    /// <summary>
+    /// Returns how the command's next task call waits: not at all with <c>--no-wait</c>, and for what is
+    /// left of <c>--timeout</c>. The timeout is one budget for the whole command, measured from when it
+    /// started, however many calls the command makes.
+    /// </summary>
+    /// <exception cref="CliException">Exit 124 when the budget ran out before this call.</exception>
+    public TaskFollowOptions FollowOptions()
+    {
+        if (Settings.Timeout is not { } timeout)
+        {
+            return new TaskFollowOptions { NoWait = Settings.NoWait };
+        }
+
+        TimeSpan left = timeout - Clock.GetElapsedTime(_boundAt);
+        return left > TimeSpan.Zero
+            ? new TaskFollowOptions { NoWait = Settings.NoWait, Timeout = left }
+            : throw new CliException(
+                ExitCodes.Timeout,
+                ErrorCodes.Timeout,
+                $"The --timeout of {DurationText.Format(timeout)} ran out before the command's next call; what it had read so far is not printed.",
+                "Run the command again with a longer --timeout.");
     }
 
     /// <summary>

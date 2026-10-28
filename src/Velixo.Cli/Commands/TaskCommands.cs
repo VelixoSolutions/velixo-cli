@@ -27,12 +27,12 @@ public static class TaskCommands
         status.SetAction(async (parse, cancellationToken) =>
         {
             var arguments = new JsonObject { ["taskId"] = parse.GetValue(taskId) };
-            TaskFollowOptions options = TaskFollowOptions.From(services.Settings) with { NoWait = !parse.GetValue(wait) };
+            TaskFollowOptions options = services.FollowOptions() with { NoWait = !parse.GetValue(wait) };
 
-            UnwrappedToolResult result = await BuilderRefusal.MapAsync(services.Tasks.RunAsync(
+            UnwrappedToolResult result = await services.Tasks.RunAsync(
                 token => services.Mcp.CallToolAsync(McpToolNames.GetStatus, arguments, token),
                 options,
-                cancellationToken)).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false);
 
             var document = (JsonObject)result.Document.DeepClone();
             QueryPlan.NormalizeItemKeys(document);

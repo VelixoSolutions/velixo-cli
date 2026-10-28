@@ -12,9 +12,6 @@ namespace Velixo.Cli.Commands;
 /// </summary>
 public static class ScreenCommands
 {
-    private const string BuilderRefusalStep =
-        "Put the builder's question to the user in plain words, then build again with their answer.";
-
     public static Command Build(CliServices services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -104,7 +101,7 @@ public static class ScreenCommands
                 NullVariables = parse.GetValue(variableNull) ?? [],
                 VariablesFile = parse.GetValue(variables),
                 RowsFile = parse.GetValue(rows),
-                Attachments = parse.GetValue(attach) ?? [],
+                Attachments = (parse.GetValue(attach) ?? []).Select(value => ParseAttachment(value, services.Environment.CurrentDirectory)).ToList(),
                 LeaveOpen = parse.GetValue(leaveOpen),
                 Continue = parse.GetValue(continueOpen),
                 ContinuationFile = parse.GetValue(continuation),
@@ -118,9 +115,42 @@ public static class ScreenCommands
     }
 
     /// <summary>
-    /// Calls <c>prepare_commands</c> and prints the batch. A build that stops with an <c>ERROR:</c>
-    /// question exits 3 whether the task finished or failed with it.
+    /// Reads one <c>--attach</c>, <c>PATH</c> or <c>PATH:COMMENT</c>, resolving a relative path against
+    /// <paramref name="currentDirectory"/>. The value splits on its last colon, except when that colon
+    /// belongs to the path: a drive letter (<c>C:\x.pdf</c>), a path separator right after it, or a file
+    /// whose own name holds the colon.
     /// </summary>
+    /// <exception cref="CliException">Exit 2 when the file does not exist, so nothing is confirmed or staged for a typo.</exception>
+    internal static ScreenAttachment ParseAttachment(string value, string currentDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var path = value;
+        string? comment = null;
+
+        var colon = value.LastIndexOf(':');
+        if (colon > 0 && !File.Exists(Path.GetFullPath(value, currentDirectory)))
+        {
+            var before = value[..colon];
+            var after = value[(colon + 1)..];
+            var isDrive = before.Length == 1 && char.IsAsciiLetter(before[0]);
+            var isPath = after.Length > 0 && after[0] is '/' or '\\';
+            if (!isDrive && !isPath)
+            {
+                path = before;
+                comment = after.Length == 0 ? null : after;
+            }
+        }
+
+        var fullPath = Path.GetFullPath(path, currentDirectory);
+        return File.Exists(fullPath)
+            ? new ScreenAttachment(fullPath, comment)
+            : throw CliException.Usage(
+                $"The file to attach, '{path}', does not exist.",
+                "Pass the path of a file the user gave you, optionally followed by :COMMENT.");
+    }
+
+    /// <summary>Calls <c>prepare_commands</c> and prints the batch.</summary>
     private static async Task<int> BuildBatchAsync(CliServices services, string request, string? target, CancellationToken cancellationToken)
     {
         var arguments = new JsonObject
@@ -139,17 +169,9 @@ public static class ScreenCommands
             arguments["target"] = target;
         }
 
-        UnwrappedToolResult result;
-        try
-        {
-            result = await services.Tasks
-                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), TaskFollowOptions.From(services.Settings), cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (CliException error) when (error.ExitCode == ExitCodes.TaskFailed && error.Message.TrimStart().StartsWith("ERROR:", StringComparison.Ordinal))
-        {
-            throw new CliException(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, error.Message, BuilderRefusalStep, error) { TaskId = error.TaskId };
-        }
+        UnwrappedToolResult result = await services.Tasks
+            .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), services.FollowOptions(), cancellationToken)
+            .ConfigureAwait(false);
 
         CommandText.RelayWarnings(services.Output, result.Document);
         services.Output.WriteResult(result.Document);

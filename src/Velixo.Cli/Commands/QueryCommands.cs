@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
+using Velixo.Cli.Files;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 using Velixo.Cli.Query;
@@ -51,7 +52,7 @@ public static class QueryCommands
         command.SetAction(async (parse, cancellationToken) =>
         {
             var intent = services.RequireIntent();
-            var inputs = new QueryInputs(services.Console);
+            var inputs = new QueryInputs(services.Console, services.Environment.CurrentDirectory);
 
             var arguments = new JsonObject
             {
@@ -68,10 +69,10 @@ public static class QueryCommands
                 arguments["baseQuery"] = string.Join("\n\n", baseQueries);
             }
 
-            UnwrappedToolResult result = await BuilderRefusal.MapAsync(services.Tasks.RunAsync(
+            UnwrappedToolResult result = await services.Tasks.RunAsync(
                 token => services.Mcp.CallToolAsync(McpToolNames.PrepareQuery, arguments, token),
-                TaskFollowOptions.From(services.Settings),
-                cancellationToken)).ConfigureAwait(false);
+                services.FollowOptions(),
+                cancellationToken).ConfigureAwait(false);
 
             var document = (JsonObject)result.Document.DeepClone();
             QueryPlan.NormalizeItemKeys(document);
@@ -119,7 +120,7 @@ public static class QueryCommands
             RequireOneSource(("--plan", planPath), ("--query", queryPath), ("--inquiry", inquiryName));
 
             QueryRunOptions options = ReadRunOptions(services, parse.GetValue(top), parse.GetValue(skip), parse.GetValue(all), parse.GetValue(maxRows));
-            var inputs = new QueryInputs(services.Console);
+            var inputs = new QueryInputs(services.Console, services.Environment.CurrentDirectory);
             JsonObject given = inputs.ReadParameters(parse.GetValue(param), parse.GetValue(parameters));
             var runner = new QueryRunner(services, intent, options);
 
@@ -189,7 +190,7 @@ public static class QueryCommands
                 throw CliException.Usage("--item chooses an item of --plan; it has no meaning with --query.");
             }
 
-            var inputs = new QueryInputs(services.Console);
+            var inputs = new QueryInputs(services.Console, services.Environment.CurrentDirectory);
             var text = queryPath is not null
                 ? inputs.ReadQuery(queryPath, "--query")
                 : ChooseWorkbookItem(QueryPlan.Read(inputs.ReadJson(planPath!, "--plan"), planPath!), parse.GetValue(item));
@@ -210,13 +211,15 @@ public static class QueryCommands
 
             UnwrappedToolResult result = await services.Tasks.RunAsync(
                 token => services.Mcp.CallToolAsync(McpToolNames.CreateWorkbookFromQuery, arguments, token),
-                TaskFollowOptions.From(services.Settings),
+                services.FollowOptions(),
                 cancellationToken).ConfigureAwait(false);
 
             var document = (JsonObject)result.Document.DeepClone();
             if (parse.GetValue(download) is { Length: > 0 } path)
             {
-                await WorkbookDownload.SaveAsync(services.Http, document, path, cancellationToken).ConfigureAwait(false);
+                await WorkbookDownload
+                    .SaveAsync(new FileTransfer(services.Mcp, services.Http), document, Path.GetFullPath(path, services.Environment.CurrentDirectory), cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             CommandText.RelayWarnings(services.Output, document);

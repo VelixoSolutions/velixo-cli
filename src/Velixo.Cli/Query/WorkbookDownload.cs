@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using Velixo.Cli.Commands;
+using Velixo.Cli.Files;
 using Velixo.Cli.Output;
 
 namespace Velixo.Cli.Query;
@@ -16,9 +18,9 @@ internal static class WorkbookDownload
     /// Downloads the linked file to <paramref name="path"/>, or into it under the file's own name when
     /// it is a directory, and adds <c>"path"</c> to the object that holds the link.
     /// </summary>
-    public static async Task SaveAsync(HttpClient http, JsonObject document, string path, CancellationToken cancellationToken)
+    public static async Task SaveAsync(FileTransfer transfer, JsonObject document, string path, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(transfer);
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(path);
 
@@ -29,35 +31,11 @@ internal static class WorkbookDownload
                 "The workbook was created, but the result holds no link to download it from.",
                 "Open the link in the printed result instead.");
 
-        var target = Directory.Exists(path)
-            ? Path.Combine(path, FileNameFor(holder, link))
-            : path;
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, link);
-        using HttpResponseMessage response = await HttpCalls.SendAsync(http, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new CliException(
-                ExitCodes.Failure,
-                ErrorCodes.Http,
-                $"Downloading the workbook answered HTTP {(int)response.StatusCode}: {await HttpCalls.ReadSnippetAsync(response, cancellationToken).ConfigureAwait(false)}",
-                "A download link works for a limited time; create the workbook again.");
-        }
-
-        try
-        {
-            var stream = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None);
-            await using (stream.ConfigureAwait(false))
-            {
-                await response.Content.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            throw CliException.Usage($"Could not write the workbook to '{target}': {exception.Message}");
-        }
-
-        holder["path"] = target;
+        var intoDirectory = Directory.Exists(path);
+        DownloadedFile saved = await transfer
+            .DownloadAsync(link.AbsoluteUri, intoDirectory ? path : null, intoDirectory ? null : path, CommandText.String(holder["fileName"]), cancellationToken)
+            .ConfigureAwait(false);
+        holder["path"] = saved.Path;
     }
 
     /// <summary>Finds the first object, depth first, with an absolute http or https link under one of the link keys.</summary>
@@ -101,12 +79,5 @@ internal static class WorkbookDownload
             default:
                 return null;
         }
-    }
-
-    private static string FileNameFor(JsonObject holder, Uri link)
-    {
-        var name = holder["fileName"] is JsonValue value && value.TryGetValue(out string? fileName) ? fileName : null;
-        name = Path.GetFileName(string.IsNullOrWhiteSpace(name) ? link.Segments[^1] : name);
-        return string.IsNullOrWhiteSpace(name) ? "workbook.xlsx" : name;
     }
 }

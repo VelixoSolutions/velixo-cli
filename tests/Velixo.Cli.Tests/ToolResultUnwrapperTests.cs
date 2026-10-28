@@ -78,6 +78,38 @@ public sealed class ToolResultUnwrapperTests
     }
 
     [Fact]
+    public void A_failed_task_whose_error_is_a_builder_question_is_exit_3_with_the_text_verbatim()
+    {
+        const string envelope = """{"taskId":"t_5d","status":"failed","error":"  ERROR: Which screen do you mean: Sales Orders or Quotes?\n"}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope, isError: true)));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal(ErrorCodes.BuilderRefusal, error.Code);
+        Assert.Equal("ERROR: Which screen do you mean: Sales Orders or Quotes?", error.Message);
+        Assert.StartsWith("Put the builder's question to the user in plain words", error.NextStep, StringComparison.Ordinal);
+        Assert.Equal("t_5d", error.TaskId);
+    }
+
+    [Theory]
+    [InlineData("IMPORT_COLUMNS_MISSING: the file does not have 'Customer Class'.", "IMPORT_COLUMNS_MISSING", "velixo guide execute_import_scenario")]
+    [InlineData("SCREEN_SESSION_LOST: the session is gone. Nothing in this call was executed.", "SCREEN_SESSION_LOST", ErrorGuidance.SessionLostNothingRanStep)]
+    [InlineData("SCREEN_SESSION_LOST: the session is gone; whether any of this call ran is unknown.", "SCREEN_SESSION_LOST", ErrorGuidance.SessionLostUnknownStep)]
+    [InlineData("SCREEN_SETS_HEADER_ON_CONTINUATION: a continuation sends no header.", "SCREEN_SETS_HEADER_ON_CONTINUATION", "names the set to remove or add")]
+    public void A_failed_task_whose_error_starts_with_a_code_is_exit_5_with_that_code(string text, string code, string nextStep)
+    {
+        var envelope = new JsonObject { ["taskId"] = "t_7", ["status"] = "failed", ["error"] = text }.ToJsonString();
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope, isError: true)));
+
+        Assert.Equal(ExitCodes.ServerRefused, error.ExitCode);
+        Assert.Equal(code, error.Code);
+        Assert.Equal(text, error.Message);
+        Assert.Contains(nextStep, error.NextStep, StringComparison.Ordinal);
+        Assert.Equal("t_7", error.TaskId);
+    }
+
+    [Fact]
     public void A_failed_task_is_exit_6_with_the_detail()
     {
         const string envelope = """{"taskId":"t_2b","status":"failed","error":"Acumatica returned 400: Conversion failed."}""";

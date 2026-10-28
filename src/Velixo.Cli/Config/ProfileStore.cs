@@ -18,7 +18,7 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
         {
             throw new CliException(
                 ExitCodes.Usage,
-                "CONFIG_INVALID",
+                ErrorCodes.ConfigInvalid,
                 $"{Paths.ConfigFile} is not valid JSON: {exception.Message}",
                 "Fix or delete the file; 'velixo config path' shows where it is.");
         }

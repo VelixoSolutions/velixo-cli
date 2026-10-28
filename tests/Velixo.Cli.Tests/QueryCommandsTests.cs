@@ -173,6 +173,20 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task Run_reads_relative_paths_against_the_working_directory()
+    {
+        WriteFile("q.vql", OrderedQuery);
+        WriteFile("p.json", """{"As Of Date":"2026-09-30"}""");
+        _mcp.ThenText(Done(QueryResult(0, 0)));
+
+        var exit = await Run("query", "run", "--query", "q.vql", "--params", "p.json");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(OrderedQuery, (string?)_mcp.Calls[0].Arguments["giql"]);
+        Assert.Equal("2026-09-30", (string?)_mcp.Calls[0].Arguments["parameters"]!["As Of Date"]);
+    }
+
+    [Fact]
     public async Task Run_warns_about_an_unknown_label_and_a_missing_required_value()
     {
         var query = WriteFile("q.vql", """

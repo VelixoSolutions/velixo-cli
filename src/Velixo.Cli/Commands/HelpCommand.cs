@@ -45,7 +45,7 @@ public static class HelpCommand
             }
 
             string[] words = [.. parse.GetValue(path) ?? [], "--help"];
-            return root.Parse(words).Invoke(new InvocationConfiguration
+            return root.Parse(words, Program.ParserConfiguration).Invoke(new InvocationConfiguration
             {
                 Output = services.Console.Out,
                 Error = services.Console.Error,

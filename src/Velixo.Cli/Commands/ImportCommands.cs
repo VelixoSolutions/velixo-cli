@@ -14,8 +14,6 @@ namespace Velixo.Cli.Commands;
 /// </summary>
 public static class ImportCommands
 {
-    private const string TokenAlreadyUsedCode = "ATTACHMENT_TOKEN_ALREADY_USED";
-
     public static Command Build(CliServices services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -127,11 +125,12 @@ public static class ImportCommands
             }
 
             services.Output.Progress("validating the file against the scenario");
-            UnwrappedToolResult previewed = await RunToolAsync(
-                services,
+            Task<UnwrappedToolResult> ExecuteAsync(JsonObject arguments, TaskFollowOptions options) =>
+                services.Tasks.RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.ExecuteImportScenario, arguments, token), options, cancellationToken);
+
+            UnwrappedToolResult previewed = await ExecuteAsync(
                 Arguments(previewOnly: true),
-                new TaskFollowOptions { Timeout = services.Settings.Timeout },
-                cancellationToken).ConfigureAwait(false);
+                services.FollowOptions() with { NoWait = false }).ConfigureAwait(false);
             JsonObject preview = PromoteTextualResponse(previewed.Document);
             CommandText.RelayWarnings(services.Output, preview);
             ImportPreview summary = ImportPreview.From(preview, scenarioName);
@@ -143,10 +142,16 @@ public static class ImportCommands
                 return ExitCodes.Success;
             }
 
-            Confirm(services, $"Import {summary.RowsText} with scenario {summary.Scenario} into screen {summary.ScreenText} on connection {connection}?");
+            Confirmation.Require(
+                services,
+                summary: [],
+                question: $"Import {summary.RowsText} with scenario {summary.Scenario} into screen {summary.ScreenText} on connection {connection}?",
+                notAsked: "The import was not run: it writes records, and there is no terminal to ask for a confirmation.",
+                notAskedNextStep: "Show the user the preview above and ask them. After they approve, run the command again with --yes. --validate-only prints the preview and stops.",
+                declined: "The import was not confirmed, so nothing was imported.");
 
             services.Output.Progress("running the import");
-            UnwrappedToolResult ran = await RunToolAsync(services, Arguments(previewOnly: false), TaskFollowOptions.From(services.Settings), cancellationToken).ConfigureAwait(false);
+            UnwrappedToolResult ran = await ExecuteAsync(Arguments(previewOnly: false), services.FollowOptions()).ConfigureAwait(false);
             JsonObject report = PromoteTextualResponse(ran.Document);
             CommandText.RelayWarnings(services.Output, report);
             if (!ran.IsRunning)
@@ -165,34 +170,6 @@ public static class ImportCommands
         ?? throw CliException.Usage(
             "The import commands need --connection: the import tools write records, so the connection is one you state and not one the server picks.",
             "velixo connections list");
-
-    /// <summary>Calls <c>execute_import_scenario</c> through the task follower and tells a spent upload what to do next.</summary>
-    private static async Task<UnwrappedToolResult> RunToolAsync(
-        CliServices services,
-        JsonObject arguments,
-        TaskFollowOptions options,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await services.Tasks
-                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.ExecuteImportScenario, arguments, token), options, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (CliException exception) when (exception.Code == TokenAlreadyUsedCode)
-        {
-            throw new CliException(
-                exception.ExitCode,
-                exception.Code,
-                exception.Message,
-                "This upload was already imported and nothing was sent again. Read the ERP before anything else. "
-                + "To import the file again, upload it again: run the command again, which stages the file anew.")
-            {
-                TaskId = exception.TaskId,
-                Detail = exception.Detail,
-            };
-        }
-    }
 
     /// <summary>
     /// The validation preview is answered as plain text holding <c>{ "textualResponse": "{...}" }</c>,
@@ -236,35 +213,6 @@ public static class ImportCommands
         }
 
         output.Progress("An import is not atomic and has no undo: rows the ERP accepts stay imported even when a later row fails.");
-    }
-
-    private static void Confirm(CliServices services, string question)
-    {
-        if (services.Settings.AssumeYes)
-        {
-            return;
-        }
-
-        if (!services.Settings.IsInteractive)
-        {
-            throw new CliException(
-                ExitCodes.Usage,
-                ErrorCodes.ConfirmationRequired,
-                "The import was not run: it writes records, and there is no terminal to ask for a confirmation.",
-                "Show the user the preview above and ask them. After they approve, run the command again with --yes. --validate-only prints the preview and stops.");
-        }
-
-        services.Console.Error.Write($"{question} [y/N] ");
-        services.Console.Error.Flush();
-        var answer = services.Console.In.ReadLine()?.Trim();
-        if (!string.Equals(answer, "y", StringComparison.OrdinalIgnoreCase) && !string.Equals(answer, "yes", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new CliException(
-                ExitCodes.Usage,
-                ErrorCodes.ConfirmationRequired,
-                "The import was not confirmed, so nothing was imported.",
-                "Run the command again and answer y, or pass --yes.");
-        }
     }
 
     /// <summary>
