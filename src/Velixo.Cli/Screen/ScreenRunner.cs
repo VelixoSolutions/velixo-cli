@@ -19,7 +19,7 @@ internal static class ScreenRunner
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
 
-        var intent = services.RequireIntent();
+        var intent = services.IntentOrDefault();
         if (options.Continue && options.ContinuationFile is not null)
         {
             throw CliException.Usage("Give --continue or --continuation FILE, not both.");

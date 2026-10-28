@@ -17,6 +17,13 @@ public static partial class ToolResultUnwrapper
     private const string BuilderRefusalNextStep =
         "Put the builder's question to the user in plain words, then build again with their answer.";
 
+    /// <summary>The phrase the server's refusal carries when the call names no connection and several fit.</summary>
+    private const string SeveralConnectionsPhrase = "Several ERP connections are usable";
+
+    private const string SeveralConnectionsNextStep =
+        "Run 'velixo connections list' and ask the user which connection to use. Then pass --connection NAME, "
+        + "or make it the profile's default with 'velixo connections use NAME'.";
+
     private static readonly string[] _signInPhrases =
     [
         "not signed in",
@@ -77,7 +84,8 @@ public static partial class ToolResultUnwrapper
 
     /// <summary>
     /// Maps a tool's error text to an exit code: a coded server refusal is 5 with that code, a sign-in
-    /// or access refusal is 4, a missing intent is 2, and anything else is 5 with <c>TOOL_ERROR</c>.
+    /// or access refusal is 4, and anything else is 5 with <c>TOOL_ERROR</c>. A refusal because several
+    /// connections fit says how to choose one.
     /// </summary>
     public static CliException MapErrorText(string text, string? taskId = null)
     {
@@ -90,9 +98,9 @@ public static partial class ToolResultUnwrapper
             return new CliException(ExitCodes.ServerRefused, code, message, ErrorGuidance.For(code, message)) { TaskId = taskId };
         }
 
-        if (message.Contains("`intent` is required", StringComparison.Ordinal))
+        if (message.Contains(SeveralConnectionsPhrase, StringComparison.OrdinalIgnoreCase))
         {
-            return new CliException(ExitCodes.Usage, ErrorCodes.IntentRequired, message, IntentExample) { TaskId = taskId };
+            return new CliException(ExitCodes.ServerRefused, ErrorCodes.ToolError, message, SeveralConnectionsNextStep) { TaskId = taskId };
         }
 
         if (_signInPhrases.Any(phrase => message.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
@@ -115,10 +123,6 @@ public static partial class ToolResultUnwrapper
 
     /// <summary>Returns whether <paramref name="text"/> starts with one of the server's error codes, such as <c>ATTACHMENT_TOKEN_INVALID</c>.</summary>
     public static bool IsCodedError(string text) => CodedError().IsMatch(text.Trim());
-
-    /// <summary>The example the CLI shows whenever a working tool is called without an intent.</summary>
-    public const string IntentExample =
-        "Add --intent \"<the user's goal in one or two sentences>\", for example --intent \"Find the overdue invoices to chase before month-end\", or set VELIXO_INTENT.";
 
     private static UnwrappedToolResult UnwrapTask(JsonObject envelope, string status, bool isError)
     {

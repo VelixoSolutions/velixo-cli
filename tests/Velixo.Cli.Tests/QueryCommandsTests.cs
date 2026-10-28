@@ -52,13 +52,41 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
-    public async Task Build_without_an_intent_is_exit_2_before_any_call()
+    public async Task Run_without_an_intent_sends_the_command_path_as_the_intent()
     {
-        var exit = await _test.RunAsync("query", "build", "AR balance");
+        var query = WriteFile("q.vql", "FROM X SELECT Y");
+        _mcp.ThenText(Done(QueryResult(1, 1)));
 
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)Output()["error"]!["code"]);
-        Assert.Empty(_mcp.Calls);
+        var exit = await _test.RunAsync("query", "run", "--query", query, "--param", "Customer=ACME");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("Run from the Velixo CLI: velixo query run", (string?)_mcp.Calls[0].Arguments["intent"]);
+    }
+
+    [Fact]
+    public async Task The_intent_flag_wins_over_the_variable_and_the_default()
+    {
+        _test.Environment.Variables["VELIXO_INTENT"] = "Intent from the variable";
+        var query = WriteFile("q.vql", "FROM X SELECT Y");
+        _mcp.ThenText(Done(QueryResult(1, 1)));
+
+        var exit = await Run("query", "run", "--query", query);
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(Intent, (string?)_mcp.Calls[0].Arguments["intent"]);
+    }
+
+    [Fact]
+    public async Task The_intent_variable_wins_over_the_default()
+    {
+        _test.Environment.Variables["VELIXO_INTENT"] = "Intent from the variable";
+        var query = WriteFile("q.vql", "FROM X SELECT Y");
+        _mcp.ThenText(Done(QueryResult(1, 1)));
+
+        var exit = await _test.RunAsync("query", "run", "--query", query);
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("Intent from the variable", (string?)_mcp.Calls[0].Arguments["intent"]);
     }
 
     [Fact]

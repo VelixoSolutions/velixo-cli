@@ -40,7 +40,7 @@ public static class NotifyCommand
         };
         command.SetAction(async (parse, cancellationToken) =>
         {
-            var intent = services.RequireIntent();
+            var intent = services.IntentOrDefault();
             var arguments = new JsonObject
             {
                 [McpToolNames.IntentArgument] = intent,

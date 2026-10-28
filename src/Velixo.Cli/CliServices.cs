@@ -15,6 +15,9 @@ namespace Velixo.Cli;
 /// </summary>
 public sealed class CliServices
 {
+    private const string DefaultIntentPrefix = "Run from the Velixo CLI: ";
+
+    private string _commandPath = "velixo";
     private ResolvedSettings? _settings;
     private OutputWriter? _output;
     private IAccessTokenProvider? _accessTokens;
@@ -28,7 +31,8 @@ public sealed class CliServices
         IProfileStore profiles,
         ITokenStore tokens,
         HttpClient http,
-        IBrowserOpener browser)
+        IBrowserOpener browser,
+        HttpClient? httpWithoutRedirects = null)
     {
         Console = console;
         Environment = environment;
@@ -37,6 +41,7 @@ public sealed class CliServices
         Tokens = tokens;
         Http = http;
         Browser = browser;
+        HttpWithoutRedirects = httpWithoutRedirects ?? http;
     }
 
     public ICliConsole Console { get; }
@@ -51,6 +56,12 @@ public sealed class CliServices
 
     /// <summary>Gets the one HTTP client of the process. It honours HTTPS_PROXY and the other standard proxy variables.</summary>
     public HttpClient Http { get; }
+
+    /// <summary>
+    /// Gets an HTTP client that hands back a redirect instead of following it. Without one in the
+    /// constructor it is <see cref="Http"/>, which suits a handler that never follows a redirect, as a test's does.
+    /// </summary>
+    public HttpClient HttpWithoutRedirects { get; }
 
     public IBrowserOpener Browser { get; }
 
@@ -79,13 +90,6 @@ public sealed class CliServices
     {
         var environment = new ProcessEnvironmentReader();
         ConfigPaths paths = ConfigPaths.Resolve(environment);
-        var handler = new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.All,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-        };
-        var http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(5) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd($"velixo-cli/{CliInfo.Version}");
 
         return new CliServices(
             new SystemConsole(),
@@ -93,8 +97,9 @@ public sealed class CliServices
             TimeProvider.System,
             new ProfileStore(paths),
             new TokenStore(paths),
-            http,
-            new BrowserOpener());
+            CreateHttpClient(followRedirects: true),
+            new BrowserOpener(),
+            CreateHttpClient(followRedirects: false));
     }
 
     /// <summary>Resolves the settings from <paramref name="parse"/> and the environment, and builds the output writer.</summary>
@@ -103,6 +108,7 @@ public sealed class CliServices
     {
         ArgumentNullException.ThrowIfNull(parse);
 
+        _commandPath = Program.CommandPath(parse.CommandResult);
         var sources = new SettingsSources
         {
             Flags = Options.Read(parse),
@@ -161,16 +167,24 @@ public sealed class CliServices
     }
 
     /// <summary>
-    /// The intent for a working tool, from <c>--intent</c> or <c>VELIXO_INTENT</c>. Call it before any
-    /// network call, so a missing intent costs nothing.
+    /// Returns the intent for a working tool: <c>--intent</c> or <c>VELIXO_INTENT</c> when one is given,
+    /// otherwise a default that names the command, such as <c>Run from the Velixo CLI: velixo query run</c>.
+    /// The default names the command path only, because the argument values can be customer data.
     /// </summary>
-    /// <exception cref="CliException">Exit 2 with an example when there is no intent.</exception>
-    public string RequireIntent() =>
-        Settings.Intent ?? throw new CliException(
-            ExitCodes.Usage,
-            ErrorCodes.IntentRequired,
-            "This command calls a tool that records why it was called, and no --intent was given.",
-            ToolResultUnwrapper.IntentExample);
+    public string IntentOrDefault() => Settings.Intent ?? DefaultIntentPrefix + _commandPath;
+
+    private static HttpClient CreateHttpClient(bool followRedirects)
+    {
+        var handler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = followRedirects,
+            AutomaticDecompression = DecompressionMethods.All,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        };
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(5) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd($"velixo-cli/{CliInfo.Version}");
+        return http;
+    }
 
     private static IMcpClient CreateMcpClient(CliServices services) =>
         new StreamableHttpMcpClient(

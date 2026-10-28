@@ -11,8 +11,8 @@ Each command that talks to the server calls one tool of the Velixo MCP server wi
 | `--profile P` | The profile to use. |
 | `--env E` | The environment: `prod` (default), `nx-staging`, `nx-stage-zero`, `nx-dev` or `local`. |
 | `--url URL` | The MCP URL of any other server. |
-| `--connection C` | The ERP connection. Optional on query and screen commands: when you omit it, the server picks the one usable connection, or refuses when several fit. Required on import commands. |
-| `--intent TEXT` | Why you make the call. Required on every command that calls a working tool. The server refuses a call without it. `VELIXO_INTENT` sets it for a whole script. |
+| `--connection C` | The ERP connection. Optional on query and screen commands: when you omit it, the CLI uses `VELIXO_CONNECTION`, `.velixo.json` or the profile's default from `velixo connections use`, and without any of them the server picks the one usable connection, or refuses when several fit. Required on import commands. |
+| `--intent TEXT` | Why you make the call: the user's goal. The server records it so that an administrator can see why each call was made. Optional: without it and without `VELIXO_INTENT`, a command that calls a working tool sends `Run from the Velixo CLI: ` and the command name, such as `velixo query run`, and never the argument values. `VELIXO_INTENT` sets it for a whole script. |
 | `--output json\|table\|csv` | The output format. `json` is the default when stdout is not a terminal, `table` when it is. `csv` applies to query rows and any array result. |
 | `--compact` | Print the JSON document on one line. |
 | `--quiet` | Silence stderr except errors. |
@@ -50,6 +50,8 @@ A relative path in any flag or argument is read against the working directory. E
 
 Open the URL on any device and sign in. Then run `velixo login --complete <code-or-url>`. Until the device-code flow ships, paste the URL that the browser was redirected to.
 
+The CLI signs in as the client `velixo-cli`, which the sign-in page names Velixo CLI, and on a server that does not know that client yet it registers a client of its own once and reuses it; `VELIXO_CLIENT_ID` overrides both.
+
 `velixo logout` ends the gateway session and deletes the stored tokens and state. `--all` does this for every profile.
 
 ## Connections and guidance
@@ -65,6 +67,14 @@ Tool: `list_connections`. Prints one entry per connection. `--status ok` keeps t
 ]
 ```
 
+### `velixo connections use (NAME | --clear)`
+
+No tool. Sets the current profile's default connection in `config.json`, the same value as `velixo config set profiles.<name>.connection`, and needs no sign-in. `--clear` removes it. A command uses it when no `--connection`, `VELIXO_CONNECTION` or `.velixo.json` names a connection. `velixo connections list` marks the connection a command would use with `"default": true`, or with `(default)` after its name in a table. Prints:
+
+```json
+{ "profile": "prod", "connection": "gab-dev" }
+```
+
 ### `velixo guide [get_started] [TOOL...] [--cli]`
 
 Tool: `tool_guidance`. Prints the Markdown sections of the server's tool guidance, one after the other, as text. `velixo guide` with no argument prints `get_started`. A command name works as well as a tool name: `velixo guide screen run` prints the `execute_commands` section. With `--output json` the output is `{ "sections": [{ "name", "markdown" }] }`. The CLI holds no copy of the guidance.
@@ -75,7 +85,7 @@ Tool: `tool_guidance`. Prints the Markdown sections of the server's tool guidanc
 
 ### `velixo query build "REQUEST" [--base-query FILE|-]...`
 
-Tool: `prepare_query`. Needs `--intent`. The request is a natural-language data question. Write every user value as a `{{Placeholder}}`. `--base-query` passes a query you hold, to refine it; repeat it once per query of a multi-query plan, and the CLI sends them as one `baseQuery`, separated by a blank line. The CLI waits for the build (usually 10 to 60 seconds, progress on stderr) and prints the plan:
+Tool: `prepare_query`. The request is a natural-language data question. Write every user value as a `{{Placeholder}}`. `--base-query` passes a query you hold, to refine it; repeat it once per query of a multi-query plan, and the CLI sends them as one `baseQuery`, separated by a blank line. The CLI waits for the build (usually 10 to 60 seconds, progress on stderr) and prints the plan:
 
 ```json
 {
@@ -100,7 +110,7 @@ Save a plan with a redirect: `velixo query build "..." > ar-balance.plan.json`.
 
 ### `velixo query run (--plan FILE | --query FILE|- | --inquiry NAME) [flags]`
 
-Tool: `execute_query`. Needs `--intent` and exactly one of `--plan`, `--query` and `--inquiry`.
+Tool: `execute_query`. Needs exactly one of `--plan`, `--query` and `--inquiry`.
 
 | Flag | Meaning |
 |---|---|
@@ -156,7 +166,7 @@ An HTTP 400 from the ERP, such as a conversion error in the built query, exits 6
 
 ### `velixo query workbook (--query FILE|- | --plan FILE [--item N]) [--param ...] [--params FILE] [--download PATH]`
 
-Tool: `create_workbook_from_query`. Needs `--intent`. Sends the query text as `query` and the parameters as a JSON object in a string, as the tool takes them; the CLI warns about the parameters as `query run` does. `--item` chooses the plan item, from 1; a plan with one item needs none. Prints the tool's result, a link to a Velixo workbook that holds the VQL query as a live formula:
+Tool: `create_workbook_from_query`. Sends the query text as `query` and the parameters as a JSON object in a string, as the tool takes them; the CLI warns about the parameters as `query run` does. `--item` chooses the plan item, from 1; a plan with one item needs none. Prints the tool's result, a link to a Velixo workbook that holds the VQL query as a live formula:
 
 ```json
 {
@@ -308,7 +318,7 @@ velixo screen run --batch order.batch.json --continue --rows lines-3.json --fini
 
 ### `velixo task status TASKID [--wait]`
 
-Tool: `get_status`. Needs no `--intent`. Without `--wait`, the command calls the tool once, which holds up to about 40 seconds, and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`; `--timeout` still applies and exits 124. The final output has the same shape as the command that started the task: a plan's items carry `query`, and a query result prints as a table or CSV in those formats. A `failed` or `expired` task exits 6 with the server's text in `error.message`. Two failed tasks exit otherwise, in every command: a failed build whose text starts with `ERROR:` is a builder refusal and exits 3, and a text that starts with a server code (`ATTACHMENT_`, `SCREEN_`, `IMPORT_`, `REPORT_`, `BC_`) exits 5 with that code. A task that was started in another organization, or that the server evicted, comes back `expired`.
+Tool: `get_status`. Sends no intent. Without `--wait`, the command calls the tool once, which holds up to about 40 seconds, and prints the envelope. With `--wait`, it holds again until the task is `done`, `failed` or `expired` and prints progress on stderr, for example `Release on SO301000, 2m14s, no change for 48s`; `--timeout` still applies and exits 124. The final output has the same shape as the command that started the task: a plan's items carry `query`, and a query result prints as a table or CSV in those formats. A `failed` or `expired` task exits 6 with the server's text in `error.message`. Two failed tasks exit otherwise, in every command: a failed build whose text starts with `ERROR:` is a builder refusal and exits 3, and a text that starts with a server code (`ATTACHMENT_`, `SCREEN_`, `IMPORT_`, `REPORT_`, `BC_`) exits 5 with that code. A task that was started in another organization, or that the server evicted, comes back `expired`.
 
 Every command that starts a task accepts `--no-wait`.
 
@@ -316,7 +326,7 @@ Every command that starts a task accepts `--no-wait`.
 
 ### `velixo files upload PATH... [--comment TEXT]`
 
-Tool: `get_upload_url` (named mode). For each file, the command computes the size and the SHA-256, asks for an upload link with them, and streams the bytes to that link with an HTTP PUT. It needs no `--intent`. It prints one entry per file:
+Tool: `get_upload_url` (named mode). For each file, the command computes the size and the SHA-256, asks for an upload link with them, and streams the bytes to that link with an HTTP PUT. It sends no intent. It prints one entry per file:
 
 ```json
 [
@@ -352,13 +362,13 @@ Prints `[{ "fileName", "path", "bytes", "contentType" }]`. A link expires in abo
 
 ### `velixo import scenarios --connection C [--screen SCREENID] [--filter PATTERN]`
 
-Tool: `list_import_scenarios`. `--connection` is required here: without it the command exits 2. It needs no `--intent`. Prints `[{ name, screenId, apiEnabled, columns }]`. `columns` is absent when `apiEnabled` is false. Show the columns to the user before they build a file.
+Tool: `list_import_scenarios`. `--connection` is required here: without it the command exits 2. It sends no intent. Prints `[{ name, screenId, apiEnabled, columns }]`. `columns` is absent when `apiEnabled` is false. Show the columns to the user before they build a file.
 
 On a terminal, the default output is a table with the columns name, screen, apiEnabled and columns, the last one joined by commas.
 
 ### `velixo import run --connection C --scenario NAME --file PATH [flags]`
 
-Tool: `execute_import_scenario`. Requires `--connection` and an `--intent`.
+Tool: `execute_import_scenario`. Requires `--connection`.
 
 | Flag | Meaning |
 |---|---|
@@ -411,7 +421,7 @@ Row numbers are the lines of your file, the header being line 1. A report with f
 
 ### `velixo notify --subject TEXT --body TEXT [flags]`
 
-Tool: `send_notification`. Requires an `--intent`.
+Tool: `send_notification`.
 
 | Flag | Meaning |
 |---|---|
@@ -429,7 +439,7 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 | Command | Meaning |
 |---|---|
 | `velixo tools list [--names]` | Calls `tools/list`. Prints the tools with their input schemas, or only the names. |
-| `velixo call TOOL [--args JSON \| --args @FILE \| --stdin]` | Calls any tool with the arguments as given. Prints the result with the same unwrapping as the commands. A tool error exits 5 with the text in `error.message`. |
+| `velixo call TOOL [--args JSON \| --args @FILE \| --stdin]` | Calls any tool with the arguments as given. A working tool whose arguments carry no `intent` gets `--intent`, or the default intent `Run from the Velixo CLI: velixo call`. Prints the result with the same unwrapping as the commands. A tool error exits 5 with the text in `error.message`. |
 | `velixo help [COMMAND...] [--all] [--output json]` | Prints the help of one command, or with `--all` the whole command tree with flags and one-line descriptions. |
 
 ## Agent setup
@@ -452,7 +462,6 @@ Planned: it will install the `velixo-cli` skill for your agent. In 0.1.0 the com
 | Code | Exit | Meaning |
 |---|---|---|
 | `USAGE` | 2 | A bad flag or argument, or an input file that is missing or not valid. |
-| `INTENT_REQUIRED` | 2 | A command that calls a working tool has no `--intent` and no `VELIXO_INTENT`. |
 | `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal to ask on. Nothing ran. |
 | `CONFIRMATION_DECLINED` | 2 | The person answered no at the terminal prompt. Nothing ran. |
 | `DUPLICATE_RUN` | 2 | The same screen write ran within the last 10 minutes. `--force` runs it again. |
@@ -465,7 +474,7 @@ Planned: it will install the `velixo-cli` skill for your agent. In 0.1.0 the com
 | `ACCESS_DENIED` | 4 | The Velixo gate refused the caller: no `mcpServerEnabled`, no credits or no account. |
 | `SIGN_IN_FAILED` | 4 | The sign-in did not complete. Exit 1 when the sign-in server itself failed. |
 | `CREDENTIALS_INVALID` | 4 | `credentials.json` is not valid. Sign in again. |
-| `TOOL_ERROR` | 5 | The tool returned an error without a code. |
+| `TOOL_ERROR` | 5 | The tool returned an error without a code. When the server refuses because several connections fit, `nextStep` names `velixo connections use NAME`. |
 | `ATTACHMENT_UPLOAD_FAILED` | 5 | The upload endpoint refused a file's bytes with a 4xx. |
 | `ATTACHMENT_TOKEN_INVALID` | 5 | A download link or upload token expired, was spent or is not the caller's. |
 | `ATTACHMENT_TOKEN_ALREADY_USED` | 5 | The upload was already spent, so nothing was sent again. Read the ERP first. |

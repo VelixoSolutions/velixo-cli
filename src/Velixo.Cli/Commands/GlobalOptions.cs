@@ -39,7 +39,8 @@ public sealed class GlobalOptions
 
     public Option<string?> Intent { get; } = new("--intent")
     {
-        Description = "Why this call is made: the user's goal in one or two sentences. Required by every command that does work in the ERP.",
+        Description = "Why this call is made: the user's goal in one or two sentences, which an administrator reads. "
+            + "Optional: a command that does work in the ERP sends 'Run from the Velixo CLI: <command>' without it.",
         HelpName = "text",
         Recursive = true,
     };

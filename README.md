@@ -125,7 +125,7 @@ velixo login --complete "<code-or-redirected-url>"
 Choose another environment with `--env`:
 
 ```sh
-velixo login --env nx-dev
+velixo login --env nx-staging
 ```
 
 For jobs that cannot sign in, set `VELIXO_TOKEN`. It holds a refresh token, which `velixo auth token` prints for the current profile. Two limits apply:
@@ -143,7 +143,7 @@ velixo [command] [flags]
 velixo [command] --help
 ```
 
-Every command that calls a Velixo Intelligence tool needs `--intent`, a short sentence that says why you make the call. The server records it. Set `VELIXO_INTENT` to give one intent to a whole script.
+Every command that calls a Velixo Intelligence tool sends an intent, a short sentence that says why you make the call. The server records it, so that an administrator can see why each call was made. Give it with `--intent`, or set `VELIXO_INTENT` to give one intent to a whole script. Without either, the CLI sends the command name, for example `Run from the Velixo CLI: velixo query run`. It never sends the values of your arguments there, because they can be customer data.
 
 ### Sign in and check the setup
 
@@ -166,10 +166,27 @@ The output is a JSON array on a pipe and a table on a terminal:
 
 ```json
 [
-  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "Acumatica 2025 R1, tenant Company" },
+  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "Acumatica 2025 R1, tenant Company", "default": true },
   { "name": "skyline", "type": "sage_intacct", "status": "ok", "description": "Skyline Industries" }
 ]
 ```
+
+### Choosing a connection
+
+A command that works in an ERP takes the connection from the first of these that names one:
+
+1. `--connection NAME`.
+2. `VELIXO_CONNECTION`.
+3. `connection` in `.velixo.json`.
+4. The profile's default connection, which `velixo connections use NAME` sets.
+5. The server's own choice. The server chooses only when one connection fits. When several fit, the command fails, and the error names `velixo connections use NAME`.
+
+```sh
+velixo connections use gab-dev
+velixo connections use --clear
+```
+
+`velixo connections use` writes the current profile's `connection` in `config.json`, as `velixo config set profiles.<name>.connection` does. It needs no sign-in. `velixo connections list` marks the connection that this order chooses: `"default": true` in JSON, and `(default)` after its name in a table.
 
 ### Build a query, run it with a parameter and pipe the rows into jq
 
@@ -291,7 +308,7 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 | Group | Commands |
 |---|---|
 | Sign in and status | `login`, `logout`, `whoami`, `status`, `auth token` |
-| Connections | `connections list` |
+| Connections | `connections list`, `connections use` |
 | Guidance | `guide`, `guide --cli` |
 | Queries | `query build`, `query run`, `query workbook` |
 | Screen commands (Acumatica) | `screen build`, `screen run` |
@@ -315,7 +332,7 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 | `--env` | The environment: `prod` (default), `nx-staging`, `nx-stage-zero`, `nx-dev` or `local`. |
 | `--url` | The MCP URL of any other server. |
 | `--connection` | The ERP connection. Optional on query and screen commands, required on import commands. |
-| `--intent` | Why you make the call. Required on commands that call a working tool. |
+| `--intent` | Why you make the call. The server records it for an administrator. Optional: without it, the CLI sends the command name. |
 | `--output` | `json` (default when stdout is not a terminal), `table` (default on a terminal) or `csv`. |
 | `--quiet` | Silence stderr except errors. |
 | `--no-color` | Turn colors off. |
@@ -350,7 +367,7 @@ On a non-zero exit in JSON mode, stdout holds one error document:
 |---|---|---|
 | 0 | Success. A truncated query result or a warning is still a success: read `result.data.truncated` and `warnings`. | Continue. |
 | 1 | Unexpected failure: network, HTTP 5xx, a bug. | Retry once, then report. |
-| 2 | Usage error: a bad flag, a missing `--intent`, a confirmation required in non-interactive mode, or a duplicate write without `--force`. | Fix the command line, or ask the user. |
+| 2 | Usage error: a bad flag, a confirmation required in non-interactive mode, or a duplicate write without `--force`. | Fix the command line, or ask the user. |
 | 3 | The builder refused: the plan is an `ERROR:` text that asks for a decision or a value. | Put the question to the user in plain words and build again. |
 | 4 | Not signed in, the session ended, or the Velixo gate denied access (no `mcpServerEnabled`, no credits, no account). | Run `velixo login`, or relay the reason. |
 | 5 | The server refused the call, with a code: `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*` or `BC_*`. | Read `error.code`. |
@@ -362,7 +379,6 @@ The codes you meet most often:
 
 | `error.code` | Exit | Meaning |
 |---|---|---|
-| `INTENT_REQUIRED` | 2 | No `--intent` on a command that calls a working tool. |
 | `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal. Nothing ran. |
 | `CONFIRMATION_DECLINED` | 2 | The answer at the terminal prompt was no. Nothing ran. |
 | `DUPLICATE_RUN` | 2 | The same screen write ran in the last 10 minutes. |
@@ -410,7 +426,7 @@ If you are an AI agent, read this section and follow it.
 1. Run `velixo guide --cli` for the command mapping, the exit codes and the rules for writes.
 2. Run `velixo guide` for the server's tool rules. They live on the server, so they are always current. `velixo guide <tool-or-command>` prints one section, for example `velixo guide screen run`.
 3. Run `velixo help --all --output json` to read the whole command tree with its flags in one call.
-4. Pass `--intent` on every command that calls a working tool.
+4. Pass `--intent` with the user's goal on every command that calls a working tool. It is optional and defaults to the command name, but an administrator reads it to see why each call was made.
 5. Every write needs `--yes`. Describe the change to the user in business words and wait for their yes before you add `--yes`. The CLI never assumes consent.
 6. Read the exit code. On a non-zero code, read `error.code` and `error.nextStep` in the JSON on stdout.
 
@@ -418,7 +434,7 @@ When the CLI detects an agent (`CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `C
 
 ## Telemetry
 
-The CLI sends no telemetry of its own. The Velixo server records every call with the caller, the name of the agent behind the call and your `--intent` text. The CLI detects the agent from the environment variables listed above and sends its name with each call.
+The CLI sends no telemetry of its own. The Velixo server records every call with the caller, the name of the agent behind the call and your `--intent` text, or the command name when you gave none. The CLI detects the agent from the environment variables listed above and sends its name with each call.
 
 
 ## Documentation

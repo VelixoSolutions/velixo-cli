@@ -51,7 +51,7 @@ public static class QueryCommands
 
         command.SetAction(async (parse, cancellationToken) =>
         {
-            var intent = services.RequireIntent();
+            var intent = services.IntentOrDefault();
             var inputs = new QueryInputs(services.Console, services.Environment.CurrentDirectory);
 
             var arguments = new JsonObject
@@ -113,7 +113,7 @@ public static class QueryCommands
 
         command.SetAction(async (parse, cancellationToken) =>
         {
-            var intent = services.RequireIntent();
+            var intent = services.IntentOrDefault();
             var planPath = parse.GetValue(plan);
             var queryPath = parse.GetValue(query);
             var inquiryName = parse.GetValue(inquiry);
@@ -181,7 +181,7 @@ public static class QueryCommands
 
         command.SetAction(async (parse, cancellationToken) =>
         {
-            var intent = services.RequireIntent();
+            var intent = services.IntentOrDefault();
             var queryPath = parse.GetValue(query);
             var planPath = parse.GetValue(plan);
             RequireOneSource(("--query", queryPath), ("--plan", planPath));

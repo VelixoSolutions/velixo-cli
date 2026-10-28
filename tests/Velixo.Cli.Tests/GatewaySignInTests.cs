@@ -11,13 +11,19 @@ namespace Velixo.Cli.Tests;
 
 public sealed class GatewaySignInTests
 {
+    private const string Issuer = "https://nx-dev.velixo.com";
+
+    private const string ProtectedResource =
+        """{"resource":"https://nx-dev.velixo.com/mcp","authorization_servers":["https://nx-dev.velixo.com"]}""";
+
     [Fact]
     public async Task A_deferred_sign_in_completes_from_the_pasted_url()
     {
         using var test = new TestServices();
         test.Http
-            .ThenJson("""{"resource":"https://nx-dev.velixo.com/mcp","authorization_servers":["https://nx-dev.velixo.com"]}""")
+            .ThenJson(ProtectedResource)
             .ThenJson(AuthorizationServer)
+            .ThenJson("""{"error":"invalid_client"}""", HttpStatusCode.BadRequest)
             .ThenJson("""{"client_id":"dcr_test"}""", HttpStatusCode.Created);
         await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
 
@@ -35,7 +41,11 @@ public sealed class GatewaySignInTests
         Assert.Equal("https://nx-dev.velixo.com/mcp", query["resource"]);
         Assert.StartsWith("http://127.0.0.1:", query["redirect_uri"], StringComparison.Ordinal);
 
-        JsonNode registration = JsonNode.Parse(test.Http.Requests[2].Body!)!;
+        Assert.Equal(GatewaySignIn.FirstPartyClientId, HttpUtility.ParseQueryString(test.Http.Requests[2].Uri.Query)["client_id"]);
+        Assert.Equal(query["state"], HttpUtility.ParseQueryString(test.Http.Requests[2].Uri.Query)["state"]);
+        Assert.Equal("dcr_test", test.Services.Tokens.GetClientId(Issuer));
+
+        JsonNode registration = JsonNode.Parse(test.Http.Requests[3].Body!)!;
         Assert.Equal("Velixo CLI", (string?)registration["client_name"]);
         Assert.Equal("http://127.0.0.1/callback", (string?)registration["redirect_uris"]![0]);
         Assert.Equal("none", (string?)registration["token_endpoint_auth_method"]);
@@ -52,7 +62,7 @@ public sealed class GatewaySignInTests
         Assert.Equal("org-42", (string?)signedIn["organization"]!["id"]);
         Assert.Equal("nx-dev", (string?)signedIn["profile"]);
 
-        var exchange = HttpUtility.ParseQueryString(test.Http.Requests[3].Body!);
+        var exchange = HttpUtility.ParseQueryString(test.Http.Requests[4].Body!);
         Assert.Equal("authorization_code", exchange["grant_type"]);
         Assert.Equal("the-code", exchange["code"]);
         Assert.Equal(query["redirect_uri"], exchange["redirect_uri"]);
@@ -65,6 +75,76 @@ public sealed class GatewaySignInTests
         {
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(test.Paths.CredentialsFile));
         }
+    }
+
+    [Fact]
+    public async Task A_server_that_knows_the_first_party_client_gets_it_and_the_browser_opens_its_redirect()
+    {
+        using var test = new TestServices();
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .Then(_ => Redirect("/signin?request=pending-1"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("https://nx-dev.velixo.com/signin?request=pending-1", (string?)JsonNode.Parse(test.Console.StdOut)!["browserUrl"]);
+        Assert.Equal(3, test.Http.Requests.Count);
+        var probe = HttpUtility.ParseQueryString(test.Http.Requests[2].Uri.Query);
+        Assert.Equal("https://nx-dev.velixo.com/oauth/authorize", test.Http.Requests[2].Uri.GetLeftPart(UriPartial.Path));
+        Assert.Equal(GatewaySignIn.FirstPartyClientId, probe["client_id"]);
+
+        PendingLogin pending = test.Services.Profiles.LoadState("nx-dev").PendingLogin!;
+        Assert.Equal(GatewaySignIn.FirstPartyClientId, pending.ClientId);
+        Assert.Equal(pending.State, probe["state"]);
+        Assert.Equal(pending.RedirectUri, probe["redirect_uri"]);
+        Assert.Equal(GatewaySignIn.FirstPartyClientId, test.Services.Tokens.GetClientId(Issuer));
+    }
+
+    [Fact]
+    public async Task A_stored_registered_client_is_reused_without_a_probe()
+    {
+        using var test = new TestServices();
+        test.Services.Tokens.SaveClientId(Issuer, "dcr_stored", DateTimeOffset.UtcNow);
+        test.Http.ThenJson(ProtectedResource).ThenJson(AuthorizationServer);
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(2, test.Http.Requests.Count);
+        Assert.Equal("dcr_stored", BrowserClientId(test));
+    }
+
+    [Fact]
+    public async Task A_stored_first_party_client_is_probed_again_and_falls_back_to_a_registration()
+    {
+        using var test = new TestServices();
+        test.Services.Tokens.SaveClientId(Issuer, GatewaySignIn.FirstPartyClientId, DateTimeOffset.UtcNow);
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson("""{"error":"invalid_client"}""", HttpStatusCode.BadRequest)
+            .ThenJson("""{"client_id":"dcr_new"}""", HttpStatusCode.Created);
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("dcr_new", BrowserClientId(test));
+        Assert.Equal("dcr_new", test.Services.Tokens.GetClientId(Issuer));
+    }
+
+    [Fact]
+    public async Task The_client_id_variable_skips_the_probe()
+    {
+        using var test = new TestServices(new Dictionary<string, string> { ["VELIXO_CLIENT_ID"] = "configured-client" });
+        test.Http.ThenJson(ProtectedResource).ThenJson(AuthorizationServer);
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(2, test.Http.Requests.Count);
+        Assert.Equal("configured-client", BrowserClientId(test));
     }
 
     [Fact]
@@ -103,6 +183,19 @@ public sealed class GatewaySignInTests
          "token_endpoint":"https://nx-dev.velixo.com/oauth/token","registration_endpoint":"https://nx-dev.velixo.com/oauth/register",
          "revocation_endpoint":"https://nx-dev.velixo.com/oauth/revoke"}
         """;
+
+    private static HttpResponseMessage Redirect(string location)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Found);
+        response.Headers.Location = new Uri(location, UriKind.Relative);
+        return response;
+    }
+
+    private static string? BrowserClientId(TestServices test)
+    {
+        var browserUrl = new Uri((string)JsonNode.Parse(test.Console.StdOut)!["browserUrl"]!);
+        return HttpUtility.ParseQueryString(browserUrl.Query)["client_id"];
+    }
 
     internal static string TokenAnswer(string email, string organizationId, string refreshToken = "refresh-1")
     {

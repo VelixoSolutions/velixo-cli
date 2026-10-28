@@ -160,16 +160,6 @@ public sealed class NotifyCommandTests : IDisposable
         Assert.Empty(_mcp.Calls);
     }
 
-    [Fact]
-    public async Task Notify_without_an_intent_is_exit_2_before_any_call()
-    {
-        var exit = await _test.RunAsync("notify", "--subject", "s", "--body", "b");
-
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)JsonNode.Parse(_test.Console.StdOut)!["error"]!["code"]);
-        Assert.Empty(_mcp.Calls);
-    }
-
     private string WriteFile(string name, string content)
     {
         var path = Path.Combine(_test.Directory, name);
