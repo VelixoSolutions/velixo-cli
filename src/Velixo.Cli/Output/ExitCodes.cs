@@ -11,7 +11,7 @@ public static class ExitCodes
     /// <summary>An unexpected failure: the network, an HTTP 5xx, a bug. Retry once, then report.</summary>
     public const int Failure = 1;
 
-    /// <summary>A bad command line, a missing <c>--intent</c>, or a confirmation the CLI could not ask for.</summary>
+    /// <summary>A bad command line, or a confirmation the CLI could not ask for.</summary>
     public const int Usage = 2;
 
     /// <summary>A builder answered with an <c>ERROR:</c> text that needs a decision or a value from the user.</summary>

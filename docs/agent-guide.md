@@ -9,11 +9,11 @@ This guide holds only what is specific to the CLI. The rules for each tool (how 
 1. Run `velixo status`. Exit 0 means you can work. Exit 4 means the user must sign in: run `velixo login --no-browser`, show the user the URL it prints, and run `velixo login --complete <code-or-url>` after they sign in.
 2. Run `velixo guide` to read the get-started guidance. Run `velixo guide <tool-or-command>` before you use a command for the first time, for example `velixo guide query build` or `velixo guide screen run`.
 3. Run `velixo help --all --output json` when you need the flags of every command.
-4. Run `velixo connections list` to learn which ERP connections exist. Use `--connection NAME` when more than one fits.
+4. Run `velixo connections list` to learn which ERP connections exist. Use `--connection NAME` when more than one fits, or `velixo connections use NAME` to make the one the user chose the profile's default.
 
 ## Rules that apply to every command
 
-- Pass `--intent "<why you make this call>"` on every command that calls a working tool. Write the user's goal in a short sentence. You can set `VELIXO_INTENT` once for a script.
+- Pass `--intent "<why you make this call>"` on every command that calls a working tool. Write the user's goal in a short sentence. The intent is optional: without it the CLI sends the command name, such as `Run from the Velixo CLI: velixo query run`. Pass the user's goal anyway, because an administrator reads the intent to see why each call was made. You can set `VELIXO_INTENT` once for a script.
 - stdout holds the result: one JSON document when stdout is not a terminal. stderr holds progress and warnings. Parse stdout only.
 - In JSON mode, a non-zero exit puts `{ "error": { "code", "exitCode", "message", "taskId", "nextStep" } }` on stdout. `message` is the server's text. `nextStep` is the recovery. Read both.
 - Do not show the user a raw `ERROR:` text or an error code. Put the question or the problem to the user in plain words.
@@ -109,7 +109,7 @@ Business Central refuses `--leave-open` and `--continue` (`BC_RECORD_SESSION_UNS
 |---|---|---|
 | 0 | Success. A truncated result or a warning is still a success: read `result.data.truncated` and `warnings`. | Continue. |
 | 1 | Unexpected failure: network, HTTP 5xx, a bug. | Retry once, then report. |
-| 2 | Usage error: a bad flag, a missing `--intent`, a missing `--yes` in non-interactive mode, a duplicate write without `--force`. | Fix the command line, or ask the user. |
+| 2 | Usage error: a bad flag, a missing `--yes` in non-interactive mode, a duplicate write without `--force`. | Fix the command line, or ask the user. |
 | 3 | The builder refused and asks for a decision or a value. | Ask the user in plain words, then build again. |
 | 4 | Not signed in, the session ended, or the Velixo gate denied access (no `mcpServerEnabled`, no credits, no account). | `velixo login`, or relay the reason. |
 | 5 | The server refused the call, with a code: `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*` or `BC_*`. | Read `error.code` and the server guidance. It says whether the ERP was touched. |

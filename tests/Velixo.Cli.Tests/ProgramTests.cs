@@ -56,18 +56,30 @@ public sealed class ProgramTests
     }
 
     [Fact]
-    public async Task A_working_tool_without_intent_is_exit_2_before_any_call()
+    public async Task Call_gives_a_working_tool_the_default_intent_when_none_is_given()
     {
         using var test = new TestServices();
-        var mcp = new FakeMcpClient();
+        FakeMcpClient mcp = new FakeMcpClient()
+            .ThenText("""{"taskId":"t_1","status":"done","result":{"textualResponse":"{\"queries\":[]}"}}""");
         test.Services.McpClientFactory = _ => mcp;
 
-        var exit = await test.RunAsync("call", McpToolNames.ExecuteQuery, "--args", """{"giql":"SELECT 1"}""");
+        var exit = await test.RunAsync("call", McpToolNames.PrepareQuery, "--args", """{"request":"AR balance"}""");
 
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)JsonNode.Parse(test.Console.StdOut)!["error"]!["code"]);
-        Assert.Contains("--intent", (string?)JsonNode.Parse(test.Console.StdOut)!["error"]!["nextStep"], StringComparison.Ordinal);
-        Assert.Empty(mcp.Calls);
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("Run from the Velixo CLI: velixo call", (string?)mcp.Calls[0].Arguments["intent"]);
+    }
+
+    [Fact]
+    public async Task Call_gives_a_tool_that_takes_no_intent_none()
+    {
+        using var test = new TestServices();
+        FakeMcpClient mcp = new FakeMcpClient().ThenText("""[{"name":"gab-dev"}]""");
+        test.Services.McpClientFactory = _ => mcp;
+
+        var exit = await test.RunAsync("call", McpToolNames.ListConnections);
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.False(mcp.Calls[0].Arguments.ContainsKey("intent"));
     }
 
     [Fact]

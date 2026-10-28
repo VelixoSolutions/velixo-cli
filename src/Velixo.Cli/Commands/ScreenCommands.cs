@@ -155,7 +155,7 @@ public static class ScreenCommands
     {
         var arguments = new JsonObject
         {
-            [McpToolNames.IntentArgument] = services.RequireIntent(),
+            [McpToolNames.IntentArgument] = services.IntentOrDefault(),
             ["request"] = request,
         };
 

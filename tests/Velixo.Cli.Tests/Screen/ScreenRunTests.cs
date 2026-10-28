@@ -207,19 +207,6 @@ public sealed class ScreenRunTests
     }
 
     [Fact]
-    public async Task Run_without_intent_is_exit_2_before_any_call()
-    {
-        using var test = new ScreenHarness();
-        var batch = test.Write("read.batch.json", ScreenHarness.ReadBatch);
-
-        var exit = await test.RunAsync("screen", "run", "--batch", batch);
-
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)test.Error["code"]);
-        Assert.Empty(test.Mcp.Calls);
-    }
-
-    [Fact]
     public async Task An_action_the_ERP_refused_is_exit_6_with_its_sentence()
     {
         using var test = new ScreenHarness();

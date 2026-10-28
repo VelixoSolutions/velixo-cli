@@ -60,16 +60,4 @@ public sealed class ScreenBuildTests
         Assert.Equal("t_3", (string?)test.Error["taskId"]);
         Assert.StartsWith("ERROR: Which screen", (string?)test.Error["message"], StringComparison.Ordinal);
     }
-
-    [Fact]
-    public async Task Build_without_intent_is_exit_2_before_any_call()
-    {
-        using var test = new ScreenHarness();
-
-        var exit = await test.RunAsync("screen", "build", "Create an order for {{CustomerID}}");
-
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)test.Error["code"]);
-        Assert.Empty(test.Mcp.Calls);
-    }
 }

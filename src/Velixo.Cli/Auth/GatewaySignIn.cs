@@ -9,12 +9,15 @@ namespace Velixo.Cli.Auth;
 
 /// <summary>
 /// Signs a profile in through the Velixo OAuth gateway: authorization code with PKCE, a loopback
-/// redirect, and a dynamically registered public client. Without a browser the sign-in is split in
-/// two: the first call prints the URL and keeps the PKCE verifier in the profile state, and
+/// redirect, and the first-party client <see cref="FirstPartyClientId"/>, or a dynamically registered
+/// public client on a server that does not know it. Without a browser the sign-in is split in two: the
+/// first call prints the URL and keeps the PKCE verifier in the profile state, and
 /// <see cref="CompleteAsync"/> redeems the code from the URL the browser landed on.
 /// </summary>
+/// <param name="httpWithoutRedirects">A client that hands back a redirect instead of following it.</param>
 public sealed class GatewaySignIn(
     HttpClient http,
+    HttpClient httpWithoutRedirects,
     ITokenStore tokens,
     IProfileStore profiles,
     IBrowserOpener browser,
@@ -23,6 +26,9 @@ public sealed class GatewaySignIn(
 {
     /// <summary>How long the gateway holds a started authorization at its sign-in page.</summary>
     public static readonly TimeSpan PendingLifetime = TimeSpan.FromMinutes(10);
+
+    /// <summary>The client id the gateway registers for the CLI itself, with the loopback redirect on any port.</summary>
+    public const string FirstPartyClientId = "velixo-cli";
 
     private readonly OAuthDiscovery _discovery = new(http);
     private readonly OAuthTokenClient _tokenClient = new(http);
@@ -33,12 +39,12 @@ public sealed class GatewaySignIn(
         ArgumentNullException.ThrowIfNull(settings);
 
         OAuthServerEndpoints endpoints = await _discovery.DiscoverAsync(settings.McpUrl, cancellationToken).ConfigureAwait(false);
-        var clientId = await EnsureClientAsync(endpoints, cancellationToken).ConfigureAwait(false);
         var verifier = Pkce.CreateVerifier();
         var state = Pkce.CreateState();
 
         using LoopbackListener listener = LoopbackListener.Start();
-        Uri authorizeUrl = BuildAuthorizeUrl(endpoints, clientId, listener.RedirectUri, verifier, state);
+        (var clientId, Uri authorizeUrl) = await ChooseClientAsync(settings, endpoints, listener.RedirectUri, verifier, state, cancellationToken)
+            .ConfigureAwait(false);
 
         output.Progress($"Opening the browser to sign in to {settings.Target}.");
         output.Progress($"If it does not open, visit: {authorizeUrl}");
@@ -77,10 +83,11 @@ public sealed class GatewaySignIn(
         ArgumentNullException.ThrowIfNull(settings);
 
         OAuthServerEndpoints endpoints = await _discovery.DiscoverAsync(settings.McpUrl, cancellationToken).ConfigureAwait(false);
-        var clientId = await EnsureClientAsync(endpoints, cancellationToken).ConfigureAwait(false);
         var verifier = Pkce.CreateVerifier();
         var state = Pkce.CreateState();
         var redirectUri = new Uri($"http://127.0.0.1:{LoopbackListener.FreeLoopbackPort()}/callback");
+        (var clientId, Uri browserUrl) = await ChooseClientAsync(settings, endpoints, redirectUri, verifier, state, cancellationToken)
+            .ConfigureAwait(false);
         DateTimeOffset expiresAt = clock.GetUtcNow().Add(PendingLifetime);
 
         ProfileState profileState = profiles.LoadState(settings.ProfileName);
@@ -102,7 +109,7 @@ public sealed class GatewaySignIn(
         return new JsonObject
         {
             ["status"] = "authorization_required",
-            ["browserUrl"] = BuildAuthorizeUrl(endpoints, clientId, redirectUri, verifier, state).ToString(),
+            ["browserUrl"] = browserUrl.ToString(),
             ["expiresAt"] = expiresAt,
             ["profile"] = settings.ProfileName,
             ["environment"] = settings.Target,
@@ -227,13 +234,59 @@ public sealed class GatewaySignIn(
             $"velixo login --profile {profile} --no-browser");
     }
 
-    private async Task<string> EnsureClientAsync(OAuthServerEndpoints endpoints, CancellationToken cancellationToken)
+    /// <summary>
+    /// Chooses the client id for this sign-in and the URL the browser opens. <c>VELIXO_CLIENT_ID</c> wins,
+    /// and a registered client stored for the issuer is reused. Otherwise the authorize URL is sent once
+    /// with <see cref="FirstPartyClientId"/>. A redirect means the server knows the client, and the
+    /// browser opens the redirect's target, so the user completes the authorization this request
+    /// started. Any other answer falls back to a dynamic registration.
+    /// </summary>
+    private async Task<(string ClientId, Uri BrowserUrl)> ChooseClientAsync(
+        ResolvedSettings settings,
+        OAuthServerEndpoints endpoints,
+        Uri redirectUri,
+        string verifier,
+        string state,
+        CancellationToken cancellationToken)
     {
-        if (tokens.GetClientId(endpoints.Issuer) is { Length: > 0 } known)
+        Uri AuthorizeUrl(string clientId) => BuildAuthorizeUrl(endpoints, clientId, redirectUri, verifier, state);
+
+        if (settings.EnvironmentClientId is { } configured)
         {
-            return known;
+            return (configured, AuthorizeUrl(configured));
         }
 
+        if (tokens.GetClientId(endpoints.Issuer) is { Length: > 0 } stored && stored != FirstPartyClientId)
+        {
+            return (stored, AuthorizeUrl(stored));
+        }
+
+        if (await FindSignInPageAsync(AuthorizeUrl(FirstPartyClientId), cancellationToken).ConfigureAwait(false) is { } signInPage)
+        {
+            tokens.SaveClientId(endpoints.Issuer, FirstPartyClientId, clock.GetUtcNow());
+            return (FirstPartyClientId, signInPage);
+        }
+
+        var registered = await RegisterAsync(endpoints, cancellationToken).ConfigureAwait(false);
+        return (registered, AuthorizeUrl(registered));
+    }
+
+    /// <summary>Returns where the server redirects <paramref name="authorizeUrl"/> to, or null when it answers without a redirect.</summary>
+    private async Task<Uri?> FindSignInPageAsync(Uri authorizeUrl, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, authorizeUrl);
+        using HttpResponseMessage response = await HttpCalls
+            .SendAsync(httpWithoutRedirects, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
+            .ConfigureAwait(false);
+
+        var status = (int)response.StatusCode;
+        return status is >= 300 and < 400 && response.Headers.Location is { } location
+            ? new Uri(authorizeUrl, location)
+            : null;
+    }
+
+    private async Task<string> RegisterAsync(OAuthServerEndpoints endpoints, CancellationToken cancellationToken)
+    {
         if (string.IsNullOrEmpty(endpoints.RegistrationEndpoint))
         {
             throw new CliException(

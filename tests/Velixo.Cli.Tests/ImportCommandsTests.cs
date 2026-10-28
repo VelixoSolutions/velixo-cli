@@ -278,18 +278,6 @@ public sealed class ImportCommandsTests : IDisposable
     }
 
     [Fact]
-    public async Task Run_without_an_intent_is_exit_2_before_any_call()
-    {
-        var file = WriteCsv();
-
-        var exit = await _test.RunAsync("import", "run", "--connection", "gab-dev", "--scenario", "Import Customers", "--file", file, "--yes");
-
-        Assert.Equal(ExitCodes.Usage, exit);
-        Assert.Equal(ErrorCodes.IntentRequired, (string?)JsonNode.Parse(_test.Console.StdOut)!["error"]!["code"]);
-        Assert.Empty(_mcp.Calls);
-    }
-
-    [Fact]
     public async Task Run_without_a_connection_is_exit_2_before_any_call()
     {
         var file = WriteCsv();

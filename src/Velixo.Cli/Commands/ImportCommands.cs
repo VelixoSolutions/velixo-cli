@@ -83,7 +83,7 @@ public static class ImportCommands
         command.SetAction(async (parse, cancellationToken) =>
         {
             var connection = RequireConnection(services);
-            var intent = services.RequireIntent();
+            var intent = services.IntentOrDefault();
             var scenarioName = parse.GetValue(scenario)!;
             var filePath = Path.GetFullPath(parse.GetValue(file)!, services.Environment.CurrentDirectory);
 

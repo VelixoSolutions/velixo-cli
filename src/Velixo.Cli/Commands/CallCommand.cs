@@ -26,7 +26,7 @@ public static class CallCommand
 
         var command = new Command(
             "call",
-            "Call any tool with raw arguments. --intent fills the intent a working tool requires. "
+            "Call any tool with raw arguments. A working tool whose arguments carry no intent gets --intent, or the command name as a default. "
             + "Example: velixo call list_import_scenarios --args '{\"connectionName\":\"gab-dev\"}'")
         {
             tool,
@@ -41,7 +41,7 @@ public static class CallCommand
 
             if (McpToolNames.RequiringIntent.Contains(name) && !HasIntent(arguments))
             {
-                arguments[McpToolNames.IntentArgument] = services.RequireIntent();
+                arguments[McpToolNames.IntentArgument] = services.IntentOrDefault();
             }
 
             UnwrappedToolResult result = await services.Tasks

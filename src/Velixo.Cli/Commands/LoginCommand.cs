@@ -22,7 +22,9 @@ public static class LoginCommand
             HelpName = "url-or-code",
         };
 
-        var command = new Command("login", "Sign in to Velixo. Example: velixo login --env nx-dev")
+        var command = new Command(
+            "login",
+            "Sign in to Velixo, on prod unless --env names another environment. Examples: velixo login, velixo login --env nx-staging")
         {
             noBrowser,
             complete,
@@ -30,7 +32,7 @@ public static class LoginCommand
 
         command.SetAction(async (parse, cancellationToken) =>
         {
-            var signIn = new GatewaySignIn(services.Http, services.Tokens, services.Profiles, services.Browser, services.Clock, services.Output);
+            var signIn = new GatewaySignIn(services.Http, services.HttpWithoutRedirects, services.Tokens, services.Profiles, services.Browser, services.Clock, services.Output);
 
             JsonObject document;
             if (parse.GetValue(complete) is { } pasted)

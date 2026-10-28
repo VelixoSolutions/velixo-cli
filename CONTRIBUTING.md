@@ -33,7 +33,7 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 - A relative path from the command line resolves against `services.Environment.CurrentDirectory`, never
   the process's current directory, so tests can run commands in a temporary folder.
 - A command reads its settings, output writer and MCP client from `CliServices`. It calls
-  `services.RequireIntent()` before calling a working tool, runs a task tool through
+  `services.IntentOrDefault()` for the intent of a working tool, runs a task tool through
   `services.Tasks.RunAsync(..., services.FollowOptions(), ...)` so that every call of the command shares
   one `--timeout`, asks for a write's go-ahead with `Confirmation.Require`, and ends a failure with a
   `CliException`. It never writes the error envelope itself.

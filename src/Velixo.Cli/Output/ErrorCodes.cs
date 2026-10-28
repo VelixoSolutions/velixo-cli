@@ -8,7 +8,6 @@ namespace Velixo.Cli.Output;
 public static class ErrorCodes
 {
     public const string Usage = "USAGE";
-    public const string IntentRequired = "INTENT_REQUIRED";
     public const string ConfirmationRequired = "CONFIRMATION_REQUIRED";
     public const string ConfirmationDeclined = "CONFIRMATION_DECLINED";
     public const string DuplicateRun = "DUPLICATE_RUN";
