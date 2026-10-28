@@ -178,7 +178,7 @@ Tool: `create_workbook_from_query`. Needs `--intent`. Sends the query text as `q
 
 ### `velixo screen build "REQUEST" [--target SCREEN]`
 
-Tool: `prepare_commands`. Describe the operation in the user's words with `{{Placeholders}}` for values. The builder finds the screen. The output is the batch, a reusable template:
+Tool: `prepare_commands`. Describe the operation in the user's words with `{{Placeholders}}` for values. The builder finds the screen. Pass `--target` only with a screen id that an earlier build returned. The output is the batch, a reusable template:
 
 ```json
 {
@@ -187,18 +187,18 @@ Tool: `prepare_commands`. Describe the operation in the user's words with `{{Pla
   "result": {
     "data": {
       "target": "SO301000",
-      "commands": [ { "op": "Clear" }, { "op": "Set", "view": "Document", "field": "CustomerID", "value": "{{CustomerID}}" } ],
+      "commands": [ { "type": "Clear" }, { "type": "Set", "name": "Document.CustomerID", "value": "{{CustomerID}}" } ],
       "lineCommands": [ "..." ],
-      "finishCommands": [ { "op": "Save" }, { "op": "Get", "view": "Document", "field": "OrderNbr" } ],
+      "finishCommands": [ { "type": "Action", "name": "Save" }, { "type": "Get", "name": "Document.OrderNbr" } ],
       "variables": [ { "name": "CustomerID", "type": "string", "description": "The customer the order is for" } ],
-      "keyNumbering": "Acumatica assigns OrderNbr on save",
-      "note": "..."
+      "keyNumbering": { "field": "OrderNbr", "autonumbered": true },
+      "commandSets": "..."
     }
   }
 }
 ```
 
-Save it: `velixo screen build "..." > create-order.batch.json`. A refusal that names candidate screens exits 3.
+Save it: `velixo screen build "..." > create-order.batch.json`. When the builder stops with an `ERROR:` question, such as a choice between candidate screens, the command exits 3 with `BUILDER_REFUSAL`, whether the build finished or failed with the question.
 
 ### `velixo screen run --batch FILE [flags]`
 
@@ -206,24 +206,53 @@ Tool: `execute_commands`.
 
 | Flag | Meaning |
 |---|---|
-| `--batch FILE` | The batch file from `screen build`. |
-| `--var NAME=VALUE` | Bind a placeholder by the name inside the braces. Repeat as needed. An empty value (`--var Note=`) writes a blank. |
+| `--batch FILE` | The batch file from `screen build`: the whole output, or only its `result.data`. |
+| `--var NAME=VALUE` | Bind a placeholder by the name inside the braces. The value is everything after the first `=`. Repeat as needed. An empty value (`--var Note=`) writes a blank. |
 | `--var-null NAME` | Pass an explicit null. This drops every command that writes the placeholder, so the ERP sets the field by default. |
-| `--vars FILE` | Bind variables from a JSON file. |
-| `--rows FILE` | A JSON array of detail rows, `[{ "values": {...}, "rows": [...] }]`, bound to `lineCommands` and `splitCommands`. |
-| `--attach PATH[:COMMENT]` | Stage a file and attach it to the record. Repeat as needed. |
+| `--vars FILE` | Bind variables from a JSON object. `--var` and `--var-null` win over the file. |
+| `--rows FILE` | A JSON array of detail rows, `[{ "values": {...}, "rows": [...] }]`, bound to `lineCommands` and `splitCommands`. Use `[]` for no rows. |
+| `--attach PATH[:COMMENT]` | Stage a file with `get_upload_url`, upload it, and attach it to the record. The comment follows the last `:`, unless that colon belongs to the path, as in `C:\scan.pdf`. Repeat as needed. |
 | `--leave-open` | Leave the record open for a later call (see Continuations). |
 | `--continue` | Continue the record that the last `--leave-open` call left open. |
-| `--continuation FILE` | Continue with a continuation that you saved. |
-| `--finish` | Run the finish commands on a continued record. |
-| `--download-dir DIR` | Fetch every report and file in `result.attachments` into `DIR` and add `"path"` to each entry. |
-| `--dry-run` | Send nothing. Bind the variables on your machine, report every unbound placeholder and unknown key (`SCREEN_VARIABLE_MISSING`, `SCREEN_VARIABLE_UNKNOWN`) and print the confirmation summary. Exit 0 when the server would accept the batch. |
+| `--continuation FILE` | Continue a record from a saved continuation: the `continuation` object, or a whole saved `screen run` result. |
+| `--finish` | Run the finish commands on a continued record, or on a `--leave-open` call. |
+| `--download-dir DIR` | Fetch every report and file in `result.attachments` into `DIR`, under its `fileName`, and add `"path"` to each entry. |
+| `--dry-run` | Send nothing. Check the batch on your machine and print the summary document (below). Exit 0 when the checks pass. |
 | `--yes` | Confirm the write. |
 | `--force` | Run a batch that the duplicate guard refused. |
 
-**Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`. Without a terminal it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. The CLI treats every `screen run` as a write unless the batch holds only `Get` and `Clear` commands.
+**Command sets.** A first call sends the header `commands`, the `lineCommands` and `splitCommands` with your `--rows`, and the `finishCommands`. With `--leave-open` and no `--finish`, it leaves the finish set out, so the record stays open for more rows. `--var` binds the header and the finish set. Each row's `values` bind the detail set, and each sub-detail row's `values` bind the sub-detail set.
 
-**Duplicate guard.** The CLI keeps a fingerprint of connection, target, commands, variables and rows for 10 minutes after each executed write. It refuses the same fingerprint with exit 2 and `error.code: "DUPLICATE_RUN"` unless you add `--force`.
+**Checks before any call.** The CLI refuses these without a round trip, with the server's own codes:
+
+| Code | Exit | When |
+|---|---|---|
+| `SCREEN_VARIABLE_MISSING` | 5 | A placeholder that no `--var`, `--var-null`, `--vars` or row value binds. The message lists every problem at once, row by row. |
+| `SCREEN_VARIABLE_UNKNOWN` | 5 | Only keys that match no placeholder in the sets this call sends. |
+| `SCREEN_SETS_ROWS_WITHOUT_LINE` | 2 | `--rows` for a batch without `lineCommands`. |
+| `SCREEN_SETS_LINE_WITHOUT_ROWS` | 2 | A batch with `lineCommands` and no `--rows`. |
+| `SCREEN_SETS_SPLIT_ROWS_WITHOUT_SPLIT` | 2 | Sub-detail rows for a batch without `splitCommands`. |
+
+**Dry run.** `--dry-run` prints the confirmation summary on stderr and this document on stdout:
+
+```json
+{
+  "dryRun": true,
+  "connection": "gab-dev",
+  "target": "SO301000",
+  "commandCount": 9,
+  "variables": { "CustomerID": "ACME", "Note": "" },
+  "rows": 2,
+  "attachments": [ { "fileName": "quote.pdf", "sizeBytes": 18211, "comment": "Signed quote" } ],
+  "wouldWrite": true
+}
+```
+
+`commandCount` counts each set once and the detail and sub-detail sets once per row. `rows` is the number of detail rows. A continuation adds `"continuation"`.
+
+**Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, the record it continues and the number of rows, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. Without a terminal, or with `--non-interactive`, it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. The CLI treats every `screen run` as a write unless the batch sends only `Get` and `Clear` commands. A continuation is always a write.
+
+**Duplicate guard.** The CLI keeps a SHA-256 fingerprint of the connection, the target, the command sets, the variables, the rows and the continued record for 10 minutes after each write it ran. A write that failed in the ERP, timed out or lost the network counts too, because part of it may have saved. It refuses the same fingerprint with exit 2 and `error.code: "DUPLICATE_RUN"` unless you add `--force`.
 
 Output:
 
@@ -233,33 +262,42 @@ Output:
   "status": "done",
   "result": {
     "data": { "...": "the screen's raw envelope" },
-    "processStatus": null,
-    "skippedFields": ["Document.Hold"],
+    "processStatus": { "status": "completed", "detail": "..." },
+    "skippedFields": [ { "variable": "Hold", "field": "Document.Hold" } ],
     "feedback": {
-      "record": { "OrderType": "SO", "OrderNbr": "SO007231" },
+      "record": { "Document": { "OrderType": "SO", "OrderNbr": "SO007231" } },
       "issues": [],
-      "allowedActions": ["Release", "Hold"]
+      "savedKey": { "OrderType": "SO", "OrderNbr": "SO007231" },
+      "enabledActions": ["Release", "Hold"]
     },
     "attachments": [
-      { "kind": "report", "fileName": "SO641010.pdf", "downloadUrl": "https://...", "expiresAt": "...", "path": "out/SO641010.pdf" }
+      { "kind": "report", "fileName": "SO641010.pdf", "downloadUrl": "https://...", "path": "out/SO641010.pdf" }
     ],
     "continuation": null
   }
 }
 ```
 
-`feedback.record` holds the key that the ERP assigned. When the ERP refuses an action (`The Release button is disabled.`), the command exits 6 with the ERP's sentence. Do not run the batch again.
+`feedback.savedKey` holds the key that the ERP assigned. When the ERP refuses an action because of the record's state (`The Release button is disabled.`, `... is on hold`, `... requires approval`), the command exits 6 with `error.code: "ERP_ACTION_REFUSED"` and the ERP's sentence in `error.detail`. Do not run the batch again. A task that fails with a server code, such as `SCREEN_SESSION_LOST`, exits 5 with that code.
 
 ### Continuations
 
-Most batches need no continuation: one `screen run --rows FILE` sends the header, every detail row and the finish in one call. Use a continuation for a detail that is too long for one call, or when you want to review the header before you add the lines. Only Acumatica has screen sessions.
+Most batches need no continuation: one `screen run --rows FILE` sends the header, every detail row and the finish in one call. Use a continuation for a detail that is too long for one call (the server takes 50 rows per call), or when you want to review the header before you add the lines. Only Acumatica has screen sessions.
 
-- `--leave-open` leaves the record open. The output has `result.continuation` (`{ screenId, keys, stamp }`) and `result.continuationExpiresAt`, two minutes after the response. The CLI stores both as `lastContinuation` in `state/<profile>.json`.
+- `--leave-open` leaves the record open. The output has `result.continuation` (`{ screenId, keys, stamp }`) and `result.continuationExpiresAt`, two minutes after the response. The CLI stores the continuation, its deadline and the MCP session id as `lastContinuation` in `state/<profile>.json`.
 - `--continue` sends the stored continuation, the `lineCommands` and `splitCommands` from `--batch` and your `--rows`, with no header. Add `--finish` to run the `finishCommands`. A `--var` on such a call binds the finish set only.
 - `--continue` with `--leave-open` chains calls. The last chunk carries `--finish`.
+- Each response replaces `lastContinuation`. A response without a continuation clears it, because any other call on the screen session ends the open record.
 - Each call that writes needs `--yes`.
 
-The CLI exits 5 without a round trip when the stored MCP session id is no longer current, when `continuationExpiresAt` has passed (`SCREEN_SESSION_LOST`, nothing ran), or when the batch `target` differs from the continuation's `screenId` (`SCREEN_CONTINUATION_MISMATCH`).
+The CLI exits 5 without a round trip in these cases:
+
+| Code | When | `nextStep` |
+|---|---|---|
+| `SCREEN_SESSION_LOST` | The stored MCP session id is not the current one, or `continuationExpiresAt` passed more than 10 seconds ago. Nothing ran. | Start the record again from its header. If the header was saved, load it by key in a new header. |
+| `SCREEN_CONTINUATION_MISMATCH` | The batch `target` differs from the continuation's `screenId`. | Do not retry. Read what the session holds, or start again. |
+
+The server's own refusals map to exit 5 with the same table: `SCREEN_SESSION_LOST` part-way through a call says "Read the record before doing anything else.", `SCREEN_CONTINUATION_UNVERIFIABLE` says "Start again from the header.", and each `SCREEN_SETS_*` message names the set to remove or add. `--continue` with nothing stored exits 2 with `NO_CONTINUATION`.
 
 ```sh
 velixo screen run --batch order.batch.json --var CustomerID=ACME --rows lines-1.json --leave-open --yes

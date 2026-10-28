@@ -1,32 +1,38 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
+using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
+using Velixo.Cli.Screen;
 
 namespace Velixo.Cli.Commands;
 
 /// <summary>
-/// <c>velixo screen build|run</c>: <c>prepare_commands</c> and <c>execute_commands</c>. Declared with
-/// the options of the spec, sections 8.4 and 9; not implemented in this build.
+/// <c>velixo screen build|run</c>: <c>prepare_commands</c> and <c>execute_commands</c>, with the
+/// confirmation, the duplicate guard and the continuations of the spec, sections 8.4 and 9.
 /// </summary>
 public static class ScreenCommands
 {
+    private const string BuilderRefusalStep =
+        "Put the builder's question to the user in plain words, then build again with their answer.";
+
     public static Command Build(CliServices services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         return new Command("screen", "Build and run batches of ERP screen commands.")
         {
-            BuildBuild(),
-            BuildRun(),
+            BuildBuild(services),
+            BuildRun(services),
         };
     }
 
-    private static Command BuildBuild()
+    private static Command BuildBuild(CliServices services)
     {
         var request = new Argument<string>("request")
         {
             Description = "The operation in the user's words, every value as a {{Placeholder}}.",
         };
-        var target = new Option<string?>("--target") { Description = "The screen, when the user named it.", HelpName = "screen" };
+        var target = new Option<string?>("--target") { Description = "The screen id an earlier build returned, to rebuild or refine that batch.", HelpName = "screen" };
 
         var command = new Command(
             "build",
@@ -35,11 +41,12 @@ public static class ScreenCommands
             request,
             target,
         };
-        command.SetAction(_ => NotImplemented("velixo screen build"));
+        command.SetAction((parse, cancellationToken) =>
+            BuildBatchAsync(services, parse.GetValue(request)!, parse.GetValue(target), cancellationToken));
         return command;
     }
 
-    private static Command BuildRun()
+    private static Command BuildRun(CliServices services)
     {
         var batch = new Option<string>("--batch") { Description = "The batch file 'screen build' wrote.", HelpName = "file", Required = true };
         var variable = new Option<string[]>("--var")
@@ -88,9 +95,64 @@ public static class ScreenCommands
             dryRun,
             force,
         };
-        command.SetAction(_ => NotImplemented("velixo screen run"));
+        command.SetAction((parse, cancellationToken) => ScreenRunner.RunAsync(
+            services,
+            new ScreenRunOptions
+            {
+                BatchPath = parse.GetValue(batch)!,
+                Variables = parse.GetValue(variable) ?? [],
+                NullVariables = parse.GetValue(variableNull) ?? [],
+                VariablesFile = parse.GetValue(variables),
+                RowsFile = parse.GetValue(rows),
+                Attachments = parse.GetValue(attach) ?? [],
+                LeaveOpen = parse.GetValue(leaveOpen),
+                Continue = parse.GetValue(continueOpen),
+                ContinuationFile = parse.GetValue(continuation),
+                Finish = parse.GetValue(finish),
+                DownloadDirectory = parse.GetValue(downloadDir),
+                DryRun = parse.GetValue(dryRun),
+                Force = parse.GetValue(force),
+            },
+            cancellationToken));
         return command;
     }
 
-    private static int NotImplemented(string path) => throw CliException.NotImplemented(path);
+    /// <summary>
+    /// Calls <c>prepare_commands</c> and prints the batch. A build that stops with an <c>ERROR:</c>
+    /// question exits 3 whether the task finished or failed with it.
+    /// </summary>
+    private static async Task<int> BuildBatchAsync(CliServices services, string request, string? target, CancellationToken cancellationToken)
+    {
+        var arguments = new JsonObject
+        {
+            [McpToolNames.IntentArgument] = services.RequireIntent(),
+            ["request"] = request,
+        };
+
+        if (services.Settings.Connection is { } connection)
+        {
+            arguments["connectionName"] = connection;
+        }
+
+        if (target is not null)
+        {
+            arguments["target"] = target;
+        }
+
+        UnwrappedToolResult result;
+        try
+        {
+            result = await services.Tasks
+                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), TaskFollowOptions.From(services.Settings), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (CliException error) when (error.ExitCode == ExitCodes.TaskFailed && error.Message.TrimStart().StartsWith("ERROR:", StringComparison.Ordinal))
+        {
+            throw new CliException(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, error.Message, BuilderRefusalStep, error) { TaskId = error.TaskId };
+        }
+
+        CommandText.RelayWarnings(services.Output, result.Document);
+        services.Output.WriteResult(result.Document);
+        return ExitCodes.Success;
+    }
 }
