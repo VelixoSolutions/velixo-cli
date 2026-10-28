@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-28
+
+### Changed
+
+- A file's comment has its own flag: `command run --attach PATH --attach-comment TEXT`, where each `--attach-comment` goes with the `--attach` or `--attach-token` just before it, so several files on one record keep their own comments. `--attach` takes the path alone, and the `PATH:COMMENT` and `TOKEN:COMMENT` forms are gone. A comment with no file before it, or a second comment for one file, exits 2 before anything is uploaded.
+
 ## [0.1.0] - 2026-10-28
 
 First version. The CLI is one binary named `velixo` for Linux, macOS and Windows, published with NativeAOT. It uses the same API and the same tools as the Velixo MCP, through its own client, and exposes them as commands for people at a terminal, scripts and AI coding agents.
@@ -32,4 +38,5 @@ First version. The CLI is one binary named `velixo` for Linux, macOS and Windows
 - An automatic update check, and tokens in the operating system's credential store.
 - Package managers: Homebrew, Scoop, WinGet, apt, yum and the Docker image.
 
+[0.2.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.2.0
 [0.1.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.1.0
