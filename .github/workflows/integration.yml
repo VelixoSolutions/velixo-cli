@@ -1,0 +1,99 @@
+name: Integration
+
+# The CLI against a live Velixo environment: the NativeAOT binary, signed in with a refresh token.
+#
+# The gateway rotates a refresh token on every use and ends the session when a used one comes back, so
+# the token cannot sit still in a secret. Each run reads VELIXO_IT_TOKEN, lets the CLI rotate it, and
+# saves the rotated token back into the secret. Runs never overlap (concurrency below). A gateway
+# session also ends after 30 days whatever happens, so the token needs seeding again about monthly.
+#
+# Seed it (and again whenever a run says the session ended):
+#   velixo login --profile it --env nx-dev
+#   velixo auth token --profile it | gh secret set VELIXO_IT_TOKEN
+#   then never use the profile 'it' again: the run owns that session now.
+#
+# Settings:
+#   secrets.VELIXO_IT_TOKEN          the refresh token, rewritten by every run
+#   secrets.VELIXO_IT_SECRETS_TOKEN  a fine-grained token with "Secrets: read and write" on this repository,
+#                                    to save the rotated token
+#   vars.VELIXO_IT_ENV               the environment, such as nx-dev
+#   vars.VELIXO_IT_CONNECTION        the ERP connection, such as gab-dev
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  VELIXO_IT_ENV: ${{ vars.VELIXO_IT_ENV }}
+  VELIXO_IT_CONNECTION: ${{ vars.VELIXO_IT_CONNECTION }}
+  VELIXO_IT_CONFIG_DIR: ${{ github.workspace }}/../velixo-it-config
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the settings
+        env:
+          TOKEN: ${{ secrets.VELIXO_IT_TOKEN }}
+          SECRETS_TOKEN: ${{ secrets.VELIXO_IT_SECRETS_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$TOKEN" ] || missing="$missing secrets.VELIXO_IT_TOKEN"
+          [ -n "$SECRETS_TOKEN" ] || missing="$missing secrets.VELIXO_IT_SECRETS_TOKEN"
+          [ -n "$VELIXO_IT_ENV" ] || missing="$missing vars.VELIXO_IT_ENV"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing. See the comment at the top of .github/workflows/integration.yml."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the NativeAOT toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Build
+        run: dotnet build tests/Velixo.Cli.IntegrationTests -c Release -warnaserror
+
+      - name: Publish with NativeAOT (linux-x64)
+        run: dotnet publish src/Velixo.Cli -c Release -r linux-x64 -p:PublishAot=true -o out
+
+      - name: Run the live tests
+        id: live
+        env:
+          VELIXO_IT_TOKEN: ${{ secrets.VELIXO_IT_TOKEN }}
+          VELIXO_IT_BINARY: ${{ github.workspace }}/out/velixo
+        run: dotnet test tests/Velixo.Cli.IntegrationTests -c Release --no-build
+
+      # Runs even when a test failed: the token was rotated all the same, and the old one is now spent.
+      - name: Save the rotated token
+        if: always() && steps.live.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ secrets.VELIXO_IT_SECRETS_TOKEN }}
+        run: |
+          if [ ! -f "$VELIXO_IT_CONFIG_DIR/credentials.json" ]; then
+            echo "No sign-in was stored, so the token was not used; nothing to save."
+            exit 0
+          fi
+          token=$(VELIXO_CONFIG_DIR="$VELIXO_IT_CONFIG_DIR" ./out/velixo auth token --env "$VELIXO_IT_ENV")
+          echo "::add-mask::$token"
+          gh secret set VELIXO_IT_TOKEN --repo "$GITHUB_REPOSITORY" --body "$token"
+          echo "Saved the rotated token."
+
+      - name: Remove the sign-in
+        if: always()
+        run: rm -rf "$VELIXO_IT_CONFIG_DIR"

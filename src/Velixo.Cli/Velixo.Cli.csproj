@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>velixo</AssemblyName>
+    <RootNamespace>Velixo.Cli</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <StripSymbols>true</StripSymbols>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The pages of 'velixo guide'. docs/guide is their one home: readable on GitHub, embedded here. -->
+    <EmbeddedResource Include="../../docs/guide/*.md" LogicalName="Velixo.Cli.Guide.%(Filename).md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Velixo.Cli.Tests" />
+  </ItemGroup>
+
+</Project>

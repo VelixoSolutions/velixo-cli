@@ -1,0 +1,37 @@
+Copyright (c) 2026 Velixo Solutions Inc. All rights reserved.
+
+This repository and all of its contents, including the Velixo CLI in source and binary form,
+scripts, install scripts, documentation and brand assets (the "Materials"), are proprietary to
+Velixo Solutions Inc. ("Velixo"). The Materials are licensed, not sold.
+
+1. LICENSE. Velixo grants you a limited, non-exclusive, non-transferable, revocable license
+   to install and use the Materials solely with Velixo products and services, and only while
+   you, or the organization on whose behalf you act, hold an active Velixo subscription.
+   Authorized Velixo partners may use the Materials to deliver services to Velixo customers.
+   You may let an AI agent or an automated job run the Materials on your behalf. You may
+   modify the Materials only for these permitted uses.
+
+2. RESTRICTIONS. You may not, and may not allow anyone else to:
+   (a) copy, distribute, sublicense, publish or otherwise make the Materials available
+       outside the licensed organization, except for the copies needed to install and use
+       them as this license permits;
+   (b) use the Materials to train, fine-tune, distill or evaluate any artificial
+       intelligence model, or to create prompt or skill libraries;
+   (c) use the Materials to develop, or help develop, any product or service that competes
+       with Velixo;
+   (d) remove or alter this notice or any proprietary markings.
+
+3. TRADEMARKS. No right is granted to use Velixo's names, logos or trademarks except as
+   needed to identify the Materials.
+
+4. AGREEMENTS. Your use is governed by the Velixo agreements at
+   https://velixo.com/agreements. If this notice conflicts with those agreements, the
+   agreements control. If you have not entered into an agreement with Velixo, or are not
+   acting for an organization that has, you have no license to use the Materials.
+
+5. TERMINATION. This license ends automatically when your subscription ends or if you breach
+   these terms. You must then stop using the Materials and delete all copies.
+
+6. NO WARRANTY. Except as expressly stated in your agreement with Velixo, the Materials are
+   provided "AS IS", without warranty of any kind. Review AI-generated output, including any
+   data written back to an ERP, before relying on it.

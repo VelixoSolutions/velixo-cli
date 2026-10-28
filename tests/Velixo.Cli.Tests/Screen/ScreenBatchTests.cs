@@ -1,0 +1,96 @@
+using System.Text.Json.Nodes;
+using Velixo.Cli.Output;
+using Velixo.Cli.Screen;
+
+namespace Velixo.Cli.Tests.Screen;
+
+public sealed class ScreenBatchTests
+{
+    [Fact]
+    public void Reads_the_whole_build_output_and_its_result_data_alike()
+    {
+        JsonNode whole = JsonNode.Parse(ScreenHarness.OrderBatch)!;
+
+        ScreenBatch fromWhole = ScreenBatch.From(whole, "order.batch.json");
+        ScreenBatch fromData = ScreenBatch.From(whole["result"]!["data"]!.DeepClone(), "order.batch.json");
+
+        foreach (ScreenBatch batch in new[] { fromWhole, fromData })
+        {
+            Assert.Equal("SO301000", batch.Target);
+            Assert.Equal(3, batch.Commands.Count);
+            Assert.Equal(2, batch.LineCommands!.Count);
+            Assert.Null(batch.SplitCommands);
+            Assert.Equal(2, batch.FinishCommands!.Count);
+            Assert.Equal("OrderNbr", (string?)batch.KeyNumbering!["field"]);
+        }
+    }
+
+    [Fact]
+    public void A_document_without_target_and_commands_is_a_usage_error()
+    {
+        CliException error = Assert.Throws<CliException>(() => ScreenBatch.From(JsonNode.Parse("""{"result":{"data":{"rows":[]}}}"""), "q.json"));
+
+        Assert.Equal(ExitCodes.Usage, error.ExitCode);
+        Assert.Contains("command build", error.NextStep, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("""[{"type":"Clear"},{"type":"Get","name":"Document.Status"}]""", true)]
+    [InlineData("""[{"type":"clear"},{"type":"get","name":"Document.Status"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Key","name":"Document.RefNbr","value":"INV1"},{"type":"Get","name":"Document.Status"}]""", false)]
+    [InlineData("""[{"type":"Clear"},{"type":"Action","name":"Save"}]""", false)]
+    public void Only_a_batch_of_Get_and_Clear_is_read_only(string commands, bool readOnly)
+    {
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads([JsonNode.Parse(commands)!.AsArray(), null]));
+    }
+
+    [Fact]
+    public void Placeholders_are_whole_values_only()
+    {
+        JsonArray commands = JsonNode.Parse("""
+            [
+              { "type": "Set", "name": "A", "value": "{{CustomerID}}" },
+              { "type": "Set", "name": "B", "value": " {{Amount}} " },
+              { "type": "Set", "name": "C", "value": "INV-{{Nbr}}" },
+              { "type": "Set", "name": "D", "value": "{{CustomerID}}" }
+            ]
+            """)!.AsArray();
+
+        Assert.Equal(["CustomerID", "Amount"], ScreenPlaceholders.Names(commands));
+    }
+
+    [Fact]
+    public void Variables_bind_null_and_empty_differently_and_flags_win_over_the_file()
+    {
+        using var directory = new Fakes.TempDirectory();
+        var file = Path.Combine(directory.Path, "vars.json");
+        File.WriteAllText(file, """{"CustomerID":"FROMFILE","Note":"kept","Hold":"true"}""");
+
+        JsonObject variables = ScreenVariables.Bind(file, ["CustomerID=ACME", "Formula=a=b", "Blank="], ["Hold"]);
+
+        Assert.Equal("ACME", (string?)variables["CustomerID"]);
+        Assert.Equal("kept", (string?)variables["Note"]);
+        Assert.Equal("a=b", (string?)variables["Formula"]);
+        Assert.Equal(string.Empty, (string?)variables["Blank"]);
+        Assert.True(variables.ContainsKey("Hold"));
+        Assert.Null(variables["Hold"]);
+    }
+
+    [Theory]
+    [InlineData("CustomerID")]
+    [InlineData("=ACME")]
+    public void A_var_without_a_name_and_an_equals_sign_is_a_usage_error(string assignment)
+    {
+        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, [assignment], []));
+
+        Assert.Equal(ExitCodes.Usage, error.ExitCode);
+    }
+
+    [Fact]
+    public void The_same_name_with_var_and_var_null_is_a_usage_error()
+    {
+        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, ["Hold=1"], ["Hold"]));
+
+        Assert.Equal(ExitCodes.Usage, error.ExitCode);
+    }
+}
