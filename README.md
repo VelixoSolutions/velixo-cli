@@ -7,7 +7,7 @@
 
 # Velixo CLI
 
-The Velixo CLI brings Velixo to the command line, so AI coding agents, scripts and people at a terminal can query an ERP, run screen commands, move files and run imports from a shell.
+The Velixo CLI brings Velixo to the command line, so AI coding agents, scripts and people at a terminal can query an ERP, run ERP commands, move files and run imports from a shell.
 
 [![Latest release](https://img.shields.io/github/v/release/VelixoSolutions/velixo-cli)](https://github.com/VelixoSolutions/velixo-cli/releases/latest)
 [![CI](https://github.com/VelixoSolutions/velixo-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/VelixoSolutions/velixo-cli/actions/workflows/ci.yml)

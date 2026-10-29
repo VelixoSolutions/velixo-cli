@@ -9,7 +9,7 @@ namespace Velixo.Cli;
 public static class Program
 {
     public const string Description =
-        "The Velixo CLI: query your ERP, run screen commands, move files and run imports from a shell. "
+        "The Velixo CLI: query your ERP, run ERP commands, move files and run imports from a shell. "
         + "Start with 'velixo login', then 'velixo guide'.";
 
     /// <summary>
