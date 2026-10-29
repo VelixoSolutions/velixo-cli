@@ -20,6 +20,11 @@ internal sealed class TestConsole(bool redirected = true, string input = "") : I
 
     public int WindowWidth => redirected ? 0 : 120;
 
+    /// <summary>Gets or sets the terminal height a test runs in; 0 when stdout is redirected.</summary>
+    public int Height { get; set; } = 30;
+
+    public int WindowHeight => redirected ? 0 : Height;
+
     /// <summary>Gets the keys <see cref="ReadKey"/> hands out, in order.</summary>
     public Queue<ConsoleKeyInfo> Keys { get; } = new();
 

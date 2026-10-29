@@ -18,6 +18,9 @@ public interface ICliConsole
     /// <summary>Gets the terminal width in characters, or 0 when stdout is not a terminal.</summary>
     int WindowWidth { get; }
 
+    /// <summary>Gets the terminal height in lines, or 0 when stdout is not a terminal.</summary>
+    int WindowHeight { get; }
+
     /// <summary>Reads one key from the terminal without echoing it. Ctrl+C comes back as a key, so a picker can cancel cleanly.</summary>
     ConsoleKeyInfo ReadKey();
 }

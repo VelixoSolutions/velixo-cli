@@ -32,12 +32,20 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings)
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         string? footer = null,
+        IReadOnlyList<bool>? rightAligned = null) =>
+        console.Out.Write(FormatTable(columns, rows, footer, rightAligned));
+
+    /// <summary>Lays out a table as <see cref="WriteTable"/> prints it, cutting long cells to fit the terminal.</summary>
+    public string FormatTable(
+        IReadOnlyList<string> columns,
+        IEnumerable<IReadOnlyList<string?>> rows,
+        string? footer = null,
         IReadOnlyList<bool>? rightAligned = null)
     {
         int? maxCellWidth = console.IsOutputRedirected || console.WindowWidth <= 0
             ? null
             : Math.Max(20, console.WindowWidth / 2);
-        console.Out.Write(TableFormatter.Format(columns, rows, maxCellWidth, footer, rightAligned));
+        return TableFormatter.Format(columns, rows, maxCellWidth, footer, rightAligned);
     }
 
     public void WriteCsv(IReadOnlyList<string> columns, IEnumerable<IReadOnlyList<string?>> rows) =>

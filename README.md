@@ -337,7 +337,7 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 
 ### Output
 
-stdout carries the result: one JSON document on a pipe, or a table on a terminal. stderr carries progress, warnings and the confirmation summary. JSON is never shortened. At a terminal, query results open in a pager; a pipe, a script or an agent gets one window and never a pager. A relative path in any flag is read against the working directory.
+stdout carries the result: one JSON document on a pipe, or a table on a terminal. stderr carries progress, warnings and the confirmation summary. JSON is never shortened. At a terminal, a query result taller than the screen opens in a full-screen viewer: the column headers stay at the top while ↑, ↓, PgUp and PgDn scroll the rows, and Esc or `q` quits. A pipe, a script or an agent gets one window and never the viewer. A relative path in any flag is read against the working directory.
 
 On a non-zero exit in JSON mode, stdout holds one error document:
 

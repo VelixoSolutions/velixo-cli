@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- At a terminal, `query run` shows a result taller than the screen in a full-screen viewer, as `less` does, in place of the pager that printed each window below the last. The column headers stay at the top while the rows scroll: ↑ and ↓ (or `k` and `j`) move one row, PgUp, PgDn and Space one screen, Home and End go to the first and the last row, and ← and → scroll a table wider than the terminal. Rows are fetched one `--top` window at a time as they scroll into view. Esc, `q` or Enter on the last screen quits, and the rows that were on screen stay in the terminal's scrollback, with the footer that names the `--skip` for the rest. A result that fits on the screen prints as a table, as before.
+
 ## [0.2.0] - 2026-10-28
 
 ### Changed

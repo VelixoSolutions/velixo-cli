@@ -34,6 +34,26 @@ public sealed class SystemConsole : ICliConsole
         }
     }
 
+    public int WindowHeight
+    {
+        get
+        {
+            if (Console.IsOutputRedirected)
+            {
+                return 0;
+            }
+
+            try
+            {
+                return Console.WindowHeight;
+            }
+            catch (IOException)
+            {
+                return 0;
+            }
+        }
+    }
+
     public ConsoleKeyInfo ReadKey()
     {
         var treatControlCAsInput = Console.TreatControlCAsInput;

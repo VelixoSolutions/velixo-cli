@@ -14,7 +14,7 @@ velixo query run 3 --param "As Of Date=2026-09-30" --intent "Month-end AR review
 - `--query FILE` runs one query from a text file, such as the `.vql` file `velixo query build --save ar.vql` wrote, or `-` for stdin.
 - `--inquiry NAME` runs a saved generic inquiry as saved.
 
-An agent is never prompted and never paged: it gets one window of `--top` rows, with `truncated` and `totalCount`, and reads more with `--skip` or `--all`. (At a terminal, a person is asked for missing values and pages through the rows with the arrow keys.)
+An agent is never prompted and never paged: it gets one window of `--top` rows, with `truncated` and `totalCount`, and reads more with `--skip` or `--all`. (At a terminal, a person is asked for missing values and scrolls through the rows with the arrow keys, under column headers that stay on screen.)
 
 ## Passing the values
 

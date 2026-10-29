@@ -67,8 +67,7 @@ internal static partial class QueryOutput
     }
 
     /// <summary>Prints one query result whose window starts after <paramref name="skip"/> rows.</summary>
-    /// <param name="paging">Whether the pager prints the result: the footer then names the window without the flags for the rest, which the pager's keys replace.</param>
-    public static void WriteResult(OutputWriter output, JsonObject document, int skip, bool paging = false)
+    public static void WriteResult(OutputWriter output, JsonObject document, int skip)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(document);
@@ -88,7 +87,7 @@ internal static partial class QueryOutput
         {
             JsonObject data = (JsonObject)document["result"]!["data"]!;
             (IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<bool> rightAligned) = ForReading(data["columns"] as JsonArray, view.Rows);
-            output.WriteTable(view.Columns, rows, Footer(data, view.Rows.Count, skip, paging), rightAligned);
+            output.WriteTable(view.Columns, rows, Footer(data, view.Rows.Count, skip), rightAligned);
         }
     }
 
@@ -350,7 +349,7 @@ internal static partial class QueryOutput
     /// The line under a query table, such as <c>rows 1 to 250 of 1,204; add --skip 250 or --all for the rest</c>.
     /// The hint is there whenever rows are left after the window, or the ERP says the result is partial.
     /// </summary>
-    public static string? Footer(JsonObject data, int rowCount, int skip, bool paging = false)
+    public static string? Footer(JsonObject data, int rowCount, int skip)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -363,7 +362,7 @@ internal static partial class QueryOutput
             ? $"no rows{(skip > 0 ? $" after row {Grouped(skip)}" : string.Empty)}{of}"
             : $"rows {Grouped(skip + 1)} to {Grouped(end)}{of}";
 
-        return !paging && ((rowCount > 0 && end < total) || (truncated && rowCount > 0))
+        return (rowCount > 0 && end < total) || (truncated && rowCount > 0)
             ? $"{window}; add --skip {end.ToString(CultureInfo.InvariantCulture)} or --all for the rest"
             : window;
     }
