@@ -54,6 +54,22 @@ public sealed class SystemConsole : ICliConsole
         }
     }
 
+    public bool KeyAvailable
+    {
+        get
+        {
+            try
+            {
+                return Console.KeyAvailable;
+            }
+            catch (InvalidOperationException)
+            {
+                // Without a terminal to poll, ReadKey decides.
+                return true;
+            }
+        }
+    }
+
     public ConsoleKeyInfo ReadKey()
     {
         var treatControlCAsInput = Console.TreatControlCAsInput;

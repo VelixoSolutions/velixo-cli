@@ -2,6 +2,13 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-10-29
+
+### Fixed
+
+- The query viewer follows the terminal's size: resizing the window draws it again at once, with the rows and the columns laid out for the new height and width, where before it kept the old size until a key was pressed.
+- The top-level help says the CLI runs ERP commands, as the `command` group is named, not screen commands.
+
 ## [0.3.0] - 2026-10-29
 
 ### Changed
@@ -44,6 +51,7 @@ First version. The CLI is one binary named `velixo` for Linux, macOS and Windows
 - An automatic update check, and tokens in the operating system's credential store.
 - Package managers: Homebrew, Scoop, WinGet, apt, yum and the Docker image.
 
+[0.3.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.1
 [0.3.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.0
 [0.2.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.2.0
 [0.1.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.1.0

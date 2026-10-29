@@ -10,7 +10,7 @@ namespace Velixo.Cli.Query;
 /// Shows a query result at a terminal in a full-screen viewer, as <c>less</c> does: the column headers
 /// stay at the top and the rows scroll under them. ↑ and ↓ move one row, PgUp, PgDn and Space one
 /// screen, Home and End go to the first and the last row, ← and → scroll a table wider than the
-/// terminal, and Esc or q quits. Rows are fetched one window of <c>--top</c> at a time as they scroll
+/// terminal, and Esc or q quits. A resized terminal is drawn again at its new size. Rows are fetched one window of <c>--top</c> at a time as they scroll
 /// into view, and a window already fetched is not fetched again. On quit, the rows that were on screen
 /// print to the terminal, so they stay in its scrollback.
 /// </summary>
@@ -97,6 +97,8 @@ internal static class QueryPager
         private const string Dim = "\u001b[2m";
         private const string Reset = "\u001b[0m";
         private const string ClearToEnd = "\u001b[K";
+        private const string ClearScreen = "\u001b[2J";
+        private static readonly TimeSpan ResizePoll = TimeSpan.FromMilliseconds(50);
 
         private readonly ICliConsole _console = services.Console;
         private readonly bool _useColor = services.Settings.Output.UseColor;
@@ -140,7 +142,15 @@ internal static class QueryPager
                     await LoadAsync(_firstRow, (int)Math.Min(_firstRow + BodyHeight, _total), cancellationToken).ConfigureAwait(false);
                     _firstRow = Math.Clamp(_firstRow, 0, LastFirstRow);
                     Draw();
-                    if (!Move(_console.ReadKey()))
+                    if (await WaitForKeyAsync(cancellationToken).ConfigureAwait(false) is not { } key)
+                    {
+                        // The terminal changed size: lay the table out for the new width and draw it from a clear screen.
+                        _laidOut = false;
+                        _console.Out.Write(ClearScreen);
+                        continue;
+                    }
+
+                    if (!Move(key))
                     {
                         break;
                     }
@@ -157,6 +167,23 @@ internal static class QueryPager
             {
                 QueryOutput.RelayWarnings(services.Output, document);
             }
+        }
+
+        /// <summary>Waits for a key and returns it, or returns null as soon as the terminal changes size.</summary>
+        private async Task<ConsoleKeyInfo?> WaitForKeyAsync(CancellationToken cancellationToken)
+        {
+            var size = (_console.WindowWidth, _console.WindowHeight);
+            while (!_console.KeyAvailable)
+            {
+                if ((_console.WindowWidth, _console.WindowHeight) != size)
+                {
+                    return null;
+                }
+
+                await Task.Delay(ResizePoll, cancellationToken).ConfigureAwait(false);
+            }
+
+            return _console.ReadKey();
         }
 
         /// <summary>Applies a key, and returns false when it quits.</summary>
@@ -278,6 +305,7 @@ internal static class QueryPager
             }
 
             _widest = lines.Max(line => line.Length);
+            _left = Math.Min(_left, Math.Max(0, _widest - Width));
             _laidOut = true;
         }
 

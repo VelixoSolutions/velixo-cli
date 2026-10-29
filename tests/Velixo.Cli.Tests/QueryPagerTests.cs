@@ -39,6 +39,26 @@ public sealed class QueryPagerTests
     }
 
     [Fact]
+    public async Task A_resized_terminal_is_drawn_again_at_its_new_size_without_a_key()
+    {
+        using var test = new TestServices(new Dictionary<string, string> { ["NO_COLOR"] = "1" }, redirected: false);
+        test.Console.Height = 10;
+        Mcp(test, Page(250, 600, 1));
+        test.Console.Resizes.Enqueue((60, 16));
+        Keys(test, Escape);
+
+        var exit = await test.RunAsync("query", "run", "--query", Query(test), "--intent", "Test the pager");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        var frames = Frames(test);
+        Assert.Equal(2, frames.Count);
+        Assert.Contains("\u001b[2J", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("rows 1–7 of 600", frames[0][^1], StringComparison.Ordinal);
+        Assert.Contains("rows 1–13 of 600", frames[1][^1], StringComparison.Ordinal);
+        Assert.All(frames[1], line => Assert.True(line.Length <= 60, $"'{line}' is wider than the terminal."));
+    }
+
+    [Fact]
     public async Task Rows_are_fetched_a_window_at_a_time_as_they_scroll_into_view_and_never_twice()
     {
         using var test = new TestServices(redirected: false);
