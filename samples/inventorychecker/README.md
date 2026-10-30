@@ -43,6 +43,7 @@ google-chrome --kiosk http://localhost:8080
 | `VELIXO_BIN` | `velixo` | The path of the CLI. |
 | `KIOSK_INTENT` | `Look up a scanned item at the in-store inventory kiosk` | The intent the CLI records for each lookup. |
 | `KIOSK_RESERVE_INTENT` | `Move units of a scanned item to the reserved location from the in-store kiosk` | The intent the CLI records for each transfer. |
+| `KIOSK_PASSWORD` | none | A password the browser asks for before it shows the kiosk, with any user name. Set it whenever the kiosk is reachable from the internet: anyone who opens the page can reserve units. |
 | `KIOSK_IMAGE_CACHE` | `.cache/images` | Where the checker keeps the item images it downloaded. |
 
 Every other setting of the CLI applies too, such as `VELIXO_PROFILE` and `VELIXO_ENV`.
