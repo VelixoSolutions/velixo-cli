@@ -28,6 +28,11 @@ Return the currency only as a three-letter code printed on the receipt, such as 
 shows only a symbol, such as $, return null: a $ alone can be several currencies, and the company then claims the
 amount in its own currency.
 
+Return the subtotal, the amount before taxes, when the receipt prints one; else null. Set tip_customary to true when
+the purchase is one people usually tip for: a restaurant, bar, café, food delivery, taxi or ride, hairdresser or
+beauty service, or similar. Set tip_shown to true when the photo shows a tip already, on the receipt or on a card
+slip that is fully visible.
+
 Choose the expense item from the list that fits the purchase. Use the merchant, what was bought and the
 employee's own words. When you are not confident which one fits, return null for expense_item and list up to three
 likely items in expense_item_candidates, the most likely first; otherwise return an empty list there.
@@ -39,7 +44,7 @@ about a project, return null for both.
 Write a short description for the expense, under 60 characters, such as "Client dinner at Nobu" or "Taxi to
 airport". Include the employee's notes when they add something the receipt does not show."""
 
-FIELDS = ["merchant", "date", "total", "currency", "expense_item", "expense_item_candidates", "project", "project_hint", "description"]
+FIELDS = ["merchant", "date", "total", "subtotal", "tip_customary", "tip_shown", "currency", "expense_item", "expense_item_candidates", "project", "project_hint", "description"]
 
 
 @dataclass
@@ -53,6 +58,9 @@ class ReceiptReading:
     project_hint: str | None
     description: str
     expense_item_candidates: list[str] = field(default_factory=list)
+    subtotal: float | None = None
+    tip_customary: bool = False
+    tip_shown: bool = False
 
 
 class ReceiptNotRead(Exception):
@@ -106,6 +114,7 @@ class ReceiptReader:
             raise ReceiptNotRead("The reader returned no receipt.") from error
         return ReceiptReading(
             **{name: fields.get(name) for name in FIELDS}
+            | {"tip_customary": bool(fields.get("tip_customary")), "tip_shown": bool(fields.get("tip_shown"))}
             | {"description": fields.get("description") or "Expense", "expense_item_candidates": list(dict.fromkeys(fields.get("expense_item_candidates") or []))[:3]}
         )
 
@@ -123,6 +132,9 @@ def _schema(expense_items: list[Choice], projects: list[Choice]) -> dict:
             "merchant": nullable_string,
             "date": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
             "total": {"type": ["number", "null"]},
+            "subtotal": {"type": ["number", "null"]},
+            "tip_customary": {"type": "boolean"},
+            "tip_shown": {"type": "boolean"},
             "currency": {"type": ["string", "null"], "description": "ISO 4217 code, such as USD"},
             "expense_item": one_of([item.id for item in expense_items]),
             "expense_item_candidates": {"type": "array", "items": {"type": "string", "enum": [item.id for item in expense_items]} if expense_items else {"type": "string"}},
