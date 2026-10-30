@@ -44,6 +44,22 @@ def test_finds_a_receipt_on_a_light_table_by_its_edges():
     assert 580 < height < 720 and 360 < width < 480, "the crop is the paper, not the whole light table"
 
 
+def test_finds_a_receipt_that_runs_off_a_wooden_desk_under_a_keyboard():
+    desk = np.full((1200, 900, 3), (140, 180, 205), np.uint8)  # light wood, in BGR
+    desk[:120, :] = (235, 235, 235)  # a white keyboard along the top
+    cv2.rectangle(desk, (300, 100), (620, 1199), (250, 250, 250), -1)  # the receipt, cut off at the bottom
+    for row in range(200, 1150, 60):
+        cv2.putText(desk, "1 ESPRESSO   3.50", (320, row), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (30, 30, 30), 2)
+    ok, photo = cv2.imencode(".jpg", desk)
+
+    result = decode(straighten_receipt(photo.tobytes()))
+    height, width = result.shape[:2]
+
+    assert 300 < width < 360, "the crop is the receipt's width, not the keyboard's or the desk's"
+    assert height > 900, "the receipt is kept down to the edge of the photo"
+    assert result.mean() > 180, "the wood beside the receipt is cut away"
+
+
 def test_turns_the_receipt_into_a_black_and_white_scan():
     scan = cv2.imdecode(np.frombuffer(black_and_white(straighten_receipt(receipt_photo())), np.uint8), cv2.IMREAD_UNCHANGED)
 
