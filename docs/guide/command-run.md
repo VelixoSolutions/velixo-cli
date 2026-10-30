@@ -28,7 +28,7 @@ velixo command run 2 --yes --intent "Bill ABC Studios for the September retainer
 
 Without a terminal and without `--yes`, a write exits 2 with `CONFIRMATION_REQUIRED` and nothing runs.
 
-A batch that only reads runs without `--yes` and without the duplicate guard: the dry run shows `wouldWrite: false`. That is a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, with no action such as `Save`, no `UploadAttachment`, no `commit` and no `Set` on a note, because the screen keeps none of it. Any other batch is a write.
+A batch that only reads runs without `--yes` and without the duplicate guard: the dry run shows `wouldWrite: false`. That is a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, and of the actions that persist nothing: `First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh` and `RunReport`. It has no other action such as `Save`, no `UploadAttachment`, no `commit` and no `Set` on a note, so the screen keeps none of it, and a report run is a read. Any other batch is a write.
 
 **Every run is a new write.** Running the same batch again creates a second invoice, or makes the same change twice. "The same invoice for BCORP" is a second invoice and needs its own yes. The CLI refuses the same batch with the same values within 10 minutes (exit 2, `DUPLICATE_RUN`). After a failure, read the record before you run anything again. Add `--force` only when the user wants it written again.
 

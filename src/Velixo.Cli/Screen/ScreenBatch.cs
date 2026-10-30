@@ -94,9 +94,10 @@ internal sealed class ScreenBatch
     /// <summary>
     /// Returns whether no command of <paramref name="sets"/> can leave a change in the ERP. A screen keeps a
     /// change only when an action such as Save or Release runs or a file is uploaded: a <c>Set</c> without one
-    /// is dropped with the session. A command with <c>commit</c> and a <c>Set</c> on a note still count as
-    /// writes, because Acumatica saves a note on a locked record without a Save. A command type the CLI does
-    /// not know is a write.
+    /// is dropped with the session. The actions that persist nothing are the ones the MCP server treats as
+    /// reads: record navigation, Cancel, moving an inquiry's period, Refresh and RunReport. A command with
+    /// <c>commit</c> and a <c>Set</c> on a note still count as writes, because Acumatica saves a note on a
+    /// locked record without a Save. A command type the CLI does not know is a write.
     /// </summary>
     public static bool OnlyReads(IEnumerable<JsonArray?> sets) =>
         sets.Where(set => set is not null).SelectMany(set => set!).All(IsRead);
@@ -105,11 +106,24 @@ internal sealed class ScreenBatch
 
     private static readonly string[] _noteFields = ["NoteText", "NotePopupText"];
 
+    /// <summary>The same list as <c>ScreenRecordCheck.ReadOnlyActions</c> in the MCP server, which takes it from the Acumatica customization.</summary>
+    private static readonly string[] _readOnlyActions = ["First", "Previous", "Next", "Last", "Cancel", "PreviousPeriod", "NextPeriod", "Refresh", "RunReport"];
+
     private static bool IsRead(JsonNode? command)
     {
         if (CommandText.String(command?["type"]) is not { } type
-            || !_readTypes.Contains(type, StringComparer.OrdinalIgnoreCase)
             || (command?["commit"] is JsonValue commit && commit.TryGetValue(out bool commits) && commits))
+        {
+            return false;
+        }
+
+        if (type.Equals("Action", StringComparison.OrdinalIgnoreCase))
+        {
+            return CommandText.String(command?["name"])?.Trim() is { } action
+                && _readOnlyActions.Contains(action, StringComparer.OrdinalIgnoreCase);
+        }
+
+        if (!_readTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
         {
             return false;
         }
