@@ -47,6 +47,19 @@ google-chrome --kiosk http://localhost:8080
 
 Every other setting of the CLI applies too, such as `VELIXO_PROFILE` and `VELIXO_ENV`.
 
+## Run it in a container
+
+The `Dockerfile` installs the Velixo CLI from `cli.velixo.com` and keeps the CLI's sign-in and the image cache under `/data`. Mount a volume there, so a restart keeps the sign-in:
+
+```sh
+docker build -t inventory-checker .
+docker run -it --rm -v kiosk-data:/data inventory-checker velixo login --no-browser
+docker run -it --rm -v kiosk-data:/data inventory-checker velixo login --complete "<redirected URL>"
+docker run -d -v kiosk-data:/data -e VELIXO_CONNECTION=<connection> -p 8080:8080 inventory-checker
+```
+
+`--build-arg VELIXO_VERSION=<version>` pins a CLI release.
+
 ## The reserved location
 
 Reserving needs a `RESERVED` location in the store's warehouse whose quantity does not count as available. `velixo/add-location.batch.json` creates it on the Warehouses screen:
@@ -142,6 +155,7 @@ Ideas to take it further:
 
 | File | What it does |
 |---|---|
+| `Dockerfile` | The kiosk in a container, with the CLI from `cli.velixo.com`. |
 | `server.mjs` | Serves the page and the API, and runs the CLI. |
 | `public/` | The page: `index.html`, `styles.css`, `app.js` and the Velixo logos. |
 | `velixo/item.vql` | The item and its total quantities. |
