@@ -70,7 +70,38 @@ public sealed class ScreenBatchTests
     [InlineData("""[{"name":"Document.Status"}]""", false)]
     public void Only_a_batch_that_can_leave_nothing_in_the_ERP_is_read_only(string commands, bool readOnly)
     {
-        Assert.Equal(readOnly, ScreenBatch.OnlyReads([JsonNode.Parse(commands)!.AsArray(), null]));
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads("SO301000", [JsonNode.Parse(commands)!.AsArray(), null]));
+    }
+
+    [Theory]
+    [InlineData("customers", """[{"type":"Key","name":"number","value":"C1"},{"type":"Get","name":"displayName"},{"type":"DownloadAttachments","value":"*"}]""", true)]
+    [InlineData("customers", """[{"type":"Key","name":"number","value":"C1"},{"type":"Set","name":"displayName","value":"X"}]""", false)]
+    [InlineData("accounts-receivable/customer", """[{"type":"Key","name":"id","value":"C1"},{"type":"Action","name":"Next"}]""", false)]
+    [InlineData("IN202500", """[{"type":"Key","name":"Item.InventoryCD","value":"X"},{"type":"Set","name":"Item.Descr","value":"x"}]""", true)]
+    public void Outside_Acumatica_a_set_or_an_action_is_a_write_without_the_servers_answer(string target, string commands, bool readOnly)
+    {
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads(target, [JsonNode.Parse(commands)!.AsArray()]));
+    }
+
+    [Theory]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":"true"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":1}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":false}]""", true)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteText ","value":"x"}]""", false)]
+    public void A_commit_that_is_not_false_and_a_padded_note_name_count_as_writes(string commands, bool readOnly)
+    {
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads("SO301000", [JsonNode.Parse(commands)!.AsArray()]));
+    }
+
+    [Theory]
+    [InlineData("\"true\"", true)]
+    [InlineData("1", true)]
+    [InlineData("false", false)]
+    public void A_writes_answer_that_is_not_a_boolean_counts_as_a_write(string writes, bool expected)
+    {
+        ScreenBatch batch = ScreenBatch.From(JsonNode.Parse($$"""{"target":"IN202500","writes":{{writes}},"commands":[{"type":"Get","name":"Item.Descr"}]}"""), "b.json");
+
+        Assert.Equal(expected, batch.ServerSaysWrites);
     }
 
     [Fact]

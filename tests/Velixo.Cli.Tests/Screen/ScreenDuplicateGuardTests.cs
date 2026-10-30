@@ -145,6 +145,35 @@ public sealed class ScreenDuplicateGuardTests
         Assert.Empty(test.Mcp.Calls);
     }
 
+    [Fact]
+    public async Task A_batch_that_only_reads_still_needs_yes_when_it_attaches_a_file()
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("image.batch.json", ImageBatch);
+        var file = test.Write("photo.jpg", "jpg");
+
+        var exit = await test.RunAsync(
+            "command", "run", "--batch", batch, "--param", "InventoryID=AACOMPUT01", "--param", "ImageFile=AACOMPUT01.jpg", "--attach", file, "--intent", ScreenHarness.Intent);
+
+        Assert.Equal(ExitCodes.Usage, exit);
+        Assert.Equal(ErrorCodes.ConfirmationRequired, (string?)test.Error["code"]);
+        Assert.Empty(test.Mcp.Calls);
+    }
+
+    [Fact]
+    public async Task A_batch_that_only_reads_still_needs_yes_when_it_leaves_its_record_open()
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("image.batch.json", ImageBatch);
+
+        var exit = await test.RunAsync(
+            "command", "run", "--batch", batch, "--param", "InventoryID=AACOMPUT01", "--param", "ImageFile=AACOMPUT01.jpg", "--leave-open", "--intent", ScreenHarness.Intent);
+
+        Assert.Equal(ExitCodes.Usage, exit);
+        Assert.Equal(ErrorCodes.ConfirmationRequired, (string?)test.Error["code"]);
+        Assert.Empty(test.Mcp.Calls);
+    }
+
     private const string ImageBatch = """
         {
           "target": "IN202500",

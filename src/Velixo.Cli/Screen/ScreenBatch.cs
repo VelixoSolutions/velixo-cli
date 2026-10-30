@@ -93,7 +93,7 @@ internal sealed class ScreenBatch
             SplitCommands = Set(body, "splitCommands", source),
             FinishCommands = Set(body, "finishCommands", source),
             KeyNumbering = body["keyNumbering"],
-            ServerSaysWrites = body["writes"] is JsonValue writes && writes.TryGetValue(out bool says) ? says : null,
+            ServerSaysWrites = ServerAnswer(body["writes"]),
             Variables = body["variables"] as JsonArray,
         };
     }
@@ -108,20 +108,23 @@ internal sealed class ScreenBatch
     /// </summary>
     /// <remarks>
     /// The server decides whether a batch writes and sends the answer with the build, as <see cref="ServerSaysWrites"/>.
-    /// This check stays beside it because a batch file can be edited after its build: <see cref="Writes"/> counts the
-    /// batch as a write when either says so.
+    /// This check stays beside it because a batch file can be edited after its build: a run is a write when either
+    /// says so. The rule above is Acumatica's. Business Central and Sage Intacct keep no record open, so a <c>Set</c>
+    /// there is not dropped with a session: on any target other than an Acumatica screen, only commands that read
+    /// count as reads.
     /// </remarks>
-    public static bool OnlyReads(IEnumerable<JsonArray?> sets) =>
-        sets.Where(set => set is not null).SelectMany(set => set!).All(IsRead);
+    public static bool OnlyReads(string target, IEnumerable<JsonArray?> sets)
+    {
+        var acumatica = IsAcumaticaScreen(target);
+        return sets.Where(set => set is not null).SelectMany(set => set!).All(command => IsRead(command, acumatica));
+    }
 
-    /// <summary>
-    /// Returns whether running <paramref name="sets"/> of this batch can leave a change in the ERP: when the server
-    /// said so, or when <see cref="OnlyReads"/> finds a command that can persist. Without the server's answer, the
-    /// check alone decides.
-    /// </summary>
-    public bool Writes(IEnumerable<JsonArray?> sets) => ServerSaysWrites == true || !OnlyReads(sets);
+    /// <summary>Returns whether running <paramref name="sets"/> of this batch can leave a change: when the server said so, or when <see cref="OnlyReads"/> finds a command that can.</summary>
+    public bool Writes(IEnumerable<JsonArray?> sets) => ServerSaysWrites == true || !OnlyReads(Target, sets);
 
     private static readonly string[] _readTypes = ["Get", "Clear", "Key", "Set", "ListAttachments", "DownloadAttachments"];
+
+    private static readonly string[] _sessionlessReadTypes = ["Get", "Clear", "Key", "ListAttachments", "DownloadAttachments"];
 
     private static readonly string[] _noteFields = ["NoteText", "NotePopupText"];
 
@@ -131,12 +134,33 @@ internal sealed class ScreenBatch
     /// </summary>
     private static readonly string[] _readOnlyActions = ["First", "Previous", "Next", "Last", "Cancel", "PreviousPeriod", "NextPeriod", "Refresh", "RunReport"];
 
-    private static bool IsRead(JsonNode? command)
+    /// <summary>An Acumatica screen id: two letters and six digits, such as <c>IN202500</c>.</summary>
+    private static bool IsAcumaticaScreen(string target) =>
+        target.Length == 8 && char.IsAsciiLetter(target[0]) && char.IsAsciiLetter(target[1]) && target[2..].All(char.IsAsciiDigit);
+
+    /// <summary>The server's <c>writes</c>: a boolean is its answer, no value is no answer, and any other value counts as a write.</summary>
+    private static bool? ServerAnswer(JsonNode? writes) =>
+        writes switch
+        {
+            null => null,
+            JsonValue value when value.TryGetValue(out bool answer) => answer,
+            _ => true,
+        };
+
+    /// <summary>Returns whether <paramref name="flag"/> marks a command as committed: any value other than false or none does.</summary>
+    private static bool IsCommitted(JsonNode? flag) =>
+        flag is not null && !(flag is JsonValue value && value.TryGetValue(out bool committed) && !committed);
+
+    private static bool IsRead(JsonNode? command, bool acumatica)
     {
-        if (CommandText.String(command?["type"]) is not { } type
-            || (command?["commit"] is JsonValue commit && commit.TryGetValue(out bool commits) && commits))
+        if (CommandText.String(command?["type"]) is not { } type || IsCommitted(command?["commit"]))
         {
             return false;
+        }
+
+        if (!acumatica)
+        {
+            return _sessionlessReadTypes.Contains(type, StringComparer.OrdinalIgnoreCase);
         }
 
         if (type.Equals("Action", StringComparison.OrdinalIgnoreCase))
@@ -151,7 +175,7 @@ internal sealed class ScreenBatch
         }
 
         return !type.Equals("Set", StringComparison.OrdinalIgnoreCase)
-            || CommandText.String(command?["name"]) is not { } name
+            || CommandText.String(command?["name"])?.Trim() is not { } name
             || !_noteFields.Any(note => name.Equals(note, StringComparison.OrdinalIgnoreCase) || name.EndsWith("." + note, StringComparison.OrdinalIgnoreCase));
     }
 
