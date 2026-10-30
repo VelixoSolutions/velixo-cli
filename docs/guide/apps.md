@@ -34,6 +34,8 @@ Parse stdout whatever the exit code. A success holds `result`. A failure holds `
 | Any other code, exit 1 | 1 | Unexpected: the network, the server. A read may be retried once. |
 | `TIMEOUT` | 124 | The task still runs on the server. |
 
+A query parameter on a selector field, such as an item ID, refuses a value that no record holds: the query fails with `TASK_FAILED`, and `error.message` says the value "is not a valid value for parameter". When the app looks a record up by that parameter, it reads this as "no such record", not as a broken query.
+
 On a write, exit 1 and exit 124 mean the outcome is unknown: the record may be saved. Never run the write again blindly. Read the record first, by a value the app chose, such as a reference or a description, and create it only if the read finds nothing.
 
 ## Pass the values
