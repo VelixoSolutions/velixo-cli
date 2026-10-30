@@ -1,0 +1,39 @@
+{
+  "target": "IN202500",
+  "screenName": "Stock Items",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "Item.InventoryCD",
+      "value": "{{InventoryID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "DownloadAttachments",
+      "name": "Item",
+      "value": "{{ImageFile}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "InventoryID",
+      "type": "string",
+      "description": "Stock item inventory code"
+    },
+    {
+      "name": "ImageFile",
+      "type": "string",
+      "description": "File name of the item image, from the item ImageUrl"
+    }
+  ]
+}

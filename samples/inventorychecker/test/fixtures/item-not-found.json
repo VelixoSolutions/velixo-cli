@@ -1,0 +1,54 @@
+{
+  "taskId": "6973e68e9dc04d938dd7851e37fcc801",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 0,
+      "columns": [
+        {
+          "objectName": "Item",
+          "fieldName": "InventoryCD",
+          "caption": "Inventory ID",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "Descr",
+          "caption": "Description",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "BaseUnit",
+          "caption": "Base Unit",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "ImageUrl",
+          "caption": "Image URL",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "=IsNull(SUM([Status.QtyOnHand]),0)",
+          "caption": "Qty. On Hand",
+          "type": "Decimal",
+          "precision": 2
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "=IsNull(SUM([Status.QtyAvail]),0)",
+          "caption": "Qty. Available",
+          "type": "Decimal",
+          "precision": 2
+        }
+      ],
+      "rows": []
+    }
+  }
+}

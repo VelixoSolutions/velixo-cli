@@ -1,0 +1,393 @@
+// Inventory checker: a full-screen kiosk that looks up a scanned item in Acumatica through the Velixo CLI,
+// and can move units of it to a reserved location.
+// No dependencies: Node.js 20 or later, and a signed-in `velixo` on the PATH.
+
+import { execFile } from 'node:child_process';
+import { createReadStream } from 'node:fs';
+import { mkdir, readdir, stat } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { extname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = fileURLToPath(new URL('.', import.meta.url));
+
+const settings = {
+    port: Number(process.env.PORT ?? 8080),
+    host: process.env.HOST ?? '127.0.0.1',
+    velixo: process.env.VELIXO_BIN ?? 'velixo',
+    connection: process.env.VELIXO_CONNECTION,
+    intent: process.env.KIOSK_INTENT ?? 'Look up a scanned item at the in-store inventory kiosk',
+    imageCache: resolve(process.env.KIOSK_IMAGE_CACHE ?? join(here, '.cache', 'images')),
+    warehouse: process.env.KIOSK_WAREHOUSE,
+    reserveLocation: process.env.KIOSK_RESERVE_LOCATION ?? 'RESERVED',
+    reserveIntent: process.env.KIOSK_RESERVE_INTENT ?? 'Move units of a scanned item to the reserved location from the in-store kiosk',
+};
+
+const files = {
+    itemQuery: join(here, 'velixo', 'item.vql'),
+    onOrderQuery: join(here, 'velixo', 'on-order.vql'),
+    warehousesQuery: join(here, 'velixo', 'warehouses.vql'),
+    imageBatch: join(here, 'velixo', 'item-image.batch.json'),
+    locationsQuery: join(here, 'velixo', 'locations.vql'),
+    reserveBatch: join(here, 'velixo', 'reserve-transfer.batch.json'),
+    publicDir: join(here, 'public'),
+};
+
+const contentTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.avif': 'image/avif',
+};
+
+// An Acumatica inventory ID: letters, digits and the separators segmented keys use. Scanners send nothing else.
+const inventoryIdPattern = /^[A-Za-z0-9][A-Za-z0-9 _\-.\/]{0,29}$/;
+
+class VelixoError extends Error {
+    constructor(code, message, exitCode) {
+        super(message);
+        this.code = code;
+        this.exitCode = exitCode;
+    }
+}
+
+function velixo(args, intent = settings.intent) {
+    const fullArgs = [
+        ...args,
+        '--output', 'json',
+        '--quiet',
+        '--non-interactive',
+        '--intent', intent,
+        ...(settings.connection ? ['--connection', settings.connection] : []),
+    ];
+
+    return new Promise((resolvePromise, reject) => {
+        execFile(settings.velixo, fullArgs, { timeout: 90_000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
+            let document;
+            try {
+                document = JSON.parse(stdout);
+            } catch {
+                document = undefined;
+            }
+
+            if (document?.error) {
+                reject(new VelixoError(document.error.code, document.error.message, document.error.exitCode));
+            } else if (error) {
+                reject(new VelixoError(error.code === 'ENOENT' ? 'CLI_NOT_FOUND' : 'CLI_FAILED', error.message, error.code));
+            } else {
+                resolvePromise(document);
+            }
+        });
+    });
+}
+
+/** Runs a .vql file and returns its rows as objects keyed by column caption. */
+async function runQuery(file, parameters) {
+    const args = ['query', 'run', '--query', file];
+    for (const [label, value] of Object.entries(parameters)) {
+        args.push('--param', `${label}=${value}`);
+    }
+
+    const document = await velixo(args);
+    const { columns, rows } = document.result.data;
+    return rows.map(row => Object.fromEntries(columns.map((column, index) => [column.caption, row[index]])));
+}
+
+async function lookUpItem(inventoryId) {
+    const [item] = await runQuery(files.itemQuery, { 'Inventory ID': inventoryId });
+    if (!item) {
+        return undefined;
+    }
+
+    const [receipts, warehouses] = await Promise.all([
+        runQuery(files.onOrderQuery, { 'Inventory ID': inventoryId }),
+        runQuery(files.warehousesQuery, { 'Inventory ID': inventoryId }),
+    ]);
+    const imageFile = imageFileOf(item['Image URL']);
+
+    return {
+        inventoryId: item['Inventory ID'].trim(),
+        description: item['Description'],
+        baseUnit: item['Base Unit'],
+        qtyOnHand: item['Qty. On Hand'],
+        qtyAvailable: item['Qty. Available'],
+        image: imageFile ? `/api/items/${encodeURIComponent(inventoryId)}/image?file=${encodeURIComponent(imageFile)}` : null,
+        warehouses: warehouses.map(warehouse => ({
+            warehouse: warehouse['Warehouse'].trim(),
+            name: warehouse['Warehouse Name'],
+            qtyOnHand: warehouse['Qty. On Hand'],
+            qtyAvailable: warehouse['Qty. Available'],
+            isThisStore: warehouse['Warehouse'].trim() === settings.warehouse,
+        })),
+        onOrder: receipts.map(receipt => ({
+            orderNbr: receipt['Order Nbr.'],
+            promisedDate: receipt['Promised Date'],
+            quantity: receipt['Quantity Still to Receive (Base)'],
+            vendor: receipt['Vendor Name'],
+        })),
+    };
+}
+
+/** Returns where the item's stock sits in the kiosk's warehouse: the reserved location, and every other one. */
+async function itemLocations(inventoryId) {
+    const rows = await runQuery(files.locationsQuery, { 'Inventory ID': inventoryId, Warehouse: settings.warehouse });
+    const locations = rows.map(row => ({ location: row['Location'].trim(), qtyOnHand: row['Qty. On Hand'] }));
+    const reserved = locations.find(entry => entry.location === settings.reserveLocation);
+
+    return {
+        warehouse: settings.warehouse,
+        reserveLocation: settings.reserveLocation,
+        reserved: reserved?.qtyOnHand ?? 0,
+        locations: locations.filter(entry => entry !== reserved && entry.qtyOnHand > 0),
+    };
+}
+
+const reservations = new Map();
+
+/**
+ * Runs the reservations of one item one after the other. Two screens that reserve the same item at once would
+ * otherwise both pass the stock check before either transfer ran, and together move more than the location holds.
+ */
+function oneReservationAtATime(inventoryId, reserve) {
+    const previous = reservations.get(inventoryId) ?? Promise.resolve();
+    const run = previous.then(reserve);
+    const settled = run.catch(() => {});
+    reservations.set(inventoryId, settled);
+    settled.then(() => {
+        if (reservations.get(inventoryId) === settled) {
+            reservations.delete(inventoryId);
+        }
+    });
+    return run;
+}
+
+/**
+ * Moves units of the item to the reserved location with a one-step transfer that the batch saves and releases.
+ * It checks the source location against the ERP's current stock first, so a stale screen cannot overdraw it.
+ */
+function reserveUnits(inventoryId, request) {
+    return oneReservationAtATime(inventoryId, () => transferToReserved(inventoryId, request));
+}
+
+async function transferToReserved(inventoryId, { quantity, fromLocation }) {
+    const { locations } = await itemLocations(inventoryId);
+    const source = locations.find(entry => entry.location === fromLocation);
+    if (!source) {
+        return { status: 400, body: { error: 'UNKNOWN_LOCATION', message: `The item has no stock in ${fromLocation}.` } };
+    }
+    if (quantity > source.qtyOnHand) {
+        return { status: 400, body: { error: 'NOT_ENOUGH_STOCK', message: `${fromLocation} holds only ${source.qtyOnHand}.` } };
+    }
+
+    // --force skips the CLI's duplicate guard, which would refuse reserving the same quantity of the same item
+    // again within 10 minutes. The screen disables its button while a transfer runs, so one tap is one transfer.
+    const document = await velixo([
+        'command', 'run',
+        '--batch', files.reserveBatch,
+        '--param', `Warehouse=${settings.warehouse}`,
+        '--param', `InventoryID=${inventoryId}`,
+        '--param', `FromLocation=${fromLocation}`,
+        '--param', `ToLocation=${settings.reserveLocation}`,
+        '--param', `Quantity=${quantity}`,
+        '--param', `Description=Inventory checker: reserve ${quantity} ${inventoryId}`,
+        '--yes',
+        '--force',
+    ], settings.reserveIntent);
+
+    const { savedKey, record } = document.result.feedback;
+    return { status: 200, body: { transfer: savedKey.RefNbr, status: record?.transfer?.Status } };
+}
+
+async function readJson(request) {
+    let text = '';
+    for await (const chunk of request) {
+        text += chunk;
+        if (text.length > 1024) {
+            throw new SyntaxError('body too large');
+        }
+    }
+    return JSON.parse(text);
+}
+
+/** Acumatica stores the item image as "Stock Items (ITEM)\file.jpg": the attachment's name is the part after the backslash. */
+function imageFileOf(imageUrl) {
+    if (!imageUrl) {
+        return undefined;
+    }
+
+    return imageUrl.split('\\').pop();
+}
+
+/**
+ * Returns the path of the item's image on disk, downloading it with the image batch the first time.
+ * Images rarely change, so the cache turns every later scan of the item into a local read.
+ */
+async function itemImagePath(inventoryId, imageFile) {
+    const folder = join(settings.imageCache, Buffer.from(inventoryId).toString('base64url'));
+    const cached = join(folder, imageFile);
+    if (await exists(cached)) {
+        return cached;
+    }
+
+    await mkdir(folder, { recursive: true });
+
+    // The batch only reads: it sets the inventory ID to load the item and downloads one attachment, with no Save.
+    // The CLI still counts a batch that sets a field as a write, so it needs --yes, and --force lets the kiosk
+    // read the same item again within the duplicate guard's 10 minutes, for example after the cache was cleared.
+    await velixo([
+        'command', 'run',
+        '--batch', files.imageBatch,
+        '--param', `InventoryID=${inventoryId}`,
+        '--param', `ImageFile=${imageFile}`,
+        '--download-dir', folder,
+        '--yes',
+        '--force',
+    ]);
+
+    if (await exists(cached)) {
+        return cached;
+    }
+
+    // Acumatica can store the file under a slightly different name than the one ImageUrl gives.
+    const [downloaded] = await readdir(folder);
+    return downloaded ? join(folder, downloaded) : undefined;
+}
+
+async function exists(path) {
+    try {
+        return (await stat(path)).isFile();
+    } catch {
+        return false;
+    }
+}
+
+function sendJson(response, status, body) {
+    response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+    response.end(JSON.stringify(body));
+}
+
+function sendFile(response, path, cacheControl) {
+    response.writeHead(200, {
+        'content-type': contentTypes[extname(path).toLowerCase()] ?? 'application/octet-stream',
+        'cache-control': cacheControl,
+    });
+    createReadStream(path).pipe(response);
+}
+
+function sendVelixoError(response, error) {
+    const signedOut = ['NOT_SIGNED_IN', 'SESSION_ENDED', 'ACCESS_DENIED'].includes(error.code);
+    console.error(`velixo failed: ${error.code ?? 'unknown'} ${error.message}`);
+    sendJson(response, signedOut ? 401 : 502, {
+        error: error.code ?? 'CLI_FAILED',
+        message: signedOut
+            ? 'The kiosk is signed out of Velixo. Run "velixo login" on the kiosk computer.'
+            : 'The ERP could not be reached. Try again in a moment.',
+    });
+}
+
+async function handle(request, response) {
+    const url = new URL(request.url, 'http://kiosk');
+    const itemRoute = url.pathname.match(/^\/api\/items\/([^/]+)(?:\/(image|locations|reserve))?$/);
+
+    if (url.pathname === '/api/config' && request.method === 'GET') {
+        return sendJson(response, 200, {
+            reserve: settings.warehouse ? { warehouse: settings.warehouse, location: settings.reserveLocation } : null,
+        });
+    }
+
+    if (itemRoute && (itemRoute[2] === 'locations' || itemRoute[2] === 'reserve') && !settings.warehouse) {
+        return sendJson(response, 404, { error: 'RESERVE_DISABLED', message: 'Set KIOSK_WAREHOUSE to reserve units.' });
+    }
+
+    if (itemRoute && itemRoute[2] === 'reserve' && request.method === 'POST') {
+        const inventoryId = decodeURIComponent(itemRoute[1]).trim();
+        let body;
+        try {
+            body = await readJson(request);
+        } catch {
+            return sendJson(response, 400, { error: 'INVALID_BODY' });
+        }
+
+        const quantity = body?.quantity;
+        const fromLocation = typeof body?.fromLocation === 'string' ? body.fromLocation.trim() : '';
+        if (!inventoryIdPattern.test(inventoryId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 100_000
+            || !inventoryIdPattern.test(fromLocation) || fromLocation === settings.reserveLocation) {
+            return sendJson(response, 400, { error: 'INVALID_REQUEST', message: 'Give a whole quantity and a source location.' });
+        }
+
+        try {
+            const result = await reserveUnits(inventoryId, { quantity, fromLocation });
+            console.log(`reserve ${result.status === 200 ? 'released' : 'refused'}`);
+            return sendJson(response, result.status, result.body);
+        } catch (error) {
+            if (error.exitCode === 5 || error.exitCode === 6) {
+                console.error(`reserve failed in the ERP: ${error.code} ${error.message}`);
+                return sendJson(response, 422, { error: error.code, message: 'The ERP refused the transfer. Ask a manager to check it.' });
+            }
+            return sendVelixoError(response, error);
+        }
+    }
+
+    if (itemRoute && request.method === 'GET' && itemRoute[2] !== 'reserve') {
+        const inventoryId = decodeURIComponent(itemRoute[1]).trim();
+        if (!inventoryIdPattern.test(inventoryId)) {
+            return sendJson(response, 400, { error: 'INVALID_ID', message: 'That is not an inventory ID.' });
+        }
+
+        try {
+            if (itemRoute[2] === 'locations') {
+                return sendJson(response, 200, await itemLocations(inventoryId));
+            }
+
+            if (itemRoute[2] === 'image') {
+                const imageFile = url.searchParams.get('file') ?? '';
+                if (!imageFile || /[\\/]/.test(imageFile)) {
+                    return sendJson(response, 400, { error: 'INVALID_FILE' });
+                }
+
+                const path = await itemImagePath(inventoryId, imageFile);
+                return path ? sendFile(response, path, 'max-age=3600') : sendJson(response, 404, { error: 'NO_IMAGE' });
+            }
+
+            const started = Date.now();
+            const item = await lookUpItem(inventoryId);
+            console.log(`lookup ${item ? 'found' : 'not found'} in ${Date.now() - started} ms`);
+            return item
+                ? sendJson(response, 200, item)
+                : sendJson(response, 404, { error: 'NOT_FOUND', message: 'No stock item has that inventory ID.' });
+        } catch (error) {
+            return sendVelixoError(response, error);
+        }
+    }
+
+    if (request.method !== 'GET') {
+        return sendJson(response, 405, { error: 'METHOD_NOT_ALLOWED' });
+    }
+
+    const relative = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
+    const path = resolve(files.publicDir, relative);
+    if (!path.startsWith(files.publicDir + sep) || !(await exists(path))) {
+        return sendJson(response, 404, { error: 'NOT_FOUND' });
+    }
+
+    return sendFile(response, path, 'no-cache');
+}
+
+const server = createServer((request, response) => {
+    handle(request, response).catch(error => {
+        console.error(error);
+        if (!response.headersSent) {
+            sendJson(response, 500, { error: 'INTERNAL' });
+        }
+    });
+}).listen(settings.port, settings.host, () => {
+    console.log(`Inventory kiosk on http://${settings.host}:${server.address().port}`);
+    console.log(`Connection: ${settings.connection ?? "the profile's default"}`);
+});

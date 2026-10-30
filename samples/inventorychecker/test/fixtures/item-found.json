@@ -1,0 +1,63 @@
+{
+  "taskId": "2c776bc6899749d4aa314a39cde127ed",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 1,
+      "columns": [
+        {
+          "objectName": "Item",
+          "fieldName": "InventoryCD",
+          "caption": "Inventory ID",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "Descr",
+          "caption": "Description",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "BaseUnit",
+          "caption": "Base Unit",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "ImageUrl",
+          "caption": "Image URL",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "=IsNull(SUM([Status.QtyOnHand]),0)",
+          "caption": "Qty. On Hand",
+          "type": "Decimal",
+          "precision": 2
+        },
+        {
+          "objectName": "Item",
+          "fieldName": "=IsNull(SUM([Status.QtyAvail]),0)",
+          "caption": "Qty. Available",
+          "type": "Decimal",
+          "precision": 2
+        }
+      ],
+      "rows": [
+        [
+          "AACOMPUT01",
+          "Acer Laptop Computer",
+          "EA",
+          "Stock Items (AACOMPUT01)\\AACOMPUT01.jpg",
+          643.000000,
+          653.000000
+        ]
+      ]
+    }
+  }
+}
