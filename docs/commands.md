@@ -478,5 +478,6 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 | `HTTP_ERROR` | 1 | An HTTP 5xx or another answer the CLI cannot use. |
 | `MCP_PROTOCOL_ERROR` | 1 | The server answered in a shape the CLI does not know. |
 | `INTERNAL_ERROR` | 1 | A bug in the CLI. |
+| `FILE_LOCKED` | 1 | Another velixo process held one of the CLI's files for more than 30 seconds, or the lock file cannot be opened because the configuration folder is read-only or does not support file locks. |
 | `TIMEOUT` | 124 | `--timeout` ran out. A task keeps running on the server. |
 | `INTERRUPTED` | 130 | Ctrl-C. A task keeps running on the server. |

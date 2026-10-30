@@ -37,6 +37,9 @@ public sealed class TokenStore(ConfigPaths paths) : ITokenStore
     public Task<IDisposable> LockForRefreshAsync(string profile, CancellationToken cancellationToken) =>
         FileLock.AcquireAsync(paths.TokenRefreshLockFile(profile), cancellationToken);
 
+    public Task<IDisposable> LockForEnvironmentTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
+        FileLock.AcquireAsync(paths.EnvironmentTokenRefreshLockFile(tokenHash), cancellationToken);
+
     private CredentialsFile Load()
     {
         try

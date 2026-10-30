@@ -22,4 +22,10 @@ public interface ITokenStore
     /// credentials again after it is taken.
     /// </summary>
     Task<IDisposable> LockForRefreshAsync(string profile, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Waits until no other velixo process on this machine is refreshing the <c>VELIXO_TOKEN</c> whose hash is
+    /// <paramref name="tokenHash"/>, whatever its profile, then keeps them waiting until the lock is disposed.
+    /// </summary>
+    Task<IDisposable> LockForEnvironmentTokenAsync(string tokenHash, CancellationToken cancellationToken);
 }

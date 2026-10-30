@@ -323,9 +323,17 @@ public sealed class GatewaySignIn(
         SignInRecords.ApplyTokens(credentials, answer, now);
 
         // A refresh running in another process would otherwise write the previous session back over this one.
+        // The MCP session belonged to whoever was signed in before, and the server refuses to hand it to anyone
+        // else, so it is dropped under the same lock: no command can pair it with the new tokens in between.
         using (await tokens.LockForRefreshAsync(settings.ProfileName, cancellationToken).ConfigureAwait(false))
         {
             tokens.Save(settings.ProfileName, credentials);
+            profiles.UpdateState(settings.ProfileName, state =>
+            {
+                state.PendingLogin = null;
+                state.McpSessionId = null;
+                state.LastContinuation = null;
+            });
         }
 
         profiles.UpdateConfig(config =>
@@ -337,13 +345,6 @@ public sealed class GatewaySignIn(
             config.DefaultProfile ??= settings.ProfileName;
         });
 
-        // The MCP session belonged to whoever was signed in before; the server refuses to hand it to anyone else.
-        profiles.UpdateState(settings.ProfileName, state =>
-        {
-            state.PendingLogin = null;
-            state.McpSessionId = null;
-            state.LastContinuation = null;
-        });
 
         return SignInRecords.Describe(credentials, settings.ProfileName, settings.Target);
     }

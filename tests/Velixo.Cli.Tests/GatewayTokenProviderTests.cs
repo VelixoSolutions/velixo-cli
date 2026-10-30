@@ -182,6 +182,77 @@ public sealed class GatewayTokenProviderTests
         Assert.Empty(test.Http.Requests);
     }
 
+    [Fact]
+    public async Task A_sign_out_while_this_command_waited_ends_it_instead_of_storing_the_tokens_again()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        test.Services.Tokens.Delete("nx-dev");
+        otherProcess.Dispose();
+
+        CliException error = await Assert.ThrowsAsync<CliException>(() => waiting);
+        Assert.Equal(ErrorCodes.NotSignedIn, error.Code);
+        Assert.Empty(test.Http.Requests);
+        Assert.Null(test.Services.Tokens.Get("nx-dev"));
+    }
+
+    [Fact]
+    public async Task A_velixo_token_session_that_replaced_the_sign_in_while_this_command_waited_is_not_overwritten()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-of-a-sign-in", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        StoredCredentials fromEnvironment = Credentials("refresh-rotated-from-env", "access-env", expiresIn: TimeSpan.FromSeconds(-5));
+        fromEnvironment.EnvironmentTokenHash = GatewayTokenProvider.HashToken("refresh-from-env");
+        test.Services.Tokens.Save("nx-dev", fromEnvironment);
+        otherProcess.Dispose();
+
+        CliException error = await Assert.ThrowsAsync<CliException>(() => waiting);
+        Assert.Equal(ErrorCodes.SessionEnded, error.Code);
+        Assert.Empty(test.Http.Requests);
+        Assert.Equal("refresh-rotated-from-env", test.Services.Tokens.Get("nx-dev")!.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Two_profiles_that_use_the_same_velixo_token_refresh_one_after_the_other()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("other", Credentials("refresh-of-a-sign-in", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        test.Http.ThenJson(GatewaySignInTests.TokenAnswer("ci@example.com", "org-42", "refresh-rotated"));
+        IDisposable firstProfile = await test.Services.Tokens.LockForEnvironmentTokenAsync(GatewayTokenProvider.HashToken("refresh-from-env"), cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings() with { ProfileName = "other", EnvironmentToken = "refresh-from-env" }).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        Assert.False(waiting.IsCompleted);
+        Assert.Empty(test.Http.Requests);
+
+        firstProfile.Dispose();
+        await waiting.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+        Assert.Single(test.Http.Requests);
+    }
+
+    [Fact]
+    public async Task Different_velixo_tokens_do_not_hold_each_other_up()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using IDisposable first = await test.Services.Tokens.LockForEnvironmentTokenAsync(GatewayTokenProvider.HashToken("token-a"), cancellationToken);
+
+        using IDisposable second = await test.Services.Tokens
+            .LockForEnvironmentTokenAsync(GatewayTokenProvider.HashToken("token-b"), cancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+    }
+
     private static readonly DateTimeOffset _signedInAt = DateTimeOffset.UtcNow;
 
     private static StoredCredentials Credentials(string refreshToken, string accessToken, TimeSpan expiresIn) => new()

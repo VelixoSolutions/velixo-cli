@@ -6,7 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Fixed
 
-- Several `velixo` commands can run at the same time on one profile. When the access token expires, one process renews it and the others wait for it and use the new token, instead of each presenting the same refresh token, which made the server end the session. Commands that run at the same time also keep every change to the CLI's files: two builds no longer get the same library number, two profiles signing in at once both keep their tokens and settings, and a sign-in or sign-out is never undone by a refresh that another command finishes after it.
+- Several `velixo` commands can run at the same time on one profile. When the access token expires, one process renews it and the others wait for it and use the new token, instead of each presenting the same refresh token, which made the server end the session. Commands that run at the same time also keep every change to the CLI's files: two builds no longer get the same library number, two profiles signing in at once both keep their tokens and settings, and a sign-in or sign-out is never undone by a refresh that another command finishes after it. Commands that share one `VELIXO_TOKEN` wait for each other too, whatever their profile. When another velixo process holds one of the CLI's files for more than 30 seconds, or the configuration folder cannot hold a lock file, a command now fails with `FILE_LOCKED` instead of waiting forever.
 
 ## [0.3.1] - 2026-10-29
 

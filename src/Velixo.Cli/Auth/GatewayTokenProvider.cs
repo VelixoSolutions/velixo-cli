@@ -133,11 +133,34 @@ public sealed class GatewayTokenProvider(
 
     private async Task<string> RefreshAsync(StoredCredentials credentials, CancellationToken cancellationToken)
     {
+        // A VELIXO_TOKEN can drive several profiles, so its lock is the token's own, taken before the profile's.
+        // The order never changes, so two processes never wait on each other's lock.
+        using IDisposable? tokenLock = credentials.EnvironmentTokenHash is { } tokenHash
+            ? await store.LockForEnvironmentTokenAsync(tokenHash, cancellationToken).ConfigureAwait(false)
+            : null;
         using IDisposable refreshLock = await store.LockForRefreshAsync(settings.ProfileName, cancellationToken).ConfigureAwait(false);
+
+        StoredCredentials? latest = store.Get(settings.ProfileName);
+        if (latest is null && credentials.EnvironmentTokenHash is null)
+        {
+            // The profile signed out while this command waited: refreshing would store its tokens again.
+            throw CliException.NotSignedIn(settings.ProfileName);
+        }
+
+        if (latest is not null && credentials.EnvironmentTokenHash is null && latest.EnvironmentTokenHash is not null)
+        {
+            // A VELIXO_TOKEN session replaced the profile's sign-in while this command waited. Refreshing the
+            // sign-in now would overwrite that session's tokens, and its next command would replay a spent one.
+            throw new CliException(
+                ExitCodes.AuthenticationRequired,
+                ErrorCodes.SessionEnded,
+                $"The tokens of the profile '{settings.ProfileName}' were replaced by {EnvironmentVariables.Token} while this command ran.",
+                "Run the command again.");
+        }
 
         // The gateway rotates the refresh token on every use and ends the session when one is used twice. A
         // process that refreshed while this one waited has spent the token this one holds, so continue from its.
-        if (store.Get(settings.ProfileName) is { } latest
+        if (latest is not null
             && !string.IsNullOrEmpty(latest.RefreshToken)
             && latest.RefreshToken != credentials.RefreshToken
             && latest.EnvironmentTokenHash == credentials.EnvironmentTokenHash)

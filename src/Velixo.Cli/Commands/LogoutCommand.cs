@@ -46,7 +46,7 @@ public static class LogoutCommand
     private static async Task SignOutAsync(CliServices services, string profile, CancellationToken cancellationToken)
     {
         StoredCredentials? credentials = services.Tokens.Get(profile);
-        if (credentials?.RefreshToken is { Length: > 0 } refreshToken)
+        if (credentials?.RefreshToken is { Length: > 0 })
         {
             try
             {
@@ -58,12 +58,19 @@ public static class LogoutCommand
             {
                 services.Output.Warn($"The server did not confirm the sign-out of '{profile}': {exception.Message}");
             }
+        }
 
-            if (credentials.RevocationEndpoint is { } revocation && credentials.ClientId is { } clientId)
+        // Under the refresh lock, no other process can rotate the token between the read and the revocation,
+        // or write the profile's tokens back after the delete. The server sign-out above can itself refresh the
+        // token, so it runs before the lock: the lock is not reentrant.
+        using (await services.Tokens.LockForRefreshAsync(profile, cancellationToken).ConfigureAwait(false))
+        {
+            if (services.Tokens.Get(profile) is { RefreshToken: { Length: > 0 } latest } stored
+                && stored.RevocationEndpoint is { } revocation
+                && stored.ClientId is { } clientId)
             {
                 try
                 {
-                    var latest = services.Tokens.Get(profile)?.RefreshToken ?? refreshToken;
                     await new OAuthTokenClient(services.Http).RevokeAsync(revocation, clientId, latest, cancellationToken).ConfigureAwait(false);
                 }
                 catch (CliException exception)
@@ -71,11 +78,7 @@ public static class LogoutCommand
                     services.Output.Warn($"The refresh token of '{profile}' could not be revoked: {exception.Message}");
                 }
             }
-        }
 
-        // A refresh running in another process would otherwise write the profile's tokens back after the sign-out.
-        using (await services.Tokens.LockForRefreshAsync(profile, cancellationToken).ConfigureAwait(false))
-        {
             services.Tokens.Delete(profile);
         }
 
