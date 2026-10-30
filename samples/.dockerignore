@@ -1,0 +1,10 @@
+**/.state
+**/.cache
+**/.venv
+**/node_modules
+**/__pycache__
+**/tests
+**/test
+**/docs
+**/.env
+**/.env.*
