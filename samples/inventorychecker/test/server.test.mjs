@@ -192,6 +192,50 @@ test('serves the kiosk page and nothing outside its folder', async () => {
     }
 });
 
+test('serves what makes the page installable as an app', async () => {
+    const manifest = await fetch(`${baseUrl}/manifest.webmanifest`);
+    assert.equal(manifest.status, 200);
+    assert.match(manifest.headers.get('content-type'), /^application\/manifest\+json/);
+    const { start_url: startUrl, display, icons } = await manifest.json();
+    assert.equal(startUrl, '/');
+    assert.equal(display, 'standalone');
+    for (const icon of icons) {
+        const response = await fetch(new URL(icon.src, `${baseUrl}/`));
+        assert.equal(response.status, 200, icon.src);
+        assert.equal(response.headers.get('content-type'), 'image/png', icon.src);
+    }
+
+    const worker = await fetch(`${baseUrl}/sw.js`);
+    assert.equal(worker.status, 200);
+    assert.match(worker.headers.get('content-type'), /^text\/javascript/);
+    assert.equal(worker.headers.get('cache-control'), 'no-cache', 'a cached worker would keep an old page');
+});
+
+test('lists the stock by location of any warehouse, the reserved location included', async () => {
+    const response = await fetch(`${baseUrl}/api/items/AACOMPUT01/warehouses/WHOLESALE/locations`);
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+        warehouse: 'WHOLESALE',
+        locations: [
+            { location: 'STORAGE', qtyOnHand: 434 },
+            { location: 'RESERVED', qtyOnHand: 1 },
+        ],
+    });
+    const [args] = cliCalls().map(call => call.args);
+    assert.match(args[args.indexOf('--query') + 1], /locations\.vql$/);
+    assert.ok(args.includes('Inventory ID=AACOMPUT01'));
+    assert.ok(args.includes('Warehouse=WHOLESALE'));
+});
+
+test('refuses a warehouse code that could not be one, without calling the CLI', async () => {
+    for (const warehouse of ['--help', 'bad;wh', '%E0', 'W'.repeat(31)]) {
+        const response = await fetch(`${baseUrl}/api/items/AACOMPUT01/warehouses/${warehouse === '%E0' ? warehouse : encodeURIComponent(warehouse)}/locations`);
+        assert.equal(response.status, 400, warehouse);
+    }
+    assert.equal(cliCalls().length, 0);
+});
+
 test('reports the ERP as unreachable when the CLI cannot be started', async () => {
     const broken = await startServer({ VELIXO_BIN: join(work, 'no-such-velixo') });
     try {
@@ -306,6 +350,7 @@ test('turns reservations off when no warehouse is configured', async () => {
     try {
         assert.deepEqual(await (await fetch(`${plain.url}/api/config`)).json(), { reserve: null });
         assert.equal((await fetch(`${plain.url}/api/items/AACOMPUT01/locations`)).status, 404);
+        assert.equal((await fetch(`${plain.url}/api/items/AACOMPUT01/warehouses/RETAIL/locations`)).status, 200);
     } finally {
         plain.child.kill();
     }

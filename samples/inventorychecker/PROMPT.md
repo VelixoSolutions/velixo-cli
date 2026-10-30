@@ -46,9 +46,14 @@ These are the developer's requests, in order, each with what Claude Code did wit
 
     The badge in the bottom right corner uses the Velixo logo, and the top left uses the Velixo symbol.
 
+11. > I'd like to turn the inventory sample app into a progressive web app, that has a different interface when used on a mobile device. From the search page, it should have an always on camera that searches for barcodes. It would be useful to have inventory by location available too if we want, maybe not fetched realtime but when you click a button next to a warehouse.
+
+    Claude Code added a manifest, a service worker and icons, and a phone layout that the page picks on a narrow touch screen. Its search screen reads barcodes from the rear camera, with the browser's barcode detector or, where there is none, ZXing in WebAssembly. Each warehouse on the item screen has a button that runs the existing `locations.vql` for that warehouse when tapped, so it needed no new query. The server can now serve HTTPS, which a phone needs for the camera.
+
 ## How it was checked
 
 - `npm test` runs 20 tests against the fake CLI.
+- For the phone layout, `npm test` grew to 26 tests, and Chromium, driven by Playwright at 390×844 with a fake camera that showed a Code 128 barcode, read the item from the camera, listed a warehouse's locations, and went back to the camera without reading the same barcode twice.
 - Chrome, driven by Playwright, scanned items at 1920×1080 and in portrait: an item on order, an item with nothing on order, an unknown code, the on-screen keypad, and a reservation of one unit from the start to the animation.
 - Two transfers of one unit each ran on the demo company: one from the CLI, one from the app.
 
