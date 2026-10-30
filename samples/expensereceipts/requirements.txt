@@ -1,0 +1,8 @@
+flask>=3.0
+opencv-python-headless>=4.10
+numpy>=1.26
+requests>=2.31
+twilio>=9.0
+pytest>=8.0
+pillow>=10.0
+gunicorn>=22.0

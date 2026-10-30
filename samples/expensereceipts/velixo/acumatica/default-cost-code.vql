@@ -1,0 +1,3 @@
+FROM [PX.Objects.PM.PMCostCode] As CostCode
+WHERE CostCode.IsDefault = 1
+SELECT CostCode.CostCodeCD AS 'Cost Code', CostCode.Description AS 'Description'
