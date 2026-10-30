@@ -7,7 +7,11 @@ public interface IProfileStore
 
     CliConfig LoadConfig();
 
-    void SaveConfig(CliConfig config);
+    /// <summary>
+    /// Reads <c>config.json</c>, applies <paramref name="change"/> and writes it back under a lock, as
+    /// <see cref="UpdateState"/> does, and returns the configuration as written.
+    /// </summary>
+    CliConfig UpdateConfig(Action<CliConfig> change);
 
     /// <summary>Returns the profile's state, or an empty one when it has none or the file is unreadable.</summary>
     ProfileState LoadState(string profile);

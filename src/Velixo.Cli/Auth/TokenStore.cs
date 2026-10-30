@@ -11,10 +11,6 @@ namespace Velixo.Cli.Auth;
 /// </summary>
 public sealed class TokenStore(ConfigPaths paths) : ITokenStore
 {
-    // A refresh is one HTTP call, which the HTTP client gives up on after 100 seconds.
-    private static readonly TimeSpan _refreshLockWait = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan _updateLockWait = TimeSpan.FromSeconds(30);
-
     public StoredCredentials? Get(string profile) => Load().Profiles.GetValueOrDefault(profile);
 
     public void Save(string profile, StoredCredentials credentials) =>
@@ -32,14 +28,14 @@ public sealed class TokenStore(ConfigPaths paths) : ITokenStore
     /// <summary>Changes the file under its lock, so that two processes saving different profiles both keep theirs.</summary>
     private void Update(Action<CredentialsFile> change)
     {
-        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(paths.CredentialsFile), _updateLockWait);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(paths.CredentialsFile));
         CredentialsFile file = Load();
         change(file);
         Write(file);
     }
 
-    public Task<IDisposable> LockForRefreshAsync(CancellationToken cancellationToken) =>
-        FileLock.AcquireAsync(paths.TokenRefreshLockFile, _refreshLockWait, cancellationToken);
+    public Task<IDisposable> LockForRefreshAsync(string profile, CancellationToken cancellationToken) =>
+        FileLock.AcquireAsync(paths.TokenRefreshLockFile(profile), cancellationToken);
 
     private CredentialsFile Load()
     {

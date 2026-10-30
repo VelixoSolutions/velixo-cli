@@ -71,7 +71,7 @@ public sealed class GatewaySignIn(
             .RedeemCodeAsync(endpoints.TokenEndpoint, clientId, code, listener.RedirectUri.ToString(), verifier, endpoints.Resource, cancellationToken)
             .ConfigureAwait(false);
 
-        return Store(settings, endpoints, clientId, answer);
+        return await StoreAsync(settings, endpoints, clientId, answer, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -159,7 +159,7 @@ public sealed class GatewaySignIn(
             EnvironmentName = Environments.NameOf(new Uri(pending.McpUrl!)),
         };
 
-        return Store(target, endpoints, pending.ClientId!, answer);
+        return await StoreAsync(target, endpoints, pending.ClientId!, answer, cancellationToken).ConfigureAwait(false);
     }
 
     private static Uri BuildAuthorizeUrl(OAuthServerEndpoints endpoints, string clientId, Uri redirectUri, string verifier, string state)
@@ -302,7 +302,12 @@ public sealed class GatewaySignIn(
         return clientId;
     }
 
-    private JsonObject Store(ResolvedSettings settings, OAuthServerEndpoints endpoints, string clientId, TokenResponse answer)
+    private async Task<JsonObject> StoreAsync(
+        ResolvedSettings settings,
+        OAuthServerEndpoints endpoints,
+        string clientId,
+        TokenResponse answer,
+        CancellationToken cancellationToken)
     {
         DateTimeOffset now = clock.GetUtcNow();
         var credentials = new StoredCredentials
@@ -316,15 +321,21 @@ public sealed class GatewaySignIn(
             SignedInAt = now,
         };
         SignInRecords.ApplyTokens(credentials, answer, now);
-        tokens.Save(settings.ProfileName, credentials);
 
-        CliConfig config = profiles.LoadConfig();
-        ProfileConfig profile = config.Profiles.GetValueOrDefault(settings.ProfileName) ?? new ProfileConfig();
-        profile.Environment = settings.EnvironmentName;
-        profile.Url = settings.EnvironmentName is null ? settings.McpUrl.ToString() : null;
-        config.Profiles[settings.ProfileName] = profile;
-        config.DefaultProfile ??= settings.ProfileName;
-        profiles.SaveConfig(config);
+        // A refresh running in another process would otherwise write the previous session back over this one.
+        using (await tokens.LockForRefreshAsync(settings.ProfileName, cancellationToken).ConfigureAwait(false))
+        {
+            tokens.Save(settings.ProfileName, credentials);
+        }
+
+        profiles.UpdateConfig(config =>
+        {
+            ProfileConfig profile = config.Profiles.GetValueOrDefault(settings.ProfileName) ?? new ProfileConfig();
+            profile.Environment = settings.EnvironmentName;
+            profile.Url = settings.EnvironmentName is null ? settings.McpUrl.ToString() : null;
+            config.Profiles[settings.ProfileName] = profile;
+            config.DefaultProfile ??= settings.ProfileName;
+        });
 
         // The MCP session belonged to whoever was signed in before; the server refuses to hand it to anyone else.
         profiles.UpdateState(settings.ProfileName, state =>

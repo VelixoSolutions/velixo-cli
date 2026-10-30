@@ -47,6 +47,21 @@ public sealed class ParallelInvocationTests
     }
 
     [Fact]
+    public async Task Profiles_configured_at_the_same_time_are_all_kept()
+    {
+        using var folder = new TempDirectory();
+        var paths = new ConfigPaths(folder.Path);
+
+        await Parallel.ForEachAsync(Enumerable.Range(0, Invocations), TestContext.Current.CancellationToken, (index, _) =>
+        {
+            new ProfileStore(paths).UpdateConfig(config => config.Profiles[$"profile-{index}"] = new ProfileConfig { Connection = $"connection-{index}" });
+            return ValueTask.CompletedTask;
+        });
+
+        Assert.Equal(Invocations, new ProfileStore(paths).LoadConfig().Profiles.Count);
+    }
+
+    [Fact]
     public async Task Sign_ins_saved_at_the_same_time_for_different_profiles_are_all_kept()
     {
         using var folder = new TempDirectory();

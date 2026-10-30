@@ -72,7 +72,7 @@ public sealed class GatewayTokenProviderTests
         using var test = new TestServices();
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
-        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
 
         Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
         await Task.Delay(200, cancellationToken);
@@ -92,7 +92,7 @@ public sealed class GatewayTokenProviderTests
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
         test.Http.ThenJson(GatewaySignInTests.TokenAnswer("dev@example.com", "org-42", "refresh-newest"));
-        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
 
         Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
         await Task.Delay(200, cancellationToken);
@@ -112,14 +112,77 @@ public sealed class GatewayTokenProviderTests
 
         TimeSpan promptly = TimeSpan.FromSeconds(5);
 
-        IDisposable first = await test.Services.Tokens.LockForRefreshAsync(cancellationToken).WaitAsync(promptly, cancellationToken);
-        Task<IDisposable> second = test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+        IDisposable first = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken).WaitAsync(promptly, cancellationToken);
+        Task<IDisposable> second = test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
         await Task.Delay(200, cancellationToken);
         Assert.False(second.IsCompleted);
 
         first.Dispose();
         (await second.WaitAsync(promptly, cancellationToken)).Dispose();
     }
+
+    [Fact]
+    public async Task A_held_refresh_lock_is_waited_for_until_the_command_is_cancelled_never_skipped()
+    {
+        using var test = new TestServices();
+        using IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", TestContext.Current.CancellationToken);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => test.Services.Tokens.LockForRefreshAsync("nx-dev", timeout.Token));
+    }
+
+    [Fact]
+    public async Task A_refresh_on_one_profile_does_not_hold_up_another_profile()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using IDisposable prod = await test.Services.Tokens.LockForRefreshAsync("prod", cancellationToken);
+
+        using IDisposable dev = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken).WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+    }
+
+    [Fact]
+    public async Task Velixo_token_spent_by_another_process_hands_out_that_process_rotation()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-of-a-sign-in", "access-of-a-sign-in", expiresIn: TimeSpan.FromSeconds(-5)));
+        ResolvedSettings settings = Settings() with { EnvironmentToken = "refresh-from-env" };
+        GatewayTokenProvider provider = Provider(test, settings);
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
+
+        Task<string> waiting = provider.GetRefreshTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        StoredCredentials rotated = Credentials("refresh-rotated", "access-rotated", expiresIn: TimeSpan.FromMinutes(30));
+        rotated.EnvironmentTokenHash = GatewayTokenProvider.HashToken("refresh-from-env");
+        test.Services.Tokens.Save("nx-dev", rotated);
+        otherProcess.Dispose();
+
+        Assert.Equal("refresh-rotated", await waiting);
+        Assert.Empty(test.Http.Requests);
+    }
+
+    [Fact]
+    public async Task A_new_sign_in_while_this_command_waited_ends_the_command_instead_of_adopting_it()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync("nx-dev", cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        StoredCredentials signedInAgain = Credentials("refresh-new-session", "access-new-session", expiresIn: TimeSpan.FromMinutes(30));
+        signedInAgain.SignedInAt = DateTimeOffset.UtcNow.AddMinutes(1);
+        test.Services.Tokens.Save("nx-dev", signedInAgain);
+        otherProcess.Dispose();
+
+        CliException error = await Assert.ThrowsAsync<CliException>(() => waiting);
+        Assert.Equal(ErrorCodes.SessionEnded, error.Code);
+        Assert.Empty(test.Http.Requests);
+    }
+
+    private static readonly DateTimeOffset _signedInAt = DateTimeOffset.UtcNow;
 
     private static StoredCredentials Credentials(string refreshToken, string accessToken, TimeSpan expiresIn) => new()
     {
@@ -129,7 +192,7 @@ public sealed class GatewayTokenProviderTests
         AccessToken = accessToken,
         AccessTokenExpiresAt = DateTimeOffset.UtcNow + expiresIn,
         RefreshToken = refreshToken,
-        SignedInAt = DateTimeOffset.UtcNow,
+        SignedInAt = _signedInAt,
     };
 
     private static ResolvedSettings Settings() => new()

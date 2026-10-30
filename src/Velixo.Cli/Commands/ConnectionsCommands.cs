@@ -1,6 +1,5 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
-using Velixo.Cli.Config;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 
@@ -84,8 +83,7 @@ public static class ConnectionsCommands
             }
 
             var profile = services.Settings.ProfileName;
-            CliConfig config = services.Profiles.LoadConfig();
-            var current = config.Profiles.GetValueOrDefault(profile)?.Connection;
+            var current = services.Profiles.LoadConfig().Profiles.GetValueOrDefault(profile)?.Connection;
 
             string? chosen = null;
             if (!clearing)
@@ -98,8 +96,7 @@ public static class ConnectionsCommands
                 }
             }
 
-            ConfigCommands.Write(config, $"profiles.{profile}.connection", chosen);
-            services.Profiles.SaveConfig(config);
+            services.Profiles.UpdateConfig(config => ConfigCommands.Write(config, $"profiles.{profile}.connection", chosen));
 
             if (chosen is not null && services.Settings.Connection is { } effective
                 && !string.Equals(effective, current, StringComparison.OrdinalIgnoreCase)

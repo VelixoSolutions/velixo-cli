@@ -17,8 +17,9 @@ public interface ITokenStore
     void SaveClientId(string issuer, string clientId, DateTimeOffset registeredAt);
 
     /// <summary>
-    /// Waits until no other velixo process on this machine is refreshing a token, then keeps them waiting
-    /// until the returned lock is disposed. Read the stored credentials again after it is taken.
+    /// Waits until no other velixo process on this machine is refreshing, replacing or deleting the tokens of
+    /// <paramref name="profile"/>, then keeps them waiting until the returned lock is disposed. Read the stored
+    /// credentials again after it is taken.
     /// </summary>
-    Task<IDisposable> LockForRefreshAsync(CancellationToken cancellationToken);
+    Task<IDisposable> LockForRefreshAsync(string profile, CancellationToken cancellationToken);
 }

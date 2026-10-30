@@ -73,7 +73,12 @@ public static class LogoutCommand
             }
         }
 
-        services.Tokens.Delete(profile);
+        // A refresh running in another process would otherwise write the profile's tokens back after the sign-out.
+        using (await services.Tokens.LockForRefreshAsync(profile, cancellationToken).ConfigureAwait(false))
+        {
+            services.Tokens.Delete(profile);
+        }
+
         services.Profiles.DeleteState(profile);
     }
 

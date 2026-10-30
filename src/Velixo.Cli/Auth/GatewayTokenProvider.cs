@@ -75,7 +75,10 @@ public sealed class GatewayTokenProvider(
 
             StoredCredentials seeded = await SeedFromEnvironmentTokenAsync(stored, environmentToken, hash, cancellationToken).ConfigureAwait(false);
             await RefreshAsync(seeded, cancellationToken).ConfigureAwait(false);
-            return seeded;
+
+            // RefreshAsync may have continued from another process's rotation of the same token, and then the
+            // seeded credentials still hold the spent one.
+            return _credentials ?? seeded;
         }
 
         if (stored is null || string.IsNullOrEmpty(stored.RefreshToken))
@@ -130,7 +133,7 @@ public sealed class GatewayTokenProvider(
 
     private async Task<string> RefreshAsync(StoredCredentials credentials, CancellationToken cancellationToken)
     {
-        using IDisposable refreshLock = await store.LockForRefreshAsync(cancellationToken).ConfigureAwait(false);
+        using IDisposable refreshLock = await store.LockForRefreshAsync(settings.ProfileName, cancellationToken).ConfigureAwait(false);
 
         // The gateway rotates the refresh token on every use and ends the session when one is used twice. A
         // process that refreshed while this one waited has spent the token this one holds, so continue from its.
@@ -139,6 +142,16 @@ public sealed class GatewayTokenProvider(
             && latest.RefreshToken != credentials.RefreshToken
             && latest.EnvironmentTokenHash == credentials.EnvironmentTokenHash)
         {
+            // A refresh keeps the sign-in time; a new sign-in, possibly as someone else, changes it.
+            if (credentials.EnvironmentTokenHash is null && latest.SignedInAt != credentials.SignedInAt)
+            {
+                throw new CliException(
+                    ExitCodes.AuthenticationRequired,
+                    ErrorCodes.SessionEnded,
+                    $"The profile '{settings.ProfileName}' signed in again while this command ran.",
+                    "Run the command again.");
+            }
+
             credentials = latest;
             if (IsCurrent(latest))
             {

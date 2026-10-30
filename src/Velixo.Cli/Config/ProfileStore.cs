@@ -6,8 +6,6 @@ namespace Velixo.Cli.Config;
 
 public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
 {
-    private static readonly TimeSpan _updateLockWait = TimeSpan.FromSeconds(30);
-
     public ConfigPaths Paths { get; } = paths;
 
     public CliConfig LoadConfig()
@@ -26,7 +24,15 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
         }
     }
 
-    public void SaveConfig(CliConfig config) => JsonFile.Write(Paths.ConfigFile, config, CliJsonContext.Default.CliConfig);
+    public CliConfig UpdateConfig(Action<CliConfig> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.ConfigFile));
+        CliConfig config = LoadConfig();
+        change(config);
+        JsonFile.Write(Paths.ConfigFile, config, CliJsonContext.Default.CliConfig);
+        return config;
+    }
 
     public ProfileState LoadState(string profile)
     {
@@ -43,7 +49,7 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
     public void UpdateState(string profile, Action<ProfileState> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StateFile(profile)), _updateLockWait);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StateFile(profile)));
         ProfileState state = LoadState(profile);
         change(state);
         JsonFile.Write(Paths.StateFile(profile), state, CliJsonContext.Default.ProfileState, ownerOnly: true);
@@ -64,7 +70,7 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
     public void UpdateStagedFiles(string profile, Action<StagedFilesFile> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StagedFilesFile(profile)), _updateLockWait);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StagedFilesFile(profile)));
         StagedFilesFile staged = LoadStagedFiles(profile);
         change(staged);
         JsonFile.Write(Paths.StagedFilesFile(profile), staged, CliJsonContext.Default.StagedFilesFile, ownerOnly: true);
@@ -90,7 +96,7 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
     public T UpdateLibrary<T>(string profile, Func<LibraryFile, T> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.LibraryFile(profile)), _updateLockWait);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.LibraryFile(profile)));
         LibraryFile library = LoadLibrary(profile);
         T result = change(library);
         JsonFile.Write(Paths.LibraryFile(profile), library, CliJsonContext.Default.LibraryFile, ownerOnly: true);
