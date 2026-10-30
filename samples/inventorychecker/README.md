@@ -125,7 +125,7 @@ velixo command build "Add a location with location ID {{LocationID}} and descrip
 `warehouses.vql` and `locations.vql` were written by hand, and two of the built files were edited:
 
 - `on-order.vql` declares its parameter on the inventory ID's code, `InventoryItem.InventoryCD`, as `item.vql` does. The builder declared it on `POLine.InventoryID`, a selector, and Acumatica then fails the whole query for an ID it does not know, instead of returning no rows.
-- `item-image.batch.json` downloads one file, `{{ImageFile}}`, instead of every image attached to the item.
+- `item-image.batch.json` is two commands: a `Key` that opens the item, and one `DownloadAttachments` for the file the item's image names, `{{ImageFile}}`. The builder added a `Clear` and downloaded every image attached to the item.
 
 Ideas to take it further:
 

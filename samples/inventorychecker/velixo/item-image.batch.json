@@ -3,14 +3,7 @@
   "screenName": "Stock Items",
   "commands": [
     {
-      "type": "Clear",
-      "name": null,
-      "value": null,
-      "commit": null,
-      "fileIds": null
-    },
-    {
-      "type": "Set",
+      "type": "Key",
       "name": "Item.InventoryCD",
       "value": "{{InventoryID}}",
       "commit": null,
