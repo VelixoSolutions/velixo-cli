@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- A command batch that only reads runs without `--yes` and without the duplicate guard. Opening a record by its key and reading its fields or files is a read: a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands with no action, no file upload, no `commit` and no note. Before, only `Get` and `Clear` counted, so a read had to pass `--yes`, and `--force` to read the same record twice within 10 minutes.
+
 ## [0.3.1] - 2026-10-29
 
 ### Fixed

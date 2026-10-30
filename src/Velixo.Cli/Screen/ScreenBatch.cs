@@ -91,13 +91,33 @@ internal sealed class ScreenBatch
         };
     }
 
-    /// <summary>Returns whether every command of <paramref name="sets"/> is a <c>Get</c> or a <c>Clear</c>, neither of which writes.</summary>
+    /// <summary>
+    /// Returns whether no command of <paramref name="sets"/> can leave a change in the ERP. A screen keeps a
+    /// change only when an action such as Save or Release runs or a file is uploaded: a <c>Set</c> without one
+    /// is dropped with the session. A command with <c>commit</c> and a <c>Set</c> on a note still count as
+    /// writes, because Acumatica saves a note on a locked record without a Save. A command type the CLI does
+    /// not know is a write.
+    /// </summary>
     public static bool OnlyReads(IEnumerable<JsonArray?> sets) =>
         sets.Where(set => set is not null).SelectMany(set => set!).All(IsRead);
 
-    private static bool IsRead(JsonNode? command) =>
-        CommandText.String(command?["type"]) is { } type
-        && (type.Equals("Get", StringComparison.OrdinalIgnoreCase) || type.Equals("Clear", StringComparison.OrdinalIgnoreCase));
+    private static readonly string[] _readTypes = ["Get", "Clear", "Key", "Set", "ListAttachments", "DownloadAttachments"];
+
+    private static readonly string[] _noteFields = ["NoteText", "NotePopupText"];
+
+    private static bool IsRead(JsonNode? command)
+    {
+        if (CommandText.String(command?["type"]) is not { } type
+            || !_readTypes.Contains(type, StringComparer.OrdinalIgnoreCase)
+            || (command?["commit"] is JsonValue commit && commit.TryGetValue(out bool commits) && commits))
+        {
+            return false;
+        }
+
+        return !type.Equals("Set", StringComparison.OrdinalIgnoreCase)
+            || CommandText.String(command?["name"]) is not { } name
+            || !_noteFields.Any(note => name.Equals(note, StringComparison.OrdinalIgnoreCase) || name.EndsWith("." + note, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static JsonArray? Set(JsonObject body, string name, string source) =>
         body[name] switch

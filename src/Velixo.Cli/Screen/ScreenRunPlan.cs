@@ -40,9 +40,8 @@ internal sealed class ScreenRunPlan
     public IReadOnlyList<ScreenAttachment> Attachments { get; private init; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether the call can write. The client cannot know which batches write,
-    /// so every batch is a write unless it holds only <c>Get</c> and <c>Clear</c>, and a continuation is
-    /// always one: it adds to a record left open.
+    /// Gets a value indicating whether the call can write: unless <see cref="ScreenBatch.OnlyReads"/> says
+    /// the batch only reads, and a continuation always can, because it adds to a record left open.
     /// </summary>
     public bool CanWrite => Continuation is not null || !ScreenBatch.OnlyReads([Header, Line, Split, Finish]);
 

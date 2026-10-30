@@ -37,9 +37,20 @@ public sealed class ScreenBatchTests
     [Theory]
     [InlineData("""[{"type":"Clear"},{"type":"Get","name":"Document.Status"}]""", true)]
     [InlineData("""[{"type":"clear"},{"type":"get","name":"Document.Status"}]""", true)]
-    [InlineData("""[{"type":"Clear"},{"type":"Key","name":"Document.RefNbr","value":"INV1"},{"type":"Get","name":"Document.Status"}]""", false)]
+    [InlineData("""[{"type":"Clear"},{"type":"Key","name":"Document.RefNbr","value":"INV1"},{"type":"Get","name":"Document.Status"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Set","name":"Item.InventoryCD","value":"{{InventoryID}}","commit":null},{"type":"DownloadAttachments","name":"Item","value":"*"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"ListAttachments","name":"Document"}]""", true)]
     [InlineData("""[{"type":"Clear"},{"type":"Action","name":"Save"}]""", false)]
-    public void Only_a_batch_of_Get_and_Clear_is_read_only(string commands, bool readOnly)
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.Descr","value":"x"},{"type":"Action","name":"Save"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.NoteText","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"NotePopupText","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":true}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"UploadAttachment","name":"Document"}]""", false)]
+    [InlineData("""[{"type":"ServiceCommand","name":"Transactions.NewRow"}]""", false)]
+    [InlineData("""[{"type":"ContinueOn"}]""", false)]
+    [InlineData("""[{"type":"SomethingNew"}]""", false)]
+    [InlineData("""[{"name":"Document.Status"}]""", false)]
+    public void Only_a_batch_that_can_leave_nothing_in_the_ERP_is_read_only(string commands, bool readOnly)
     {
         Assert.Equal(readOnly, ScreenBatch.OnlyReads([JsonNode.Parse(commands)!.AsArray(), null]));
     }
