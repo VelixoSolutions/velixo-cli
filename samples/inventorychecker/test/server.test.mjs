@@ -202,20 +202,6 @@ test('reports the ERP as unreachable when the CLI cannot be started', async () =
     }
 });
 
-test('asks for the password when KIOSK_PASSWORD is set, and accepts it with any user name', async () => {
-    const locked = await startServer({ KIOSK_PASSWORD: 'store-42' });
-    const as = password => ({ headers: { authorization: `Basic ${Buffer.from(`kiosk:${password}`).toString('base64')}` } });
-    try {
-        const anonymous = await fetch(`${locked.url}/`);
-        assert.equal(anonymous.status, 401);
-        assert.match(anonymous.headers.get('www-authenticate'), /^Basic /);
-        assert.equal((await fetch(`${locked.url}/`, as('wrong'))).status, 401);
-        assert.equal((await fetch(`${locked.url}/`, as('store-42'))).status, 200);
-    } finally {
-        locked.child.kill();
-    }
-});
-
 const reserve = (body, id = 'AACOMPUT01') =>
     fetch(`${baseUrl}/api/items/${id}/reserve`, {
         method: 'POST',

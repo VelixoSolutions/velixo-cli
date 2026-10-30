@@ -5,7 +5,6 @@
 import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
-import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +21,6 @@ const settings = {
     warehouse: process.env.KIOSK_WAREHOUSE,
     reserveLocation: process.env.KIOSK_RESERVE_LOCATION ?? 'RESERVED',
     reserveIntent: process.env.KIOSK_RESERVE_INTENT ?? 'Move units of a scanned item to the reserved location from the in-store kiosk',
-    password: process.env.KIOSK_PASSWORD,
 };
 
 const files = {
@@ -357,20 +355,7 @@ async function handle(request, response) {
     return sendFile(response, path, 'no-cache');
 }
 
-/** Accepts any user name with the kiosk's password, so the browser's own sign-in box is the whole login. */
-function signedIn(request) {
-    const [scheme, encoded] = (request.headers.authorization ?? '').split(' ');
-    const password = scheme === 'Basic' ? Buffer.from(encoded ?? '', 'base64').toString().split(':').slice(1).join(':') : '';
-    const given = Buffer.from(password);
-    const expected = Buffer.from(settings.password);
-    return given.length === expected.length && timingSafeEqual(given, expected);
-}
-
 const server = createServer((request, response) => {
-    if (settings.password && !signedIn(request)) {
-        response.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Inventory kiosk"' });
-        return response.end();
-    }
     handle(request, response).catch(error => {
         console.error(error);
         if (!response.headersSent) {
