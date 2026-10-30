@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Velixo.Cli.Config;
 using Velixo.Cli.Files;
 using Velixo.Cli.Mcp;
@@ -13,7 +14,7 @@ namespace Velixo.Cli.Commands;
 /// <c>velixo command build|run</c>: <c>prepare_commands</c> and <c>execute_commands</c>, with the
 /// confirmation, the duplicate guard and the continuations of the spec, sections 8.4 and 9.
 /// </summary>
-public static class ScreenCommands
+public static partial class ScreenCommands
 {
     private const string AttachOption = "--attach";
 
@@ -65,7 +66,8 @@ public static class ScreenCommands
         command.SetAction((parse, cancellationToken) =>
             BuildBatchAsync(
                 services,
-                parse.GetValue(acceptDefaults) ? WithDefaultsAccepted(parse.GetValue(request)!) : parse.GetValue(request)!,
+                parse.GetValue(request)!,
+                parse.GetValue(acceptDefaults),
                 parse.GetValue(target),
                 parse.GetValue(save),
                 LibraryCommands.CheckName(parse.GetValue(name)),
@@ -266,15 +268,54 @@ public static class ScreenCommands
 
     internal static string WithDefaultsAccepted(string request)
     {
-        var trimmed = request.TrimEnd();
-        var separator = trimmed.Length == 0 || trimmed[^1] is '.' or '!' or '?' ? " " : ". ";
+        var trimmed = request.Trim();
+        if (trimmed.Length == 0)
+        {
+            return AcceptDefaultsSentence;
+        }
+
+        var lastWord = trimmed.TrimEnd('"', '\'', ')', ']', '\u201D', '\u2019');
+        var separator = lastWord.Length > 0 && lastWord[^1] is '.' or '!' or '?' ? " " : ". ";
         return trimmed + separator + AcceptDefaultsSentence;
+    }
+
+    /// <summary>
+    /// Whether a builder refusal offers to leave the unnamed fields to the ERP: "authorize their defaults",
+    /// "authorize leaving every other field at its default". A refusal that only mentions a default, or an
+    /// authorization, asks something else.
+    /// </summary>
+    internal static bool OffersDefaults(string refusal) => DefaultsOffer().IsMatch(refusal);
+
+    [GeneratedRegex(@"\bauthori[sz]e\s+(?:their|the|its)\s+defaults?\b|\bauthori[sz]e\s+leaving\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DefaultsOffer();
+
+    [GeneratedRegex(@"\(target for the rebuild:\s*([^)\s]+)\s*\)")]
+    private static partial Regex RebuildTarget();
+
+    /// <summary>The refusal again, with a next step that offers both answers: the values, or --accept-defaults.</summary>
+    private static CliException WithDefaultsNextStep(CliException refusal)
+    {
+        var nextStep =
+            "The builder asks for values the request does not name, or the user's leave to let the ERP fill them. "
+            + "Ask the user which. To give the values, build again with them written into the request as placeholders; "
+            + "to use the defaults, build again with the same request and --accept-defaults.";
+        if (RebuildTarget().Match(refusal.Message) is { Success: true } match)
+        {
+            nextStep += $" Either way, add --target {match.Groups[1].Value}.";
+        }
+
+        return new CliException(refusal.ExitCode, refusal.Code, refusal.Message, nextStep, refusal)
+        {
+            TaskId = refusal.TaskId,
+            Detail = refusal.Detail,
+        };
     }
 
     /// <summary>Calls <c>prepare_commands</c>, saves the batch when <paramref name="savePath"/> names a file, and prints it.</summary>
     private static async Task<int> BuildBatchAsync(
         CliServices services,
         string request,
+        bool acceptDefaults,
         string? target,
         string? savePath,
         string? libraryName,
@@ -284,7 +325,7 @@ public static class ScreenCommands
         var arguments = new JsonObject
         {
             [McpToolNames.IntentArgument] = services.IntentOrDefault(),
-            ["request"] = request,
+            ["request"] = acceptDefaults ? WithDefaultsAccepted(request) : request,
         };
 
         if (services.Settings.Connection is { } connection)
@@ -297,9 +338,17 @@ public static class ScreenCommands
             arguments["target"] = target;
         }
 
-        UnwrappedToolResult result = await services.Tasks
-            .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), services.FollowOptions(), cancellationToken)
-            .ConfigureAwait(false);
+        UnwrappedToolResult result;
+        try
+        {
+            result = await services.Tasks
+                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), services.FollowOptions(), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (CliException refusal) when (refusal.Code == ErrorCodes.BuilderRefusal && !acceptDefaults && OffersDefaults(refusal.Message))
+        {
+            throw WithDefaultsNextStep(refusal);
+        }
 
         CommandText.RelayWarnings(services.Output, result.Document);
         var number = result.Document is JsonObject built && ScreenOutput.IsBatch(built)

@@ -53,8 +53,65 @@ public sealed class ScreenBuildTests
     [Theory]
     [InlineData("Release it.", "Release it. Leave every field this request does not name at its default.")]
     [InlineData("Release it  ", "Release it. Leave every field this request does not name at its default.")]
+    [InlineData("Release batch \"{{BatchNbr}}.\"", "Release batch \"{{BatchNbr}}.\" Leave every field this request does not name at its default.")]
+    [InlineData("Release it (all of it)", "Release it (all of it). Leave every field this request does not name at its default.")]
+    [InlineData("   ", "Leave every field this request does not name at its default.")]
     public void Accept_defaults_ends_the_request_as_one_more_sentence(string request, string expected) =>
         Assert.Equal(expected, Velixo.Cli.Commands.ScreenCommands.WithDefaultsAccepted(request));
+
+    [Fact]
+    public async Task Accept_defaults_keeps_the_users_own_request_in_the_library()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(JsonNode.Parse(ScreenHarness.OrderBatch)!["result"]!["data"]!.ToJsonString()));
+
+        await test.RunAsync("command", "build", "Create a sales order for customer {{CustomerID}}", "--accept-defaults", "--intent", ScreenHarness.Intent);
+
+        Assert.Equal("Create a sales order for customer {{CustomerID}}", test.Profiles.LoadLibrary("prod").Screens.Single().Request);
+    }
+
+    private const string DefaultsRefusal =
+        "ERROR: Supply the transfer branch and line project, or authorize their defaults. The transfer screen requires a line project; "
+        + "entity-identifying defaults cannot be assumed. You may authorize leaving every other field at its default. (target for the rebuild: IN304000)";
+
+    [Fact]
+    public async Task A_refusal_that_offers_the_defaults_points_to_accept_defaults_and_the_rebuild_target()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(DefaultsRefusal));
+
+        var exit = await test.RunAsync("command", "build", "Create a transfer of {{Quantity}} units", "--intent", ScreenHarness.Intent);
+
+        Assert.Equal(ExitCodes.BuilderRefusal, exit);
+        var nextStep = (string?)test.Error["nextStep"];
+        Assert.Contains("--accept-defaults", nextStep, StringComparison.Ordinal);
+        Assert.Contains("--target IN304000", nextStep, StringComparison.Ordinal);
+        Assert.Contains("give the values", nextStep, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_refusal_already_built_with_accept_defaults_does_not_suggest_it_again()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(DefaultsRefusal));
+
+        await test.RunAsync("command", "build", "Create a transfer of {{Quantity}} units", "--accept-defaults", "--intent", ScreenHarness.Intent);
+
+        Assert.DoesNotContain("--accept-defaults", (string?)test.Error["nextStep"], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("ERROR: You are not authorized to post to this branch; its default ledger is closed.")]
+    [InlineData("ERROR: Which screen do you mean: Sales Orders (SO301000) or Quotes (CR304500)?")]
+    public async Task A_refusal_that_does_not_offer_the_defaults_keeps_the_usual_next_step(string refusal)
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(refusal));
+
+        await test.RunAsync("command", "build", "Create an order for {{CustomerID}}", "--intent", ScreenHarness.Intent);
+
+        Assert.DoesNotContain("--accept-defaults", (string?)test.Error["nextStep"], StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task Build_on_a_terminal_summarises_the_batch_and_shows_how_to_check_and_run_it()

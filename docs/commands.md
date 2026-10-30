@@ -208,7 +208,7 @@ Tool: `prepare_commands`. Describe the operation in the user's words with `{{Pla
 
 Save it with `--save FILE`, or with a redirect: `velixo command build "..." > create-order.batch.json`. At a terminal the batch prints to read: the screen, whether it writes, the values and detail rows a run takes, how the record gets its key, and the `command run` commands that check and run it, with the `--connection` the build named. When the builder stops with an `ERROR:` question, such as a choice between candidate screens, the command exits 3 with `BUILDER_REFUSAL`, whether the build finished or failed with the question.
 
-`--accept-defaults` adds one sentence to the request: "Leave every field this request does not name at its default." The builder then lets the ERP fill those fields, as the screen would, instead of asking for them. A branch or a project is otherwise one of the values it asks for, because it identifies a business entity. Pass it only when the user said to use the defaults. When a refusal offers to use the defaults, its `nextStep` names the flag.
+`--accept-defaults` adds one sentence to the request: "Leave every field this request does not name at its default." The builder then lets the ERP fill those fields, as the screen would, instead of asking for them. A branch or a project is otherwise one of the values it asks for, because it identifies a business entity. Pass it only when the user said to use the defaults. The library keeps the request as typed, without the sentence. When a `command build` refusal offers to use the defaults, its `nextStep` names the flag, along with `--target` when the refusal gives one.
 
 ### `velixo command run [NUMBER|NAME | --batch FILE|-] [flags]`
 
