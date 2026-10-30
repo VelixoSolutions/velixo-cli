@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - run: dotnet restore ${{ env.SOLUTION }}
@@ -84,7 +84,7 @@ jobs:
       # target unsigned with a warning. Set it only until the keys exist, then delete it.
       ALLOW_UNSIGNED: ${{ vars.VELIXO_ALLOW_UNSIGNED == 'true' || inputs.allow-unsigned == true }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read the version from the tag
         run: |
@@ -95,7 +95,7 @@ jobs:
             echo "VERSION=$version-dryrun.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
           fi
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         if: ${{ !matrix.container }}
         with:
           dotnet-version: 10.0.x
@@ -309,7 +309,7 @@ jobs:
           fi
           ls -l dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: velixo-${{ matrix.rid }}
           path: dist/*
@@ -323,7 +323,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: velixo-*
