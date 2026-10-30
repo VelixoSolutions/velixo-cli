@@ -1,6 +1,6 @@
 # Deploying the samples
 
-Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integration deploys it from this folder on every push to `main`.
+Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integration deploys it on every push to `main`, from `fly.toml` and `Dockerfile` at the repository root: Fly's launch looks for them only there.
 
 | Path | What answers |
 |---|---|
@@ -8,13 +8,13 @@ Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integ
 | `/acumatica/sms`, `/acumatica/telegram` | The expense receipts demo on Acumatica |
 | `/sageintacct/sms`, `/sageintacct/telegram` | The expense receipts demo on Sage Intacct |
 
-The app is one machine that never stops, with a 1 GB volume, `data`, at `/data`. `Dockerfile` builds Node, Python, the Velixo CLI and Caddy into one image. `deploy/start.sh` starts the kiosk, the two expense demos and Caddy, which routes each path to its app. The three apps share the CLI's one sign-in, in `/data/velixo`. The CLI replaces its refresh token on every call and saves the new one there, so the apps stay signed in only as long as the volume survives. Deploys keep the volume.
+The app is one machine that never stops, with a 1 GB volume, `data`, at `/data`. The root `Dockerfile` builds Node, Python, the Velixo CLI and Caddy into one image, and the root `.dockerignore` sends only the samples to the builder. `samples/deploy/start.sh` starts the kiosk, the two expense demos and Caddy, which routes each path to its app. The three apps share the CLI's one sign-in, in `/data/velixo`. The CLI replaces its refresh token on every call and saves the new one there, so the apps stay signed in only as long as the volume survives. Deploys keep the volume.
 
 ## Set it up once
 
 The app `velixo-cli-samples` and its volume `data` in `iad` already exist.
 
-1. **Point Fly's deploy at this folder.** In the Fly dashboard, open the app's GitHub deploy settings and set the working directory to `samples` and the config file to `fly.toml`. The config path is relative to the working directory, so `samples/fly.toml` would point at `samples/samples/fly.toml`.
+1. **Connect the repository.** In the Fly dashboard, launch from GitHub with `VelixoSolutions/velixo-cli` and branch `main`, region `iad`, where the volume is. Fly reads the root `fly.toml`, so it needs no other setting. To deploy from a checkout instead: `fly deploy --app velixo-cli-samples --ha=false` at the repository root.
 
 2. **Set the app's secrets.** In the dashboard under Secrets, or with `fly secrets set --app velixo-cli-samples NAME=value`. Each one is optional: a demo without its keys answers 503 on that path, and the rest keeps working.
 

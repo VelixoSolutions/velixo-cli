@@ -1,5 +1,5 @@
 # Both CLI samples in one image: Node runs the inventory checker, Python the two expense receipts demos, and Caddy
-# routes each path to its app. deploy/start.sh starts them all.
+# routes each path to its app. samples/deploy/start.sh starts them all. It builds from the repository root.
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
@@ -10,17 +10,17 @@ ARG VELIXO_VERSION=
 RUN curl -fsSL https://cli.velixo.com/install.sh | VELIXO_INSTALL_DIR=/usr/local/bin sh -s -- $VELIXO_VERSION
 
 WORKDIR /app
-COPY expensereceipts/requirements.txt expensereceipts/
+COPY samples/expensereceipts/requirements.txt expensereceipts/
 RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r expensereceipts/requirements.txt
 
-COPY inventorychecker/package.json inventorychecker/server.mjs inventorychecker/
-COPY inventorychecker/public inventorychecker/public
-COPY inventorychecker/velixo inventorychecker/velixo
-COPY expensereceipts/app.py expensereceipts/
-COPY expensereceipts/expenses expensereceipts/expenses
-COPY expensereceipts/static expensereceipts/static
-COPY expensereceipts/velixo expensereceipts/velixo
-COPY deploy deploy
+COPY samples/inventorychecker/package.json samples/inventorychecker/server.mjs inventorychecker/
+COPY samples/inventorychecker/public inventorychecker/public
+COPY samples/inventorychecker/velixo inventorychecker/velixo
+COPY samples/expensereceipts/app.py expensereceipts/
+COPY samples/expensereceipts/expenses expensereceipts/expenses
+COPY samples/expensereceipts/static expensereceipts/static
+COPY samples/expensereceipts/velixo expensereceipts/velixo
+COPY samples/deploy deploy
 
 ENV VELIXO_CONFIG_DIR=/data/velixo \
     PORT=8080
