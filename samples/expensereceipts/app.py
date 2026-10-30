@@ -76,7 +76,7 @@ def create_app() -> Flask:
         threading.Thread(target=telegram.receive, args=(update, conversation.handle), daemon=True).start()
         return jsonify(ok=True)
 
-    if twilio is not None or telegram is not None:
+    if twilio is not None or telegram is not None or os.environ.get("EXPENSES_SIMULATOR") == "off":
         return app
 
     # The simulator lets anyone send as any phone number, so it runs only while neither Twilio nor Telegram is set up.

@@ -47,6 +47,7 @@ Open <http://localhost:8090>, attach a photo of a receipt, and send it. The phon
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | The Twilio number that receives the texts and sends the replies. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The Telegram bot that receives receipts, and the secret Telegram sends with each update. |
 | `TWILIO_WEBHOOK_URL` | The public URL Twilio posts to, when the app runs behind a tunnel or proxy, so the signature check passes. |
+| `EXPENSES_SIMULATOR` | `off` turns the simulator off even before Twilio or Telegram is set up, as a public deployment needs. |
 | `PORT`, `HOST` | Where the app listens. Default `127.0.0.1:8090`. |
 
 ## Receive real texts
