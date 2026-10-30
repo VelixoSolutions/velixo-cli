@@ -82,7 +82,7 @@ velixo command run --batch velixo/item-image.batch.json \
 
 1. **Reserve units** on the item opens a panel. The server runs `velixo/locations.vql` for the item's stock in each location of the store's warehouse, and the panel lists every location that holds some, apart from `RESERVED`.
 2. Staff pick the location and the quantity, and tap **Reserve**. The page sends `POST /api/items/<inventory ID>/reserve` with the two.
-3. The server reads the locations again and refuses a quantity that the location no longer holds. Then it runs `velixo/reserve-transfer.batch.json`, which creates a one-step transfer on the Transfers screen from that location to `RESERVED`, takes it off hold and releases it. That takes about 8 seconds. Two reservations of the same item wait for each other, from the check to the release, so two screens cannot both pass the check before either transfer runs. That holds for the screens one server serves; Acumatica's own stock rules guard the rest.
+3. The server runs `velixo/reserve-transfer.batch.json`, which creates a one-step transfer on the Transfers screen from that location to `RESERVED`, takes it off hold and releases it. That takes about 8 seconds. When Acumatica refuses the transfer, for example because the location no longer holds the quantity, the panel says so.
 4. The panel shows the transfer number, and the item's available quantities count down to their new values.
 
 ![The transfer released](docs/reserved.jpg)
@@ -102,7 +102,7 @@ This is a proof of concept, so anyone at the screen can reserve units. A real st
 npm test
 ```
 
-The tests start the server with a fake `velixo` (`test/fake-velixo.mjs`) that answers with JSON the real CLI printed against an Acumatica demo company (`test/fixtures/`). They need no ERP and no sign-in, and they check what the server sends to the CLI as well as what it answers: the lookups, the image cache, the reserve checks, the error answers and the paths the server refuses to serve. The fake CLI is an executable script, so they run on macOS and Linux.
+The tests start the server with a fake `velixo` (`test/fake-velixo.mjs`) that answers with JSON the real CLI printed against an Acumatica demo company (`test/fixtures/`). They need no ERP and no sign-in, and they check what the server sends to the CLI as well as what it answers: the lookups, the image cache, the reserve requests, the error answers and the paths the server refuses to serve. The fake CLI is an executable script, so they run on macOS and Linux.
 
 `npm run test:live` runs the server against the real CLI and an Acumatica connection, and only reads:
 

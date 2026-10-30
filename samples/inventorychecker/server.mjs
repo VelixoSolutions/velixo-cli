@@ -4,7 +4,7 @@
 
 import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { mkdir, readdir, stat } from 'node:fs/promises';
+import { mkdir, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -149,43 +149,8 @@ async function itemLocations(inventoryId) {
     };
 }
 
-const reservations = new Map();
-
-/**
- * Runs the reservations of one item one after the other. Two screens that reserve the same item at once would
- * otherwise both pass the stock check before either transfer ran, and together move more than the location holds.
- */
-function oneReservationAtATime(inventoryId, reserve) {
-    const previous = reservations.get(inventoryId) ?? Promise.resolve();
-    const run = previous.then(reserve);
-    const settled = run.catch(() => {});
-    reservations.set(inventoryId, settled);
-    settled.then(() => {
-        if (reservations.get(inventoryId) === settled) {
-            reservations.delete(inventoryId);
-        }
-    });
-    return run;
-}
-
-/**
- * Moves units of the item to the reserved location with a one-step transfer that the batch saves and releases.
- * It checks the source location against the ERP's current stock first, so a stale screen cannot overdraw it.
- */
-function reserveUnits(inventoryId, request) {
-    return oneReservationAtATime(inventoryId, () => transferToReserved(inventoryId, request));
-}
-
-async function transferToReserved(inventoryId, { quantity, fromLocation }) {
-    const { locations } = await itemLocations(inventoryId);
-    const source = locations.find(entry => entry.location === fromLocation);
-    if (!source) {
-        return { status: 400, body: { error: 'UNKNOWN_LOCATION', message: `The item has no stock in ${fromLocation}.` } };
-    }
-    if (quantity > source.qtyOnHand) {
-        return { status: 400, body: { error: 'NOT_ENOUGH_STOCK', message: `${fromLocation} holds only ${source.qtyOnHand}.` } };
-    }
-
+/** Moves units of the item to the reserved location with a one-step transfer that the batch saves and releases. */
+async function reserveUnits(inventoryId, { quantity, fromLocation }) {
     // --force skips the CLI's duplicate guard, which would refuse reserving the same quantity of the same item
     // again within 10 minutes. The screen disables its button while a transfer runs, so one tap is one transfer.
     const document = await velixo([
@@ -202,7 +167,7 @@ async function transferToReserved(inventoryId, { quantity, fromLocation }) {
     ], settings.reserveIntent);
 
     const { savedKey, record } = document.result.feedback;
-    return { status: 200, body: { transfer: savedKey.RefNbr, status: record?.transfer?.Status } };
+    return { transfer: savedKey.RefNbr, status: record?.transfer?.Status };
 }
 
 async function readJson(request) {
@@ -251,13 +216,7 @@ async function itemImagePath(inventoryId, imageFile) {
         '--force',
     ]);
 
-    if (await exists(cached)) {
-        return cached;
-    }
-
-    // Acumatica can store the file under a slightly different name than the one ImageUrl gives.
-    const [downloaded] = await readdir(folder);
-    return downloaded ? join(folder, downloaded) : undefined;
+    return (await exists(cached)) ? cached : undefined;
 }
 
 async function exists(path) {
@@ -323,9 +282,9 @@ async function handle(request, response) {
         }
 
         try {
-            const result = await reserveUnits(inventoryId, { quantity, fromLocation });
-            console.log(`reserve ${result.status === 200 ? 'released' : 'refused'}`);
-            return sendJson(response, result.status, result.body);
+            const transfer = await reserveUnits(inventoryId, { quantity, fromLocation });
+            console.log('reserve released');
+            return sendJson(response, 200, transfer);
         } catch (error) {
             if (error.exitCode === 5 || error.exitCode === 6) {
                 console.error(`reserve failed in the ERP: ${error.code} ${error.message}`);

@@ -242,35 +242,10 @@ test('reserves units with a transfer from the chosen location to the reserved on
     assert.match(transfer[transfer.indexOf('--intent') + 1], /reserved location/);
 });
 
-test('runs two reservations of the same item one after the other, each with its own stock check', async () => {
-    const responses = await Promise.all([
-        reserve({ quantity: 2, fromLocation: 'STORAGE' }),
-        reserve({ quantity: 3, fromLocation: 'STORAGE' }),
-    ]);
-    assert.deepEqual(responses.map(response => response.status), [200, 200]);
-
-    const calls = cliCalls().sort((a, b) => a.started - b.started);
-    assert.deepEqual(
-        calls.map(call => (call.args[0] === 'command' ? 'transfer' : 'stock check')),
-        ['stock check', 'transfer', 'stock check', 'transfer']
-    );
-    assert.ok(calls[2].started >= calls[1].ended, 'the second stock check ran before the first transfer ended');
-});
-
-test('refuses to reserve more than the source location holds, without writing', async () => {
-    const response = await reserve({ quantity: 435, fromLocation: 'STORAGE' });
-
+test('refuses a reservation from the reserved location itself, without writing', async () => {
+    const response = await reserve({ quantity: 1, fromLocation: 'RESERVED' });
     assert.equal(response.status, 400);
-    assert.equal((await response.json()).error, 'NOT_ENOUGH_STOCK');
-    assert.ok(cliCalls().every(call => call.args[0] !== 'command'));
-});
-
-test('refuses a reservation from a location without stock, or from the reserved location itself', async () => {
-    for (const fromLocation of ['R10RACK1', 'RESERVED']) {
-        const response = await reserve({ quantity: 1, fromLocation });
-        assert.equal(response.status, 400, fromLocation);
-    }
-    assert.ok(cliCalls().every(call => call.args[0] !== 'command'));
+    assert.equal(cliCalls().length, 0);
 });
 
 test('refuses a quantity that is not a whole number of at least one', async () => {
