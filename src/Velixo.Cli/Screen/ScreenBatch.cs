@@ -126,7 +126,7 @@ internal sealed class ScreenBatch
 
     private static readonly string[] _sessionlessReadTypes = ["Get", "Clear", "Key", "ListAttachments", "DownloadAttachments"];
 
-    private static readonly string[] _noteFields = ["NoteText", "NotePopupText"];
+    private static readonly string[] _noteFields = ["NoteText", "NotePopupText", "NoteFiles", "NoteActivity"];
 
     /// <summary>
     /// Mirrors <c>ScreenRecordCheck.ReadOnlyActions</c> in the MCP server, which takes it from the Acumatica

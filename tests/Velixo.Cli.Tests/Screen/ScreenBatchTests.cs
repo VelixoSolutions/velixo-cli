@@ -62,6 +62,8 @@ public sealed class ScreenBatchTests
     [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.Descr","value":"x"},{"type":"Action","name":"Save"}]""", false)]
     [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.NoteText","value":"x"}]""", false)]
     [InlineData("""[{"type":"Set","name":"NotePopupText","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteFiles","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteActivity","value":"x"}]""", false)]
     [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":true}]""", false)]
     [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"UploadAttachment","name":"Document"}]""", false)]
     [InlineData("""[{"type":"ServiceCommand","name":"Transactions.NewRow"}]""", false)]
