@@ -1,0 +1,80 @@
+name: Deploy samples
+
+# Deploys samples/ to the Fly.io app velixo-cli-samples, with an explicit CLI version, so the image never keeps an
+# older CLI from Fly's build cache:
+# - after a release is published: the samples from that release's tag, with that release's CLI;
+# - after a push to main that changes samples/: the samples from that commit, with the latest published CLI.
+# A sample that needs an unreleased CLI change therefore runs on the latest release until the next one redeploys it.
+#
+# Needs the repository secret FLY_API_TOKEN, a deploy token for the app:
+#   fly tokens create deploy --app velixo-cli-samples | gh secret set FLY_API_TOKEN
+# The app's secrets stay in Fly. samples/DEPLOY.md lists them.
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - samples/**
+      - .github/workflows/deploy-samples.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-samples
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A Release run deploys only when it published a tag, not after a dry run or a failure.
+    if: >-
+      github.event_name != 'workflow_run'
+      || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Choose the samples and the CLI version
+        id: choose
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASED_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "${{ github.event_name }}" = workflow_run ]; then
+            tag="$RELEASED_TAG"
+            ref="$RELEASED_TAG"
+          else
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+            ref="$GITHUB_SHA"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "Deploying the samples from $ref with CLI ${tag#v}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.choose.outputs.ref }}
+
+      - name: Check the Fly token
+        id: token
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice title=Samples not deployed::Set the FLY_API_TOKEN secret, as this workflow's header says."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.token.outputs.present == 'true'
+
+      - name: Deploy
+        if: steps.token.outputs.present == 'true'
+        run: >-
+          flyctl deploy samples --config samples/fly.toml --app velixo-cli-samples
+          --remote-only --ha=false --build-arg VELIXO_VERSION=${{ steps.choose.outputs.version }}

@@ -1,6 +1,11 @@
 # Deploying the samples
 
-Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integration deploys it from this folder on every push to `main`.
+Both CLI samples run in one Fly.io app, `velixo-cli-samples`. The workflow `.github/workflows/deploy-samples.yml` deploys it, each time with an explicit CLI version:
+
+- after a CLI release is published: the samples from that release's tag, with that release;
+- after a push to `main` that changes `samples/`: the samples from `main`, with the latest published CLI.
+
+A sample that needs a CLI change not yet released runs on the latest release until the next release redeploys it.
 
 | Path | What answers |
 |---|---|
@@ -14,7 +19,7 @@ The app is one machine that never stops, with a 1 GB volume, `data`, at `/data`.
 
 The app `velixo-cli-samples` already exists, in Toronto (`yyz`). Create its volume there before the first deploy, because a deploy only attaches a volume that already exists: `fly volumes create data --app velixo-cli-samples --region yyz --size 1 --yes`. A `data` volume in another region is not used, and `fly volumes destroy <id>` deletes it.
 
-1. **Point Fly's deploy at this folder.** In the Fly dashboard, open the app's GitHub deploy settings and set the working directory to `samples` and the config file to `fly.toml`. The config path is relative to the working directory, so `samples/fly.toml` would point at `samples/samples/fly.toml`. To deploy from a checkout instead, run `fly deploy --app velixo-cli-samples --ha=false` inside `samples/`.
+1. **Let the workflow deploy.** Turn off Fly's own GitHub deploy for the app, in the Fly dashboard, so each merge is not deployed twice. Then store a deploy token for the app in the repository: `fly tokens create deploy --app velixo-cli-samples | gh secret set FLY_API_TOKEN -R VelixoSolutions/velixo-cli`. Without the token, the workflow skips with a notice. To deploy by hand, run `fly deploy --app velixo-cli-samples --ha=false --build-arg VELIXO_VERSION=<version>` inside `samples/`.
 
 2. **Set the app's secrets.** In the dashboard under Secrets, or with `fly secrets set --app velixo-cli-samples NAME=value`. Each one is optional: a demo without its keys answers 503 on that path, and the rest keeps working.
 
@@ -55,4 +60,4 @@ The app `velixo-cli-samples` already exists, in Toronto (`yyz`). Create its volu
 
 The expense demos run with `EXPENSES_SIMULATOR=off`, so the deployed app never serves the simulator, which would let anyone create expenses as any employee.
 
-The image installs the latest CLI release. The three apps call the CLI at the same time, which is safe only in CLI releases after 0.3.1.
+The image installs the CLI version the deploy passes as `VELIXO_VERSION`, or the latest release when none is passed. The three apps call the CLI at the same time, which is safe only in CLI releases after 0.3.1.
