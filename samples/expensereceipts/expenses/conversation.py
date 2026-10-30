@@ -11,6 +11,7 @@ import re
 import threading
 import uuid
 from dataclasses import asdict, dataclass, field
+from decimal import ROUND_HALF_UP, Decimal
 from datetime import date
 from pathlib import Path
 from typing import Callable
@@ -54,6 +55,7 @@ class Draft:
     page: int = 0
     project_task: str | None = None
     confirmed: bool = False
+    tip_asked: bool = False
 
 
 class Store:
@@ -199,6 +201,11 @@ class Conversation:
             self._ask(phone, draft, "amount", [], f"What amount should I claim, in {self.base_currency}?{seen}", reply)
             return
 
+        if reading.tip_customary and not reading.tip_shown and not draft.tip_asked:
+            draft.tip_asked = True
+            self._ask_tip(phone, draft, reading, reply)
+            return
+
         items = self.erp.expense_items()
         if reading.expense_item is None and self.store.learned_item(reading.merchant) in {item.id for item in items}:
             reading.expense_item = self.store.learned_item(reading.merchant)
@@ -266,6 +273,24 @@ class Conversation:
             original = f" ({reading.total:.2f} {reading.currency})" if reading.total is not None and reading.currency else ""
             reading.total, reading.currency = amount, self.base_currency
             reading.description = (reading.description + original)[:60]
+            draft.reading = asdict(reading)
+
+        elif draft.asking == "tip":
+            answer = text.strip().lower()
+            if answer == "other":
+                self._ask(phone, draft, "tip", [], "Type the tip, such as 25 or 15%.", reply)
+                return
+            if answer in {"0", "none", "no", "non"}:
+                tip = 0.0
+            elif (amount := _amount(answer)) is None:
+                reply("Please reply with the tip, such as 25 or 15%, or 0 for none.")
+                return
+            else:
+                tip = _share(_tip_base(reading), amount) if "%" in answer else amount
+            if tip:
+                suffix = f" + tip {tip:.2f}"
+                reading.total = round(reading.total + tip, 2)
+                reading.description = reading.description[: 60 - len(suffix)] + suffix
             draft.reading = asdict(reading)
 
         elif draft.asking in {"expense_item", "pick_item"}:
@@ -371,6 +396,21 @@ class Conversation:
         link = f"\n{created.url}" if created.url else ""
         reply(f"Created {self.erp.expense_noun} {created.id}: {reading.total:.2f} {self.base_currency}, {reading.expense_item}{project}.{link}")
 
+    def _ask_tip(self, phone: str, draft: Draft, reading: ReceiptReading, reply: Out) -> None:
+        """Offers to add a tip: one tap keeps the amount, or adds a share of the bill. Shares are of the subtotal when
+        the receipt prints one, since a tip is left on the bill before tax."""
+        if not reply.buttons:
+            self._ask(phone, draft, "tip", [], "No tip on this bill. Reply 0 for none, or the tip, such as 25 or 15%.", reply)
+            return
+        base = _tip_base(reading)
+        before_tax = f" The percentages are of the {base:.2f} before tax." if reading.subtotal else ""
+        choices = [(f"✅ No tip · {reading.total:.2f}", "0")]
+        choices += [(f"{share}% · {reading.total + _share(base, share):.2f}", f"{share}%") for share in (15, 18, 20)]
+        choices += [("✏️ Other…", "other")]
+        draft.asking, draft.options = "tip", [value for _, value in choices]
+        self.store.save_draft(phone, draft)
+        reply.buttons(f"No tip on this bill. Add one?{before_tax}", choices)
+
     def _summary(self, draft: Draft, reading: ReceiptReading) -> str:
         item = next((i.description or i.id for i in self.erp.expense_items() if i.id == reading.expense_item), reading.expense_item)
         summary = f"{reading.description} — {reading.total:.2f} {self.base_currency}, {item}, {self._date(reading)}"
@@ -453,6 +493,15 @@ def _ranked(hint: str, projects: list[Choice]) -> list[Choice]:
         )
 
     return sorted(projects, key=score, reverse=True)
+
+
+def _tip_base(reading: ReceiptReading) -> float:
+    return reading.subtotal or reading.total
+
+
+def _share(base: float, percent: float) -> float:
+    """Returns `percent` of `base`, rounded half up to the cent, so the button's total and the claimed one agree."""
+    return float((Decimal(str(base)) * Decimal(str(percent)) / 100).quantize(Decimal("0.01"), ROUND_HALF_UP))
 
 
 def _amount(text: str) -> float | None:

@@ -9,7 +9,8 @@ The app is a small Python server. Every ERP read and write goes through the Veli
 1. **Who:** the phone number is compared, digits only, with every phone of every active employee. When none matches, the app asks for an employee ID or work email and remembers the answer for that number.
 2. **The photo:** OpenCV finds the receipt, by its outline or as the largest light shape on a darker table, straightens it into a portrait image, and turns it into a black and white scan. The scan is what the ERP keeps.
 3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note. When it is not sure of the expense item, it ranks its three likeliest, and the app asks with those. The item an employee chooses for a merchant is remembered, so the next receipt from that merchant gets it without a question.
-4. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
+4. **Tips:** for a restaurant, bar, taxi or similar bill that shows no tip, the app offers to add one, as an amount or a share of the bill before tax. On Telegram, one tap keeps the amount or adds 15, 18 or 20 percent.
+5. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
 
 Before it creates the expense, the app looks for one the same employee already has, for the same amount, dated within three days of the receipt (`similar-expenses.vql`). Matching on the amount and a narrow window keeps that a query for a handful of rows. When it finds one, it names that expense and asks: YES creates the new one anyway, NO drops the receipt.
 

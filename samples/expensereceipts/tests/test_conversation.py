@@ -395,3 +395,75 @@ def test_with_buttons_asks_about_a_duplicate_with_buttons(erp, tmp_path):
     assert question.endswith("Create another one?")
     assert choices == [("✅ Create anyway", "yes"), ("✖ Cancel", "no")]
     assert send("yes")[0].startswith("Created expense receipt 000123")
+
+
+def restaurant(**overrides):
+    return FakeReader(**{"merchant": "Hoogan & Beaufort", "total": 183.39, "subtotal": 159.50, "tip_customary": True,
+                         "description": "Lunch at Hoogan & Beaufort"} | overrides)
+
+
+def test_with_buttons_offers_a_tip_on_a_restaurant_bill_without_one(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, restaurant(), tmp_path)
+
+    question, choices = send(photo=True)
+
+    assert question == "No tip on this bill. Add one? The percentages are of the 159.50 before tax."
+    assert choices == [("✅ No tip · 183.39", "0"), ("15% · 207.32", "15%"), ("18% · 212.10", "18%"),
+                       ("20% · 215.29", "20%"), ("✏️ Other…", "other")]
+
+
+def test_with_buttons_keeps_the_amount_when_there_is_no_tip(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, restaurant(), tmp_path)
+    send(photo=True)
+
+    assert send("0")[0].startswith("Lunch at Hoogan & Beaufort — 183.39 USD")
+
+
+def test_with_buttons_adds_a_share_of_the_subtotal_and_shows_it_in_the_summary(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, restaurant(), tmp_path)
+    send(photo=True)
+
+    assert send("15%")[0].startswith("Lunch at Hoogan & Beaufort + tip 23.93 — 207.32 USD")
+    send("create")
+    assert (erp.created[0].amount, erp.created[0].description) == ("207.32", "Lunch at Hoogan & Beaufort + tip 23.93")
+
+
+def test_with_buttons_takes_a_typed_tip_after_other(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, restaurant(), tmp_path)
+    send(photo=True)
+
+    assert send("other")[0] == "Type the tip, such as 25 or 15%."
+    assert "208.39 USD" in send("25")[0]
+
+
+@pytest.mark.parametrize("answer, amount", [("25", "208.39"), ("15%", "207.32"), ("0", "183.39"), ("non", "183.39")])
+def test_by_text_asks_once_for_a_tip_as_an_amount_or_a_share(erp, tmp_path, answer, amount):
+    send, _ = talk(erp, restaurant(), tmp_path)
+
+    assert send(KNOWN_PHONE, photo=True) == "No tip on this bill. Reply 0 for none, or the tip, such as 25 or 15%."
+    send(KNOWN_PHONE, answer)
+
+    assert erp.created[0].amount == amount
+
+
+def test_by_text_asks_again_when_the_tip_cannot_be_read(erp, tmp_path):
+    send, _ = talk(erp, restaurant(), tmp_path)
+    send(KNOWN_PHONE, photo=True)
+
+    assert send(KNOWN_PHONE, "generous").startswith("Please reply with the tip")
+    assert erp.created == []
+
+
+def test_takes_a_share_of_the_total_when_no_subtotal_is_printed(erp, tmp_path):
+    send, _ = talk(erp, restaurant(subtotal=None, total=100.0), tmp_path)
+    send(KNOWN_PHONE, photo=True)
+    send(KNOWN_PHONE, "20%")
+
+    assert erp.created[0].amount == "120.00"
+
+
+@pytest.mark.parametrize("overrides", [{"tip_shown": True}, {"tip_customary": False}])
+def test_does_not_ask_about_a_tip_when_one_is_shown_or_none_is_usual(erp, tmp_path, overrides):
+    send, _ = talk(erp, restaurant(**overrides), tmp_path)
+
+    assert send(KNOWN_PHONE, photo=True).startswith("Created expense receipt 000123: 183.39 USD")
