@@ -57,10 +57,14 @@ def _downsize(image: np.ndarray) -> np.ndarray:
 
 
 def _receipt_corners(image: np.ndarray) -> np.ndarray | None:
-    """Returns the four corners of the receipt: first the largest four-sided outline among the photo's edges, which
-    works on any table; else the largest shape lighter than the table, since a receipt is paper."""
-    corners = _outline_from_edges(image)
-    return corners if corners is not None else _outline_from_brightness(image)
+    """Returns the four corners of the receipt: the largest four-sided outline among the photo's edges; else the
+    white, colourless paper, which also works when the receipt runs off the photo; else the largest shape lighter
+    than the table."""
+    for find in (_outline_from_edges, _outline_from_paper, _outline_from_brightness):
+        corners = find(image)
+        if corners is not None:
+            return corners
+    return None
 
 
 def _outline_from_edges(image: np.ndarray) -> np.ndarray | None:
@@ -77,6 +81,36 @@ def _outline_from_edges(image: np.ndarray) -> np.ndarray | None:
         if len(outline) == 4 and cv2.contourArea(outline) < 0.98 * area:
             return outline.reshape(4, 2).astype(np.float32)
     return None
+
+
+def _outline_from_paper(image: np.ndarray) -> np.ndarray | None:
+    """Finds the receipt as the largest white, nearly colourless area: a wooden or coloured table is not. Rows much
+    wider than the receipt, such as a keyboard touching its top, are left out, and a straight line is fitted to each
+    side, so a receipt photographed at an angle keeps its trapezoid shape."""
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    white = ((hsv[..., 1] < 30) & (hsv[..., 2] > 170)).astype(np.uint8) * 255
+    white = cv2.morphologyEx(white, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9)))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(white)
+    if count < 2:
+        return None
+
+    paper = labels == 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    widths = paper.sum(axis=1)
+    rows = np.flatnonzero((widths > 0) & (widths < 1.5 * np.median(widths[widths > 0])))
+    # A white area that covers most of the photo is the table, not a receipt on it.
+    if rows.size < 0.2 * image.shape[0] or np.median(widths[rows]) > 0.8 * image.shape[1]:
+        return None
+
+    lefts = np.array([np.argmax(paper[row]) for row in rows])
+    rights = np.array([paper.shape[1] - 1 - np.argmax(paper[row][::-1]) for row in rows])
+    left, right = np.polyfit(rows, lefts, 1), np.polyfit(rows, rights, 1)
+    # The rows left out at the top may still hold the start of the receipt, such as the merchant's name.
+    top = max(0, rows.min() - image.shape[0] // 50)
+    bottom = rows.max()
+    return np.float32([
+        [np.polyval(left, top), top], [np.polyval(right, top), top],
+        [np.polyval(right, bottom), bottom], [np.polyval(left, bottom), bottom],
+    ])
 
 
 def _outline_from_brightness(image: np.ndarray) -> np.ndarray | None:

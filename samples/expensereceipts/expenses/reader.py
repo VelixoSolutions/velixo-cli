@@ -17,8 +17,12 @@ DEFAULT_MODEL = "anthropic/claude-opus-5.5"
 
 INSTRUCTIONS = """You read photos of receipts that employees text to their company's expense system.
 
-Return what the receipt shows: the merchant, the purchase date, the total actually paid (tip included) and its
-currency. Use null for anything you cannot read with confidence; never guess an amount or a date.
+Return what the receipt shows: the merchant, the purchase date, the total and its currency. Use null for anything
+you cannot read; never guess an amount or a date.
+
+The total is the amount the receipt prints as its total, taxes included. When the photo also shows a card slip in
+full, with a tip and a total, use the slip's total, since that is what was paid. A slip that is cut off or hidden
+does not count: use the receipt's total.
 
 Return the currency only as a three-letter code printed on the receipt, such as USD, CAD or EUR. When the receipt
 shows only a symbol, such as $, return null: a $ alone can be several currencies, and the company then claims the
