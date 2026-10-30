@@ -75,6 +75,7 @@ jobs:
 
       - name: Deploy
         if: steps.token.outputs.present == 'true'
+        working-directory: samples
         run: >-
-          flyctl deploy samples --config samples/fly.toml --app velixo-cli-samples
+          flyctl deploy --app velixo-cli-samples
           --remote-only --ha=false --build-arg VELIXO_VERSION=${{ steps.choose.outputs.version }}
