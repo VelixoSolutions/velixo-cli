@@ -33,7 +33,7 @@ public static class ConnectionsCommands
         };
         var list = new Command(
             "list",
-            "List the ERP connections you can use, with their type and status, and mark the one the commands use by default. "
+            "List the ERP connections you can use, with their type, status, company and address, and mark the one the commands use by default. "
             + "Example: velixo connections list --status ok")
         {
             status,
@@ -50,6 +50,11 @@ public static class ConnectionsCommands
                 .ToArray());
 
             MarkDefault(connections, services.Settings.Connection, services.Output.Format);
+            if (services.Output.Format == OutputFormat.Table)
+            {
+                ShapeForTable(connections);
+            }
+
             services.Output.WriteResult(connections);
             return ExitCodes.Success;
         });
@@ -181,6 +186,22 @@ public static class ConnectionsCommands
 
     private static bool IsCurrent(string? name, string? current) =>
         name is not null && string.Equals(name, current, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Drops <c>description</c>, which only repeats the type, and moves <c>url</c> to the last column, where its
+    /// length pushes no other column off the screen.
+    /// </summary>
+    private static void ShapeForTable(JsonArray connections)
+    {
+        foreach (JsonObject connection in connections.OfType<JsonObject>())
+        {
+            connection.Remove("description");
+            if (connection.Remove("url", out JsonNode? url))
+            {
+                connection["url"] = url;
+            }
+        }
+    }
 
     /// <summary>Marks the connection named <paramref name="defaultName"/>: a <c>(default)</c> suffix on its name in a table, <c>"default": true</c> otherwise.</summary>
     private static void MarkDefault(JsonArray connections, string? defaultName, OutputFormat format)

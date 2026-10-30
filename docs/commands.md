@@ -59,14 +59,23 @@ The CLI signs in as the client `velixo-cli`, which the sign-in page names Velixo
 
 ### `velixo connections list [--status ok]`
 
-Tool: `list_connections`. Prints one entry per connection. `--status ok` keeps the working ones.
+Tool: `list_connections`. Prints one entry per connection. `--status ok` keeps the working ones. `url` is the address the user opens the ERP at, and `company` is the company the connection logs in to. Either is `null` when the connection's settings do not name it, and an older server leaves both out.
 
 ```json
 [
-  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "Acumatica 2025 R1, tenant Company" },
-  { "name": "cronus/CRONUS US", "type": "business_central", "status": "no_credentials", "description": "..." }
+  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "acumatica ERP connection", "url": "https://gab-dev.velixo.com", "company": "Company" },
+  { "name": "skyline", "type": "sage_intacct", "status": "ok", "description": "sage_intacct ERP connection", "url": null, "company": "SKYLINE" },
+  { "name": "cronus/CRONUS US", "type": "business_central", "status": "no_credentials", "description": "business_central ERP connection", "url": "https://businesscentral.dynamics.com/<tenant>/Production", "company": "CRONUS US" }
 ]
 ```
+
+| `type` | `url` | `company` |
+|---|---|---|
+| `acumatica` and the other Acumatica-based products | The instance address | The tenant |
+| `sage_intacct` | `null`: every Sage Intacct company uses the same host | The company ID |
+| `business_central` | The web client for the tenant and environment | The company the entry stands for |
+
+A table leaves out `description`, which repeats the type, and shows `url` last.
 
 ### `velixo connections switch [NAME | --clear]`
 

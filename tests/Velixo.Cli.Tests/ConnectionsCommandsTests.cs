@@ -10,6 +10,11 @@ public sealed class ConnectionsCommandsTests : IDisposable
 {
     private const string Connections = """[{"name":"gab-dev","type":"Acumatica","status":"ok"},{"name":"skyline","type":"SageIntacct","status":"ok"}]""";
 
+    private const string Listed = """
+        [{"name":"demo","type":"acumatica","status":"ok","description":"acumatica ERP connection","url":"https://demo.velixo.com","company":"Company"},
+         {"name":"skyline","type":"sage_intacct","status":"ok","description":"sage_intacct ERP connection","url":null,"company":"Skyline"}]
+        """;
+
     private const string QueryDone = """{"taskId":"t_1","status":"done","result":{"textualResponse":"{\"columns\":[],\"rows\":[],\"totalCount\":0}"}}""";
 
     private readonly TestServices _test = new();
@@ -21,6 +26,36 @@ public sealed class ConnectionsCommandsTests : IDisposable
     }
 
     public void Dispose() => _test.Dispose();
+
+    [Fact]
+    public async Task List_prints_each_connections_company_and_address_as_the_server_gives_them()
+    {
+        _mcp.ThenText(Listed);
+
+        var exit = await _test.RunAsync("connections", "list");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        JsonArray printed = JsonNode.Parse(_test.Console.StdOut)!.AsArray();
+        Assert.Equal("https://demo.velixo.com", (string?)printed[0]!["url"]);
+        Assert.Equal("Company", (string?)printed[0]!["company"]);
+        Assert.Null(printed[1]!["url"]);
+        Assert.Equal("Skyline", (string?)printed[1]!["company"]);
+    }
+
+    [Fact]
+    public async Task List_as_a_table_ends_with_the_address_and_leaves_out_the_description()
+    {
+        _mcp.ThenText(Listed);
+
+        var exit = await _test.RunAsync("connections", "list", "--output", "table");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        var header = _test.Console.StdOut.Split('\n')[0];
+        Assert.DoesNotContain("description", header, StringComparison.Ordinal);
+        Assert.True(header.IndexOf("company", StringComparison.Ordinal) < header.IndexOf("url", StringComparison.Ordinal), header);
+        Assert.EndsWith("url", header.TrimEnd(), StringComparison.Ordinal);
+        Assert.Contains("https://demo.velixo.com", _test.Console.StdOut, StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task Switch_with_a_name_writes_the_server_spelling_and_clear_removes_it()

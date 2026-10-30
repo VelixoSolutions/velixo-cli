@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `connections list` prints each connection's `company` and `url`, the address the user opens the ERP at, when the server returns them, so an app can link the user to a record it creates. The `--output table` form leaves out `description`, which repeats the type, and shows `url` last.
+
 ## [0.3.1] - 2026-10-29
 
 ### Fixed
