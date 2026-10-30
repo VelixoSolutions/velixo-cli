@@ -4,6 +4,9 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- `velixo command build --accept-defaults` lets the ERP fill every field the request does not name, as the screen would. It adds "Leave every field this request does not name at its default." to the request, which is how the builder learns that the user accepts the defaults; without it, the builder stops to ask for a branch or a project. A refusal that offers to use the defaults now names the flag in its `nextStep`.
 ### Changed
 
 - **Breaking:** `velixo query run` prints the same JSON for a plan of one query, run by its number, its name or `--plan`, as for the same query run with `--query`: `{ taskId, status, result }`, plus the plan's `note` when it has one. It printed `{ note, results: [{ purpose, result }] }` before, so `jq '.result.data.rows'` broke when a script switched from a file to a saved query. A script that read a one-query plan with `jq '.results[0].result'` now reads the document itself: replace `.results[0].result` with `.`. A plan of more than one query still prints `{ note, results }`, and table and CSV output do not change.
