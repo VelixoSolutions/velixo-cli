@@ -50,9 +50,9 @@ public static class ConnectionsCommands
                 .ToArray());
 
             MarkDefault(connections, services.Settings.Connection, services.Output.Format);
-            if (services.Output.Format == OutputFormat.Table)
+            if (services.Output.Format is OutputFormat.Table or OutputFormat.Csv)
             {
-                ShapeForTable(connections);
+                connections = ShapeForColumns(connections);
             }
 
             services.Output.WriteResult(connections);
@@ -188,19 +188,31 @@ public static class ConnectionsCommands
         name is not null && string.Equals(name, current, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Drops <c>description</c>, which only repeats the type, and moves <c>url</c> to the last column, where its
-    /// length pushes no other column off the screen.
+    /// Gives every row the same columns, with <c>url</c> last, where its length pushes no other column off the screen.
+    /// Drops <c>description</c> when it only repeats the type or the row has a <c>company</c>; from an older server,
+    /// which sends neither field, it is the only detail beyond the type and stays.
     /// </summary>
-    private static void ShapeForTable(JsonArray connections)
+    private static JsonArray ShapeForColumns(JsonArray connections)
     {
-        foreach (JsonObject connection in connections.OfType<JsonObject>())
+        var rows = connections.OfType<JsonObject>().ToList();
+        foreach (JsonObject row in rows)
         {
-            connection.Remove("description");
-            if (connection.Remove("url", out JsonNode? url))
+            if (CommandText.String(row["company"]) is not null
+                || string.Equals(CommandText.String(row["description"]), $"{CommandText.String(row["type"])} ERP connection", StringComparison.Ordinal))
             {
-                connection["url"] = url;
+                row.Remove("description");
             }
         }
+
+        var columns = rows.SelectMany(row => row.Select(property => property.Key)).Distinct(StringComparer.Ordinal).ToList();
+        if (columns.Remove("url"))
+        {
+            columns.Add("url");
+        }
+
+        return new JsonArray(rows
+            .Select(row => (JsonNode)new JsonObject(columns.Select(column => KeyValuePair.Create(column, row[column]?.DeepClone()))))
+            .ToArray());
     }
 
     /// <summary>Marks the connection named <paramref name="defaultName"/>: a <c>(default)</c> suffix on its name in a table, <c>"default": true</c> otherwise.</summary>

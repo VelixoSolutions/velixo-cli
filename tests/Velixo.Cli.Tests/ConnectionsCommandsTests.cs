@@ -58,6 +58,31 @@ public sealed class ConnectionsCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task List_as_a_table_keeps_the_description_an_older_server_sends()
+    {
+        _mcp.ThenText("""[{"name":"gab-dev","type":"acumatica","status":"ok","description":"Acumatica 2025 R1, tenant Company"}]""");
+
+        var exit = await _test.RunAsync("connections", "list", "--output", "table");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("Acumatica 2025 R1, tenant Company", _test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_as_csv_ends_with_the_address_even_when_a_later_row_has_more_fields()
+    {
+        _mcp.ThenText("""
+            [{"name":"demo","type":"acumatica","status":"ok","description":"acumatica ERP connection","url":"https://demo.velixo.com","company":"Company"},
+             {"name":"other","type":"acumatica","status":"ok","url":"https://other.velixo.com","company":"Other","region":"eu"}]
+            """);
+
+        var exit = await _test.RunAsync("connections", "list", "--output", "csv");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("name,type,status,company,region,url", _test.Console.StdOut.Split('\n')[0].TrimEnd('\r'));
+    }
+
+    [Fact]
     public async Task Switch_with_a_name_writes_the_server_spelling_and_clear_removes_it()
     {
         _mcp.ThenText(Connections);

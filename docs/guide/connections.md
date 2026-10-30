@@ -14,10 +14,10 @@ Each entry has a `name`, a `type` and a `status`, and, from a server that return
 
 ## Link to a record
 
-An app that creates or reads a record can link the user to it from `url` and `company`:
+An app that creates or reads a record can link the user to it from `url` and `company`. Trim a trailing `/` from `url`, and percent-encode `company` and every other value you put in the link:
 
 - Acumatica: `url` is the instance and `company` the tenant, so `{url}/Main?CompanyID={company}&ScreenId=EP301020&ClaimDetailCD=000123` opens expense receipt 000123.
-- Business Central: `url` opens the environment, and `?company={company}&page=...` after it opens a page of that company.
+- Business Central: `url` already opens the entry's company, so `{url}&page=...` opens one of its pages.
 - Sage Intacct: `url` is `null`, because every company uses the same host. `company` is the company ID.
 
 Read them once with `velixo connections list --output json`, rather than asking the user to type them again.

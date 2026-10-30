@@ -6,7 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
-- `connections list` prints each connection's `company` and `url`, the address the user opens the ERP at, when the server returns them, so an app can link the user to a record it creates. The `--output table` form leaves out `description`, which repeats the type, and shows `url` last.
+- `connections list` prints each connection's `company` and `url`, the address the user opens the ERP at, when the server returns them, so an app can link the user to a record it creates. The `--output table` and `--output csv` forms show `url` last, and leave out `description` when it only repeats the type.
 
 ## [0.3.1] - 2026-10-29
 
