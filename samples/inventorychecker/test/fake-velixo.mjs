@@ -43,7 +43,9 @@ if (inventoryId === 'SIGNEDOUT') {
 } else if (args[0] === 'query' && flag('--query')?.endsWith('locations.vql')) {
     finish(fixture('locations.json'));
 } else if (args[0] === 'command' && flag('--batch')?.endsWith('reserve-transfer.batch.json')) {
-    if (params.Quantity === '5') {
+    if (params.Quantity === '8') {
+        finish({ status: 'done', result: {} });
+    } else if (params.Quantity === '5') {
         finish({ error: { code: 'UNEXPECTED', exitCode: 1, message: 'The gateway timed out.' } }, 1);
     } else if (params.Quantity === '9') {
         finish({ error: { code: 'ERP_ACTION_REFUSED', exitCode: 6, message: 'The Release button is disabled.' } }, 6);

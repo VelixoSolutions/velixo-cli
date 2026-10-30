@@ -166,7 +166,7 @@ async function reserveUnits(inventoryId, { quantity, fromLocation }) {
         '--force',
     ], settings.reserveIntent);
 
-    const { savedKey, record } = document.result.feedback;
+    const { savedKey, record } = document.result?.feedback ?? {};
     return { transfer: savedKey?.RefNbr, status: record?.transfer?.Status };
 }
 
@@ -295,6 +295,10 @@ async function handle(request, response) {
                 return sendJson(response, 422, { error: error.code, message: 'The ERP refused the transfer. Ask a manager to check it.' });
             }
 
+            if (['NOT_SIGNED_IN', 'SESSION_ENDED', 'ACCESS_DENIED', 'CLI_NOT_FOUND'].includes(error.code)) {
+                return sendVelixoError(response, error);
+            }
+
             // A write that failed this way may still have run in the ERP, and the transfer runs with --force, so
             // the screen must not invite a second tap.
             console.error(`reserve outcome unknown: ${error.code ?? 'unknown'} ${error.message}`);
@@ -318,7 +322,8 @@ async function handle(request, response) {
 
             if (itemRoute[2] === 'image') {
                 const imageFile = url.searchParams.get('file') ?? '';
-                if (!imageFile || /[\\/]/.test(imageFile)) {
+                // The name goes to DownloadAttachments as a pattern, so a wildcard or a ';' would download other files.
+                if (!imageFile || /[\\/*?[\];]/.test(imageFile)) {
                     return sendJson(response, 400, { error: 'INVALID_FILE' });
                 }
 

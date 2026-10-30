@@ -154,8 +154,8 @@ test('downloads an image once, then serves it from the cache', async () => {
     assert.equal(cliCalls().length, 1);
 });
 
-test('refuses an image file name that points outside the item folder', async () => {
-    for (const file of ['../server.mjs', '..\\server.mjs', '']) {
+test('refuses an image file name that points outside the item folder or matches other files', async () => {
+    for (const file of ['../server.mjs', '..\\server.mjs', '', '*', 'AACOMPUT01.jp?', '[a]', 'AACOMPUT01.jpg;*']) {
         const response = await fetch(`${baseUrl}/api/items/AACOMPUT01/image?file=${encodeURIComponent(file)}`);
         assert.equal(response.status, 400, file);
     }
@@ -249,6 +249,20 @@ test('refuses a reservation from the reserved location itself, however it is spe
         assert.equal(response.status, 400, fromLocation);
     }
     assert.equal(cliCalls().length, 0);
+});
+
+test('tells the screen to sign in again when a reservation finds the CLI signed out', async () => {
+    const response = await reserve({ quantity: 1, fromLocation: 'STORAGE' }, 'SIGNEDOUT');
+
+    assert.equal(response.status, 401);
+    assert.match((await response.json()).message, /velixo login/);
+});
+
+test('answers a released transfer whose result names no transfer number', async () => {
+    const response = await reserve({ quantity: 8, fromLocation: 'STORAGE' });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
 });
 
 test('does not invite a retry when the transfer may have run', async () => {

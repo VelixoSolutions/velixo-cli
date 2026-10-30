@@ -100,6 +100,8 @@ async function search(code) {
 }
 
 function showItem(item) {
+    stopCounting($('qty-on-hand'));
+    stopCounting($('qty-available'));
     currentItem = item;
     $('reserve-open').hidden = !reserveConfig;
     $('item-id').textContent = item.inventoryId;
@@ -436,7 +438,7 @@ async function openReserve() {
 
         reserveState.locations = body.locations;
         reserveState.reserved = body.reserved;
-        reserveState.from = body.locations[0];
+        reserveState.from = body.locations.find(entry => entry.qtyOnHand >= 1);
         reserveState.busy = false;
 
         const subtitle = $('reserve-subtitle');
@@ -445,7 +447,7 @@ async function openReserve() {
             bold(quantityFormat.format(body.reserved))
         );
 
-        if (!body.locations.length) {
+        if (!reserveState.from) {
             setReserveStatus('failed', `No stock of this item in ${body.warehouse} to reserve.`);
         } else {
             setReserveStatus('', '');
@@ -467,6 +469,7 @@ function renderReserveLocations() {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.setAttribute('aria-pressed', String(entry === reserveState.from));
+            chip.disabled = entry.qtyOnHand < 1;
             chip.append(
                 Object.assign(document.createElement('span'), { textContent: entry.location }),
                 Object.assign(document.createElement('small'), { textContent: `${quantityFormat.format(entry.qtyOnHand)} on hand` })
@@ -489,6 +492,7 @@ function renderReserveButton() {
     button.disabled = !ready;
     button.hidden = Boolean(reserveState?.done);
     button.textContent = `Reserve ${reserveState?.quantity ?? ''} unit${reserveState?.quantity === 1 ? '' : 's'}`;
+    $('reserve-cancel').disabled = Boolean(reserveState?.busy);
 }
 
 function setReserveStatus(kind, text) {
@@ -524,6 +528,14 @@ async function confirmReserve() {
     }
 
     reserveState.busy = false;
+    if (response?.status === 502) {
+        reserveState.done = true;
+        setReserveStatus('failed', body?.message ?? 'The transfer may have gone through. Check the reserved quantity.');
+        $('reserve-cancel').textContent = 'Done';
+        renderReserveButton();
+        return;
+    }
+
     if (!response?.ok) {
         $('reserve-form').hidden = false;
         setReserveStatus('failed', body?.message ?? 'The kiosk cannot reach the server. Try again.');
@@ -574,6 +586,10 @@ function celebrate({ from, to, quantity, transfer }) {
 }
 
 function closeReserve() {
+    if (reserveState?.busy) {
+        return;
+    }
+
     clearTimeout(reserveState?.closeTimer);
     $('reserve').hidden = true;
     if (document.body.dataset.state === 'result') {
@@ -624,7 +640,15 @@ async function refreshItem(inventoryId) {
     }
 }
 
+const countAnimations = new Map();
+
+function stopCounting(element) {
+    cancelAnimationFrame(countAnimations.get(element));
+    countAnimations.delete(element);
+}
+
 function countUp(element, from, to, duration, delay) {
+    stopCounting(element);
     const start = performance.now() + delay;
     element.textContent = quantityFormat.format(from);
     const step = now => {
@@ -632,10 +656,12 @@ function countUp(element, from, to, duration, delay) {
         const eased = 1 - Math.pow(1 - progress, 3);
         element.textContent = quantityFormat.format(progress < 1 ? Math.round(from + (to - from) * eased) : to);
         if (progress < 1) {
-            requestAnimationFrame(step);
+            countAnimations.set(element, requestAnimationFrame(step));
+        } else {
+            countAnimations.delete(element);
         }
     };
-    requestAnimationFrame(step);
+    countAnimations.set(element, requestAnimationFrame(step));
 }
 
 $('reserve-open').addEventListener('click', openReserve);
