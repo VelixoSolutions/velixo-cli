@@ -185,10 +185,12 @@ The output is a JSON array on a pipe and a table on a terminal:
 
 ```json
 [
-  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "Acumatica 2025 R1, tenant Company", "default": true },
-  { "name": "skyline", "type": "sage_intacct", "status": "ok", "description": "Skyline Industries" }
+  { "name": "gab-dev", "type": "acumatica", "status": "ok", "description": "acumatica ERP connection", "url": "https://gab-dev.velixo.com", "company": "Company", "default": true },
+  { "name": "skyline", "type": "sage_intacct", "status": "ok", "description": "sage_intacct ERP connection", "url": null, "company": "SKYLINE" }
 ]
 ```
+
+`url` is the address the user opens the ERP at, and `company` the company the connection logs in to, so an app can link to a record it creates. [docs/commands.md](docs/commands.md) says what each one holds for each ERP.
 
 ### Choosing a connection
 
