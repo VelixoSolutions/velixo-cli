@@ -1,13 +1,14 @@
 # Both CLI samples in one Fly.io app: the inventory checker at /, the expense receipts demos at /acumatica/ and
-# /sageintacct/. Fly's GitHub integration deploys it from this folder; DEPLOY.md sets it up.
+# /sageintacct/. Fly's GitHub integration deploys it from the repository root; samples/DEPLOY.md sets it up.
 app = "velixo-cli-samples"
-primary_region = "iad"
+primary_region = "yyz"
 
 # The CLI's sign-in and the apps' state live here. The CLI replaces its refresh token on every call, so losing this
 # disk signs every sample out.
 [mounts]
   source = "data"
   destination = "/data"
+  initial_size = "1gb"
 
 [http_service]
   internal_port = 8080
