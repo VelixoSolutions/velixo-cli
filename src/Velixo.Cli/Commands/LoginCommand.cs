@@ -14,7 +14,7 @@ public static class LoginCommand
 
         var noBrowser = new Option<bool>("--no-browser")
         {
-            Description = "Do not open a browser: print the sign-in URL and the command that completes the sign-in.",
+            Description = "Do not open a browser: print the sign-in URL. At a terminal, wait for the address the browser lands on; otherwise print the command that completes the sign-in.",
         };
         var complete = new Option<string?>("--complete")
         {
@@ -42,6 +42,10 @@ public static class LoginCommand
             else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive)
             {
                 document = await signIn.BeginDeferredAsync(services.Settings, cancellationToken).ConfigureAwait(false);
+                if (PastedAddress(services, document) is { } address)
+                {
+                    document = await signIn.CompleteAsync(services.Settings, address, cancellationToken).ConfigureAwait(false);
+                }
             }
             else
             {
@@ -53,6 +57,35 @@ public static class LoginCommand
         });
 
         return command;
+    }
+
+    /// <summary>
+    /// Shows the sign-in URL and reads the address the browser lands on, so one command signs in on a machine
+    /// without a browser. Returns null without asking when nobody can answer, a script, a pipe, an agent or JSON
+    /// output, and when the person enters nothing: the URL and the <c>--complete</c> command are then printed.
+    /// </summary>
+    private static string? PastedAddress(CliServices services, JsonObject started)
+    {
+        if (!ValuePrompt.CanAsk(services) || services.Output.Format == OutputFormat.Json)
+        {
+            return null;
+        }
+
+        TextWriter prompt = services.Console.Error;
+        prompt.Write(
+            $"Open this URL in a browser and sign in:\n\n  {CommandText.String(started["browserUrl"])}\n\n"
+            + "The browser then lands on a page that does not load. Copy its address.\n\n"
+            + "Paste the address your browser lands on: ");
+        prompt.Flush();
+
+        var answer = services.Console.In.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(answer))
+        {
+            prompt.WriteLine();
+            return null;
+        }
+
+        return answer;
     }
 
     private static void Write(OutputWriter output, JsonObject document)

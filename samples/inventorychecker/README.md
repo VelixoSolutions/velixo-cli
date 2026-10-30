@@ -55,7 +55,6 @@ The `Dockerfile` installs the Velixo CLI from `cli.velixo.com` and keeps the CLI
 ```sh
 docker build -t inventory-checker .
 docker run -it --rm -v kiosk-data:/data inventory-checker velixo login --no-browser
-docker run -it --rm -v kiosk-data:/data inventory-checker velixo login --complete "<redirected URL>"
 docker run -d -v kiosk-data:/data -e VELIXO_CONNECTION=<connection> -p 8080:8080 inventory-checker
 ```
 

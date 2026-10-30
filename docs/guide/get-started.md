@@ -7,7 +7,7 @@ This page is the workflow and the rules that hold for every command. Each comman
 
 ## First steps
 
-1. Run `velixo status`. Exit 0 means you can work. Exit 4 means you must sign in: run `velixo login`. Without a browser, run `velixo login --no-browser`, open the URL it prints, then run `velixo login --complete <code-or-url>`.
+1. Run `velixo status`. Exit 0 means you can work. Exit 4 means you must sign in: run `velixo login`. Without a browser, run `velixo login --no-browser`, open the URL it prints, and paste the address the browser lands on. Where nothing can be pasted, it exits instead: run `velixo login --complete <code-or-url>` with that address.
 2. Run `velixo connections list` to see the ERP connections. When several exist and the user did not say which, ask. Never guess. Pass `--connection NAME` on a command, or set the default with `velixo connections switch`.
 3. Read the page of a command before you use it for the first time: `velixo guide query build`.
 

@@ -113,10 +113,15 @@ velixo login
 
 The command opens your browser, you sign in with Microsoft, Google or an emailed code and choose your organization, and the CLI stores the tokens. It uses OAuth with PKCE on a loopback redirect (`http://127.0.0.1:<port>/callback`).
 
-When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. The command prints the sign-in URL and exits. Open the URL on any device, then finish the sign-in:
+When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. The command prints the sign-in URL. Open it on any device and sign in: the browser then lands on a page that does not load. At a terminal, the command waits for you to paste that page's address, and finishes the sign-in:
 
 ```sh
 velixo login --no-browser
+```
+
+Without a terminal, such as in a script, through an agent, or when you press Enter without pasting, the command prints the URL and exits instead. Finish the sign-in with:
+
+```sh
 velixo login --complete "<code-or-redirected-url>"
 ```
 
@@ -145,8 +150,9 @@ Put the configuration folder on a volume with `VELIXO_CONFIG_DIR`, so the sign-i
 
 ```sh
 docker run -it --rm -e VELIXO_CONFIG_DIR=/data/velixo -v velixo-config:/data/velixo my-app velixo login --no-browser
-docker run -it --rm -e VELIXO_CONFIG_DIR=/data/velixo -v velixo-config:/data/velixo my-app velixo login --complete "<redirected URL>"
 ```
+
+Open the URL it prints, sign in, and paste the address the browser lands on. `-it` gives the command a terminal to wait in.
 
 Give each deployment its own volume and its own sign-in. The server replaces the refresh token every time it is used, so two deployments that share one sign-in end each other's session. The same holds for `VELIXO_TOKEN`: see its limits under [Sign in](#sign-in).
 

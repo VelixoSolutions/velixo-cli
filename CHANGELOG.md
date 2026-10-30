@@ -6,6 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
+- `velixo login --no-browser` at a terminal waits for the address the browser lands on and finishes the sign-in, so a server or a container signs in with one command. Without a terminal, or when the answer is empty, it prints the URL and the `--complete` command as before.
 - `connections list` prints each connection's `company` and `url`, the address the user opens the ERP at, when the server returns them, so an app can link the user to a record it creates. The `--output table` and `--output csv` forms show `url` last, and leave out `description` when it only repeats the type.
 - `velixo command build --accept-defaults` lets the ERP fill every field the request does not name, as the screen would. It adds "Leave every field this request does not name at its default." to the request, which is how the builder learns that the user accepts the defaults; without it, the builder stops to ask for a branch or a project. A refusal that offers to use the defaults now names the flag in its `nextStep`.
 

@@ -81,9 +81,8 @@ A Telegram message carries no phone number, so the bot's first reply shows a "Sh
 docker build -f Dockerfile.sageintacct -t expense-receipts-sageintacct .
 docker build -f Dockerfile.acumatica -t expense-receipts-acumatica .
 
-# Sign each one in once. The first command prints a URL; open it, then pass the URL you land on.
+# Sign each one in once: open the URL it prints, then paste the address the browser lands on.
 docker run -it --rm -v velixo-sageintacct:/data/velixo expense-receipts-sageintacct velixo login --env nx-dev --no-browser
-docker run -it --rm -v velixo-sageintacct:/data/velixo expense-receipts-sageintacct velixo login --complete "<redirected URL>"
 
 docker run -d --name receipts-sage --env-file .env.sageintacct \
   -v velixo-sageintacct:/data/velixo -v state-sageintacct:/data/state -p 8090:8090 expense-receipts-sageintacct
