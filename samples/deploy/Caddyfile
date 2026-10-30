@@ -5,11 +5,19 @@
 :{$PORT}
 
 handle_path /acumatica/* {
-	reverse_proxy 127.0.0.1:8091
+	reverse_proxy 127.0.0.1:8091 {
+		# Fly's proxy sends X-Forwarded-Ssl: on while Caddy sets X-Forwarded-Proto: http, and gunicorn answers 400
+		# to scheme headers that disagree.
+		header_up -X-Forwarded-Ssl
+	}
 }
 
 handle_path /sageintacct/* {
-	reverse_proxy 127.0.0.1:8092
+	reverse_proxy 127.0.0.1:8092 {
+		# Fly's proxy sends X-Forwarded-Ssl: on while Caddy sets X-Forwarded-Proto: http, and gunicorn answers 400
+		# to scheme headers that disagree.
+		header_up -X-Forwarded-Ssl
+	}
 }
 
 handle {
