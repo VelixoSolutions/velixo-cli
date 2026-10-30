@@ -1,0 +1,149 @@
+{
+  "target": "expenses/employee-expense",
+  "commands": [
+    {
+      "type": "Set",
+      "name": "employee.id",
+      "value": "{{EmployeeID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "createdDate",
+      "value": "{{ExpenseDate}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "description",
+      "value": "{{Description}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "basePayment.baseCurrency",
+      "value": "{{BaseCurrency}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "EmployeeID",
+      "type": "string",
+      "description": "Employee ID"
+    },
+    {
+      "name": "ExpenseDate",
+      "type": "date",
+      "description": "Report date, YYYY-MM-DD"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "description": "Expense report description"
+    },
+    {
+      "name": "BaseCurrency",
+      "type": "string",
+      "description": "Base currency code"
+    }
+  ],
+  "lineCommands": [
+    {
+      "type": "Set",
+      "name": "lines.dimensions.location.id",
+      "value": "{{LocationID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.expenseType.id",
+      "value": "{{ExpenseType}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.txnAmount",
+      "value": "{{Amount}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.entryDate",
+      "value": "{{LineDate}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.paidFor",
+      "value": "{{Memo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.dimensions.project.id",
+      "value": "{{ProjectID}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "lineVariables": [
+    {
+      "name": "LocationID",
+      "type": "string",
+      "description": "Multi-entity location ID"
+    },
+    {
+      "name": "ExpenseType",
+      "type": "string",
+      "description": "Expense type ID"
+    },
+    {
+      "name": "Amount",
+      "type": "number",
+      "description": "Expense transaction amount"
+    },
+    {
+      "name": "LineDate",
+      "type": "date",
+      "description": "Expense entry date, YYYY-MM-DD"
+    },
+    {
+      "name": "Memo",
+      "type": "string",
+      "description": "Notes describing the expense"
+    },
+    {
+      "name": "ProjectID",
+      "type": "string",
+      "description": "Project ID"
+    }
+  ],
+  "finishCommands": [
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "id",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "finishVariables": [],
+  "commandSets": "`commands` is the header. Run it with every row in one execute_commands call: pass `lineCommands` and one entry per detail row in `rows`, each with that row's values; pass `splitCommands` with each line's own `rows` when there is a sub-detail set; and pass `finishCommands` to save. Or split the work across calls: `leaveOpen` on one call, then its `continuation` on the next, with no header. `variables` bind the header and the finish set."
+}

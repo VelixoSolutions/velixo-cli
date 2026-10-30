@@ -1,0 +1,188 @@
+{
+  "target": "EP301020",
+  "screenName": "Expense Receipt",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "ClaimDetails.ClaimDetailCD",
+      "value": "<NEW>",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "ClaimDetails.EmployeeID",
+      "value": "{{EmployeeID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "ClaimDetails.ExpenseDate",
+      "value": "{{ReceiptDate}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "ClaimDetails.InventoryID",
+      "value": "{{ExpenseItem}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.TranDesc",
+      "value": "{{Description}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.Qty",
+      "value": "1",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.CuryUnitCost",
+      "value": "{{Amount}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.ContractID",
+      "value": "{{ProjectID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.TaskID",
+      "value": "{{ProjectTaskID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentClaimDetails.CostCodeID",
+      "value": "{{CostCodeID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "ClaimDetails.ClaimDetailCD",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "ClaimDetails.EmployeeID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "ClaimDetails.ExpenseDate",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "ClaimDetails.InventoryID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentClaimDetails.TranDesc",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentClaimDetails.Qty",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentClaimDetails.CuryUnitCost",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentClaimDetails.ContractID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "EmployeeID",
+      "type": "string",
+      "description": "Claiming employee code"
+    },
+    {
+      "name": "ReceiptDate",
+      "type": "date",
+      "description": "Receipt date, e.g. 2026-07-01"
+    },
+    {
+      "name": "ExpenseItem",
+      "type": "string",
+      "description": "Expense item code"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "description": "Receipt description"
+    },
+    {
+      "name": "Amount",
+      "type": "number",
+      "description": "Unit cost"
+    },
+    {
+      "name": "ProjectID",
+      "type": "string",
+      "description": "Project code"
+    },
+    {
+      "name": "ProjectTaskID",
+      "type": "string",
+      "description": "Task of the project; the project's default task, or its first active task"
+    },
+    {
+      "name": "CostCodeID",
+      "type": "string",
+      "description": "Cost code for a project expense: the tenant's default cost code"
+    }
+  ]
+}

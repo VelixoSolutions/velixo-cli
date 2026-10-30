@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Expense Receipts Simulator</title>
+    <style>
+        :root { --bg: #eef1f6; --phone: #ffffff; --me: #2f6bff; --app: #e7eaf0; --ink: #1c2230; --muted: #6b7385; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); font: 15px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+        .phone { width: min(420px, 100vw); height: min(820px, 100vh); background: var(--phone); border-radius: 36px; box-shadow: 0 30px 80px rgba(20, 30, 60, .18); display: flex; flex-direction: column; overflow: hidden; }
+        header { padding: 18px 20px 12px; border-bottom: 1px solid #e6e9ef; }
+        header h1 { margin: 0; font-size: 17px; }
+        header label { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); font-size: 13px; }
+        header input { flex: 1; border: 1px solid #d6dbe4; border-radius: 8px; padding: 6px 8px; font: inherit; }
+        main { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .bubble { max-width: 80%; padding: 9px 13px; border-radius: 18px; white-space: pre-wrap; word-break: break-word; }
+        .employee { align-self: flex-end; background: var(--me); color: #fff; border-bottom-right-radius: 6px; }
+        .app { align-self: flex-start; background: var(--app); border-bottom-left-radius: 6px; }
+        .bubble img { display: block; max-width: 100%; border-radius: 12px; margin-bottom: 6px; }
+        .bubble a { color: inherit; }
+        .time { font-size: 11px; opacity: .6; margin-top: 2px; }
+        form { display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e6e9ef; }
+        form input[type=text] { flex: 1; border: 1px solid #d6dbe4; border-radius: 20px; padding: 10px 14px; font: inherit; }
+        .attach { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #f0f2f6; cursor: pointer; font-size: 20px; }
+        .attach.has-photo { background: #d9e4ff; }
+        button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--me); color: #fff; font-size: 18px; cursor: pointer; }
+        .hint { color: var(--muted); text-align: center; font-size: 13px; margin: auto 20px; }
+    </style>
+</head>
+<body>
+    <div class="phone">
+        <header>
+            <h1>Expense receipts</h1>
+            <label>Texting from <input id="phone" value="+1 777 345 2246" autocomplete="off"></label>
+        </header>
+        <main id="messages"><p class="hint">Attach a photo of a receipt, add a note such as the project, and send it.</p></main>
+        <form id="composer">
+            <label class="attach" id="attach" title="Attach a photo">📎<input id="photo" type="file" accept="image/*" hidden></label>
+            <input id="text" type="text" placeholder="Text message" autocomplete="off">
+            <button type="submit" aria-label="Send">↑</button>
+        </form>
+    </div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        let shown = '';
+
+        $('photo').addEventListener('change', () => $('attach').classList.toggle('has-photo', $('photo').files.length > 0));
+
+        $('composer').addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!$('text').value.trim() && !$('photo').files.length) return;
+            const body = new FormData();
+            body.append('phone', $('phone').value);
+            body.append('text', $('text').value);
+            if ($('photo').files.length) body.append('photo', $('photo').files[0]);
+            $('text').value = '';
+            $('photo').value = '';
+            $('attach').classList.remove('has-photo');
+            await fetch('/simulator/messages', { method: 'POST', body });
+            refresh();
+        });
+
+        function linkify(text) {
+            const node = document.createElement('div');
+            for (const part of text.split(/(https?:\/\/\S+)/)) {
+                if (/^https?:\/\//.test(part)) {
+                    node.append(Object.assign(document.createElement('a'), { href: part, textContent: part, target: '_blank', rel: 'noopener' }));
+                } else {
+                    node.append(part);
+                }
+            }
+            return node;
+        }
+
+        async function refresh() {
+            const history = await (await fetch('/simulator/messages?phone=' + encodeURIComponent($('phone').value))).json();
+            const key = JSON.stringify(history.map(m => [m.from, m.text]));
+            if (key === shown) return;
+            shown = key;
+            const list = $('messages');
+            list.replaceChildren(...history.map(message => {
+                const bubble = Object.assign(document.createElement('div'), { className: 'bubble ' + message.from });
+                if (message.photo) bubble.append(Object.assign(document.createElement('img'), { src: message.photo, alt: 'Receipt photo' }));
+                if (message.text) bubble.append(linkify(message.text));
+                bubble.append(Object.assign(document.createElement('div'), { className: 'time', textContent: message.at }));
+                return bubble;
+            }));
+            if (!history.length) list.innerHTML = '<p class="hint">Attach a photo of a receipt, add a note such as the project, and send it.</p>';
+            list.scrollTop = list.scrollHeight;
+        }
+
+        $('phone').addEventListener('change', () => { shown = ''; refresh(); });
+        setInterval(refresh, 1500);
+        refresh();
+    </script>
+</body>
+</html>

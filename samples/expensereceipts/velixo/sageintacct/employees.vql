@@ -1,0 +1,4 @@
+FROM [company-config/employee] AS Employee
+WHERE Employee.status = 'active'
+ORDER BY Employee.id ASC
+SELECT Employee.id AS 'Employee ID', Employee.name AS 'Name', Employee.primaryContact.email1 AS 'Email', Employee.primaryContact.phone1 AS 'Phone 1', Employee.primaryContact.phone2 AS 'Phone 2', Employee.primaryContact.mobile AS 'Cell Phone', Employee.location.id AS 'Location ID'
