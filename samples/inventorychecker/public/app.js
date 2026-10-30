@@ -361,6 +361,7 @@ function closeKeypad() {
 }
 
 $('type-code').addEventListener('click', openKeypad);
+$('go-home').addEventListener('click', goIdle);
 $('keypad').addEventListener('click', event => {
     const action = event.target.dataset?.action;
     if (action === 'cancel') {

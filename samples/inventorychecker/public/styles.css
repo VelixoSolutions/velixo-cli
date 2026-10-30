@@ -94,6 +94,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); animation: pulse 2s ease-in-out infinite; }
 .clock { font-family: var(--mono); color: var(--text); font-size: 1.15em; }
 
+.home-button {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    margin-left: clamp(16px, 2vw, 32px);
+    padding: 10px 20px 10px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-edge);
+    background: var(--panel);
+    color: var(--text);
+    font-size: clamp(15px, 1.2vw, 19px);
+    font-weight: 600;
+}
+.home-button svg { width: 20px; height: 20px; fill: none; stroke: var(--cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.home-button:active { transform: scale(0.96); }
+body[data-state='result'] .home-button, body[data-state='message'] .home-button { display: inline-flex; }
+
 .icon-button { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--panel-edge); background: var(--panel); }
 .icon-button svg { width: 20px; height: 20px; fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 :fullscreen .icon-button#fullscreen { display: none; }
