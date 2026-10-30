@@ -173,10 +173,8 @@ public sealed class GatewaySignInTests
     public async Task A_pasted_url_with_another_state_is_refused()
     {
         using var test = new TestServices();
-        test.Services.Profiles.SaveState("nx-dev", new ProfileState
-        {
-            PendingLogin = new PendingLogin { State = "expected", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) },
-        });
+        test.Services.Profiles.UpdateState("nx-dev", state =>
+            state.PendingLogin = new PendingLogin { State = "expected", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) });
 
         var exit = await test.RunAsync("login", "--env", "nx-dev", "--complete", "http://127.0.0.1:5000/callback?code=c&state=forged");
 

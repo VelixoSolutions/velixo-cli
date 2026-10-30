@@ -29,6 +29,7 @@ public static class ErrorCodes
     public const string Http = "HTTP_ERROR";
     public const string Protocol = "MCP_PROTOCOL_ERROR";
     public const string Internal = "INTERNAL_ERROR";
+    public const string FileLocked = "FILE_LOCKED";
 
     /// <summary>The upload endpoint refused a file's bytes. The CLI raises it; the server's upload endpoint answers only with an HTTP status.</summary>
     public const string AttachmentUploadFailed = "ATTACHMENT_UPLOAD_FAILED";

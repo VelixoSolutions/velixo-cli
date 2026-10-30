@@ -27,11 +27,9 @@ public sealed class GatewayTokenProvider(
     {
         StoredCredentials credentials = await LoadAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!string.IsNullOrEmpty(credentials.AccessToken)
-            && credentials.AccessTokenExpiresAt is { } expiresAt
-            && expiresAt - _expiryMargin > clock.GetUtcNow())
+        if (IsCurrent(credentials))
         {
-            return credentials.AccessToken;
+            return credentials.AccessToken!;
         }
 
         return await RefreshAsync(credentials, cancellationToken).ConfigureAwait(false);
@@ -49,6 +47,11 @@ public sealed class GatewayTokenProvider(
         StoredCredentials credentials = await LoadAsync(cancellationToken).ConfigureAwait(false);
         return credentials.RefreshToken ?? throw CliException.NotSignedIn(settings.ProfileName);
     }
+
+    private bool IsCurrent(StoredCredentials credentials) =>
+        !string.IsNullOrEmpty(credentials.AccessToken)
+        && credentials.AccessTokenExpiresAt is { } expiresAt
+        && expiresAt - _expiryMargin > clock.GetUtcNow();
 
     internal static string HashToken(string token) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
@@ -72,7 +75,10 @@ public sealed class GatewayTokenProvider(
 
             StoredCredentials seeded = await SeedFromEnvironmentTokenAsync(stored, environmentToken, hash, cancellationToken).ConfigureAwait(false);
             await RefreshAsync(seeded, cancellationToken).ConfigureAwait(false);
-            return seeded;
+
+            // RefreshAsync may have continued from another process's rotation of the same token, and then the
+            // seeded credentials still hold the spent one.
+            return _credentials ?? seeded;
         }
 
         if (stored is null || string.IsNullOrEmpty(stored.RefreshToken))
@@ -127,6 +133,56 @@ public sealed class GatewayTokenProvider(
 
     private async Task<string> RefreshAsync(StoredCredentials credentials, CancellationToken cancellationToken)
     {
+        // A VELIXO_TOKEN can drive several profiles, so its lock is the token's own, taken before the profile's.
+        // The order never changes, so two processes never wait on each other's lock.
+        using IDisposable? tokenLock = credentials.EnvironmentTokenHash is { } tokenHash
+            ? await store.LockForEnvironmentTokenAsync(tokenHash, cancellationToken).ConfigureAwait(false)
+            : null;
+        using IDisposable refreshLock = await store.LockForRefreshAsync(settings.ProfileName, cancellationToken).ConfigureAwait(false);
+
+        StoredCredentials? latest = store.Get(settings.ProfileName);
+        if (latest is null && credentials.EnvironmentTokenHash is null)
+        {
+            // The profile signed out while this command waited: refreshing would store its tokens again.
+            throw CliException.NotSignedIn(settings.ProfileName);
+        }
+
+        if (latest is not null && credentials.EnvironmentTokenHash is null && latest.EnvironmentTokenHash is not null)
+        {
+            // A VELIXO_TOKEN session replaced the profile's sign-in while this command waited. Refreshing the
+            // sign-in now would overwrite that session's tokens, and its next command would replay a spent one.
+            throw new CliException(
+                ExitCodes.AuthenticationRequired,
+                ErrorCodes.SessionEnded,
+                $"The tokens of the profile '{settings.ProfileName}' were replaced by {EnvironmentVariables.Token} while this command ran.",
+                "Run the command again.");
+        }
+
+        // The gateway rotates the refresh token on every use and ends the session when one is used twice. A
+        // process that refreshed while this one waited has spent the token this one holds, so continue from its.
+        if (latest is not null
+            && !string.IsNullOrEmpty(latest.RefreshToken)
+            && latest.RefreshToken != credentials.RefreshToken
+            && latest.EnvironmentTokenHash == credentials.EnvironmentTokenHash)
+        {
+            // A refresh keeps the sign-in time; a new sign-in, possibly as someone else, changes it.
+            if (credentials.EnvironmentTokenHash is null && latest.SignedInAt != credentials.SignedInAt)
+            {
+                throw new CliException(
+                    ExitCodes.AuthenticationRequired,
+                    ErrorCodes.SessionEnded,
+                    $"The profile '{settings.ProfileName}' signed in again while this command ran.",
+                    "Run the command again.");
+            }
+
+            credentials = latest;
+            if (IsCurrent(latest))
+            {
+                _credentials = latest;
+                return latest.AccessToken!;
+            }
+        }
+
         if (string.IsNullOrEmpty(credentials.TokenEndpoint) || string.IsNullOrEmpty(credentials.ClientId) || string.IsNullOrEmpty(credentials.RefreshToken))
         {
             throw CliException.NotSignedIn(settings.ProfileName);

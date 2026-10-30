@@ -27,15 +27,15 @@ internal static class StagedFiles
         DateTimeOffset now = services.Clock.GetUtcNow();
         file.ExpiresAt ??= now.Add(_undatedLifetime).ToString("O", CultureInfo.InvariantCulture);
 
-        StagedFilesFile staged = services.Profiles.LoadStagedFiles(profile);
-        staged.Files.RemoveAll(kept => kept.FileToken == file.FileToken || HasExpired(kept, now));
-        staged.Files.Add(file);
-        if (staged.Files.Count > MostKept)
+        services.Profiles.UpdateStagedFiles(profile, staged =>
         {
-            staged.Files.RemoveRange(0, staged.Files.Count - MostKept);
-        }
-
-        services.Profiles.SaveStagedFiles(profile, staged);
+            staged.Files.RemoveAll(kept => kept.FileToken == file.FileToken || HasExpired(kept, now));
+            staged.Files.Add(file);
+            if (staged.Files.Count > MostKept)
+            {
+                staged.Files.RemoveRange(0, staged.Files.Count - MostKept);
+            }
+        });
     }
 
     /// <summary>Returns the files staged on this profile, to look several tokens up against one read.</summary>

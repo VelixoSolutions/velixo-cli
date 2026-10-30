@@ -24,8 +24,17 @@ internal static class JsonFile
             return null;
         }
 
-        using FileStream stream = File.OpenRead(path);
-        return stream.Length == 0 ? null : JsonSerializer.Deserialize(stream, typeInfo);
+        try
+        {
+            // Another process may replace the file while this one reads it; on Windows the replace fails unless
+            // the reader shares delete access.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return stream.Length == 0 ? null : JsonSerializer.Deserialize(stream, typeInfo);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
     }
 
     public static void Write<T>(string path, T value, JsonTypeInfo<T> typeInfo, bool ownerOnly = false)

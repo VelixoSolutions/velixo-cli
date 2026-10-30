@@ -215,11 +215,12 @@ public sealed class StreamableHttpMcpClient(
             }
         }
 
-        ProfileState state = profiles.LoadState(profile);
-        state.McpSessionId = SessionId;
-        state.McpUrl = endpoint.ToString();
-        state.Server = ServerInfo;
-        profiles.SaveState(profile, state);
+        profiles.UpdateState(profile, state =>
+        {
+            state.McpSessionId = SessionId;
+            state.McpUrl = endpoint.ToString();
+            state.Server = ServerInfo;
+        });
     }
 
     /// <summary>POSTs <paramref name="body"/>, refreshing the access token once if the server answers 401.</summary>

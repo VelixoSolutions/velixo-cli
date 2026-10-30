@@ -1,6 +1,5 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
-using Velixo.Cli.Config;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 
@@ -84,22 +83,25 @@ public static class ConnectionsCommands
             }
 
             var profile = services.Settings.ProfileName;
-            CliConfig config = services.Profiles.LoadConfig();
-            var current = config.Profiles.GetValueOrDefault(profile)?.Connection;
+            var shown = services.Profiles.LoadConfig().Profiles.GetValueOrDefault(profile)?.Connection;
 
             string? chosen = null;
             if (!clearing)
             {
                 JsonArray connections = await FetchAsync(services, cancellationToken).ConfigureAwait(false);
-                chosen = given is null ? Pick(services, connections, current) : Find(connections, given);
+                chosen = given is null ? Pick(services, connections, shown) : Find(connections, given);
                 if (chosen is null)
                 {
                     throw new CliException(ExitCodes.Interrupted, ErrorCodes.Interrupted, "No connection was chosen; the default is unchanged.");
                 }
             }
 
-            ConfigCommands.Write(config, $"profiles.{profile}.connection", chosen);
-            services.Profiles.SaveConfig(config);
+            string? current = null;
+            services.Profiles.UpdateConfig(config =>
+            {
+                current = config.Profiles.GetValueOrDefault(profile)?.Connection;
+                ConfigCommands.Write(config, $"profiles.{profile}.connection", chosen);
+            });
 
             if (chosen is not null && services.Settings.Connection is { } effective
                 && !string.Equals(effective, current, StringComparison.OrdinalIgnoreCase)
