@@ -52,10 +52,11 @@ The command exits 3 with `BUILDER_REFUSAL`, and `error.message` holds the builde
 | A grid row index | You | Derive it (below). The user cannot know it. |
 | An invoice's origin module and released flag | You | Look them up with `velixo query build` and `velixo query run`, on the table the refusal names, filtered on the document type and reference number as placeholders. Build again saying in words what came back: "the unreleased invoice `{{RefNbr}}` raised from a sales order". Never guess, and never build against a screen the refusal said cannot load it. |
 | A value spelled out instead of a placeholder | You | Send the same request with that one value written out and nothing else changed. Do not add the builder's reasoning to the request. |
+| Leave to use the defaults ("supply the branch … or authorize their defaults") | The user | Ask whether the ERP may fill the fields the request does not name. On a yes, build again with the same request and `--accept-defaults`. |
 
 A question can end with `(target for the rebuild: TARGET)`. Leave that note out when you ask the user, and build again with `--target TARGET`.
 
-"Use the default" is not a missing value. Leave the field to Acumatica with `command run --param-null`, then read back what it resolved to.
+"Use the default" is not a missing value. When the user said it for every field they did not name, build with `--accept-defaults`: the builder then stops asking for a branch, a project or other fields the screen can default. For one field the batch already writes, leave it to Acumatica with `command run --param-null`. Either way, read back what the ERP resolved it to.
 
 ## Grid row index
 

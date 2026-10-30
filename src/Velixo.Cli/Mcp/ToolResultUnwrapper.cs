@@ -17,6 +17,10 @@ public static partial class ToolResultUnwrapper
     private const string BuilderRefusalNextStep =
         "Put the builder's question to the user in plain words, then build again with their answer.";
 
+    private const string DefaultsRefusalNextStep =
+        "The builder asks whether the ERP may fill the fields the request does not name. Ask the user; "
+        + "if they agree, build again with the same request and --accept-defaults.";
+
     /// <summary>The phrase the server's refusal carries when the call names no connection and several fit.</summary>
     private const string SeveralConnectionsPhrase = "Several ERP connections are usable";
 
@@ -246,7 +250,15 @@ public static partial class ToolResultUnwrapper
     private static bool IsBuilderRefusal(string text) => text.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal);
 
     private static CliException BuilderRefusal(string text, string? taskId) =>
-        new(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, text.Trim(), BuilderRefusalNextStep) { TaskId = taskId };
+        new(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, text.Trim(), OffersDefaults(text) ? DefaultsRefusalNextStep : BuilderRefusalNextStep)
+        {
+            TaskId = taskId,
+        };
+
+    /// <summary>Whether the builder asks for the user's leave to default the fields the request does not name.</summary>
+    private static bool OffersDefaults(string text) =>
+        text.Contains("default", StringComparison.OrdinalIgnoreCase)
+        && (text.Contains("authorize", StringComparison.OrdinalIgnoreCase) || text.Contains("authorise", StringComparison.OrdinalIgnoreCase));
 
     private static string TaskFailedNextStep(string error) =>
         error.Contains("400", StringComparison.Ordinal) || error.Contains("Bad Request", StringComparison.OrdinalIgnoreCase)

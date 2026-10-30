@@ -34,6 +34,29 @@ public sealed class ScreenBuildTests
     }
 
     [Fact]
+    public async Task Accept_defaults_adds_the_users_leave_to_default_every_unnamed_field_to_the_request()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(JsonNode.Parse(ScreenHarness.OrderBatch)!["result"]!["data"]!.ToJsonString()));
+
+        var exit = await test.RunAsync(
+            "command", "build", "Create a sales order for customer {{CustomerID}}", "--accept-defaults",
+            "--connection", "gab-dev", "--intent", ScreenHarness.Intent);
+
+        Assert.Equal(ExitCodes.Success, exit);
+        (_, JsonObject sent) = Assert.Single(test.Mcp.Calls);
+        Assert.Equal(
+            "Create a sales order for customer {{CustomerID}}. Leave every field this request does not name at its default.",
+            (string?)sent["request"]);
+    }
+
+    [Theory]
+    [InlineData("Release it.", "Release it. Leave every field this request does not name at its default.")]
+    [InlineData("Release it  ", "Release it. Leave every field this request does not name at its default.")]
+    public void Accept_defaults_ends_the_request_as_one_more_sentence(string request, string expected) =>
+        Assert.Equal(expected, Velixo.Cli.Commands.ScreenCommands.WithDefaultsAccepted(request));
+
+    [Fact]
     public async Task Build_on_a_terminal_summarises_the_batch_and_shows_how_to_check_and_run_it()
     {
         using var test = new ScreenHarness();

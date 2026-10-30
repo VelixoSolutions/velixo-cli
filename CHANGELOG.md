@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `velixo command build --accept-defaults` lets the ERP fill every field the request does not name, as the screen would. It adds "Leave every field this request does not name at its default." to the request, which is how the builder learns that the user accepts the defaults; without it, the builder stops to ask for a branch or a project. A refusal that offers to use the defaults now names the flag in its `nextStep`.
+
 ## [0.3.1] - 2026-10-29
 
 ### Fixed

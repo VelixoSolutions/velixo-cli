@@ -91,6 +91,17 @@ public sealed class ToolResultUnwrapperTests
         Assert.Equal("t_5d", error.TaskId);
     }
 
+    [Fact]
+    public void A_builder_question_that_offers_to_use_the_defaults_points_to_accept_defaults()
+    {
+        const string envelope = """{"taskId":"t_5e","status":"done","result":{"textualResponse":"ERROR: Supply the transfer branch and line project, or authorize their defaults. You may authorize leaving every other field at its default. (target for the rebuild: IN304000)"}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Contains("--accept-defaults", error.NextStep, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("IMPORT_COLUMNS_MISSING: the file does not have 'Customer Class'.", "IMPORT_COLUMNS_MISSING", "velixo guide import")]
     [InlineData("SCREEN_SESSION_LOST: the session is gone. Nothing in this call was executed.", "SCREEN_SESSION_LOST", ErrorGuidance.SessionLostNothingRanStep)]

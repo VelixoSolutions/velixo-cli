@@ -47,6 +47,10 @@ public static class ScreenCommands
             Description = "Also write the batch to this file, for 'velixo command run --batch FILE'. Replaces a file already there.",
             HelpName = "file",
         };
+        var acceptDefaults = new Option<bool>("--accept-defaults")
+        {
+            Description = "Let the ERP fill every field the request does not name, as the screen would. Pass it when the user said to use the defaults.",
+        };
 
         var command = new Command(
             "build",
@@ -56,11 +60,12 @@ public static class ScreenCommands
             target,
             name,
             save,
+            acceptDefaults,
         };
         command.SetAction((parse, cancellationToken) =>
             BuildBatchAsync(
                 services,
-                parse.GetValue(request)!,
+                parse.GetValue(acceptDefaults) ? WithDefaultsAccepted(parse.GetValue(request)!) : parse.GetValue(request)!,
                 parse.GetValue(target),
                 parse.GetValue(save),
                 LibraryCommands.CheckName(parse.GetValue(name)),
@@ -254,6 +259,16 @@ public static class ScreenCommands
         return File.Exists(fullPath)
             ? new ScreenAttachment(fullPath, Comment: null)
             : throw CliException.Usage($"The file to attach, '{path}', does not exist.", "Pass the path of a file the user gave you.");
+    }
+
+    /// <summary>The sentence <c>--accept-defaults</c> adds to the request. The builder reads it as the user's leave to default every field the request does not name, including a branch or a project, which it otherwise asks for.</summary>
+    internal const string AcceptDefaultsSentence = "Leave every field this request does not name at its default.";
+
+    internal static string WithDefaultsAccepted(string request)
+    {
+        var trimmed = request.TrimEnd();
+        var separator = trimmed.Length == 0 || trimmed[^1] is '.' or '!' or '?' ? " " : ". ";
+        return trimmed + separator + AcceptDefaultsSentence;
     }
 
     /// <summary>Calls <c>prepare_commands</c>, saves the batch when <paramref name="savePath"/> names a file, and prints it.</summary>
