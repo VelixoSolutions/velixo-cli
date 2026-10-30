@@ -78,6 +78,63 @@ public sealed class GatewaySignInTests
     }
 
     [Fact]
+    public async Task A_no_browser_sign_in_at_a_terminal_waits_for_the_pasted_address_and_finishes()
+    {
+        using var test = new TestServices(redirected: false, input: "the-code\n");
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .Then(_ => Redirect("/signin?request=pending-1"))
+            .ThenJson(TokenAnswer("dev@example.com", "org-42"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("https://nx-dev.velixo.com/signin?request=pending-1", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Paste the address your browser lands on: ", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Signed in as dev@example.com", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Equal("the-code", HttpUtility.ParseQueryString(test.Http.Requests[3].Body!)["code"]);
+        Assert.Equal("refresh-1", test.Services.Tokens.Get("nx-dev")!.RefreshToken);
+        Assert.Null(test.Services.Profiles.LoadState("nx-dev").PendingLogin);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("")]
+    public async Task A_no_browser_sign_in_at_a_terminal_answered_with_nothing_prints_the_complete_command(string input)
+    {
+        using var test = new TestServices(redirected: false, input: input);
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .Then(_ => Redirect("/signin?request=pending-1"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("velixo login --profile nx-dev --complete <paste the URL the browser lands on>", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Equal(3, test.Http.Requests.Count);
+        Assert.NotNull(test.Services.Profiles.LoadState("nx-dev").PendingLogin);
+    }
+
+    [Fact]
+    public async Task A_no_browser_sign_in_marked_non_interactive_does_not_wait_at_a_terminal()
+    {
+        using var test = new TestServices(redirected: false, input: "the-code\n");
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .Then(_ => Redirect("/signin?request=pending-1"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser", "--non-interactive");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.DoesNotContain("Paste the address", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("--complete", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.NotNull(test.Services.Profiles.LoadState("nx-dev").PendingLogin);
+    }
+
+    [Fact]
     public async Task A_server_that_knows_the_first_party_client_gets_it_and_the_browser_opens_its_redirect()
     {
         using var test = new TestServices();

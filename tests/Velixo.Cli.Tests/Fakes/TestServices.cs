@@ -8,9 +8,9 @@ internal sealed class TestServices : IDisposable
 {
     private readonly TempDirectory _directory = new();
 
-    public TestServices(Dictionary<string, string>? variables = null, bool redirected = true)
+    public TestServices(Dictionary<string, string>? variables = null, bool redirected = true, string input = "")
     {
-        Console = new TestConsole(redirected);
+        Console = new TestConsole(redirected, input);
         Environment = new TestEnvironment(_directory.Path, variables);
         Environment.Variables[EnvironmentVariables.ConfigDirectory] = System.IO.Path.Combine(_directory.Path, "config");
         Paths = ConfigPaths.Resolve(Environment);
