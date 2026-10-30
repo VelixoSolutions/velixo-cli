@@ -167,7 +167,7 @@ async function reserveUnits(inventoryId, { quantity, fromLocation }) {
     ], settings.reserveIntent);
 
     const { savedKey, record } = document.result.feedback;
-    return { transfer: savedKey.RefNbr, status: record?.transfer?.Status };
+    return { transfer: savedKey?.RefNbr, status: record?.transfer?.Status };
 }
 
 async function readJson(request) {
@@ -251,6 +251,15 @@ function sendVelixoError(response, error) {
     });
 }
 
+/** Decodes a path segment, or returns '' for malformed percent-encoding, which the callers then refuse. */
+function decodeOrEmpty(segment) {
+    try {
+        return decodeURIComponent(segment).trim();
+    } catch {
+        return '';
+    }
+}
+
 async function handle(request, response) {
     const url = new URL(request.url, 'http://kiosk');
     const itemRoute = url.pathname.match(/^\/api\/items\/([^/]+)(?:\/(image|locations|reserve))?$/);
@@ -266,7 +275,7 @@ async function handle(request, response) {
     }
 
     if (itemRoute && itemRoute[2] === 'reserve' && request.method === 'POST') {
-        const inventoryId = decodeURIComponent(itemRoute[1]).trim();
+        const inventoryId = decodeOrEmpty(itemRoute[1]);
         let body;
         try {
             body = await readJson(request);
@@ -277,7 +286,7 @@ async function handle(request, response) {
         const quantity = body?.quantity;
         const fromLocation = typeof body?.fromLocation === 'string' ? body.fromLocation.trim() : '';
         if (!inventoryIdPattern.test(inventoryId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 100_000
-            || !inventoryIdPattern.test(fromLocation) || fromLocation === settings.reserveLocation) {
+            || !inventoryIdPattern.test(fromLocation) || fromLocation.toUpperCase() === settings.reserveLocation.toUpperCase()) {
             return sendJson(response, 400, { error: 'INVALID_REQUEST', message: 'Give a whole quantity and a source location.' });
         }
 
@@ -290,12 +299,19 @@ async function handle(request, response) {
                 console.error(`reserve failed in the ERP: ${error.code} ${error.message}`);
                 return sendJson(response, 422, { error: error.code, message: 'The ERP refused the transfer. Ask a manager to check it.' });
             }
-            return sendVelixoError(response, error);
+
+            // A write that failed this way may still have run in the ERP, and the transfer runs with --force, so
+            // the screen must not invite a second tap.
+            console.error(`reserve outcome unknown: ${error.code ?? 'unknown'} ${error.message}`);
+            return sendJson(response, 502, {
+                error: error.code ?? 'CLI_FAILED',
+                message: 'The transfer may have gone through. Check the reserved quantity before you try again.',
+            });
         }
     }
 
     if (itemRoute && request.method === 'GET' && itemRoute[2] !== 'reserve') {
-        const inventoryId = decodeURIComponent(itemRoute[1]).trim();
+        const inventoryId = decodeOrEmpty(itemRoute[1]);
         if (!inventoryIdPattern.test(inventoryId)) {
             return sendJson(response, 400, { error: 'INVALID_ID', message: 'That is not an inventory ID.' });
         }
@@ -330,7 +346,7 @@ async function handle(request, response) {
         return sendJson(response, 405, { error: 'METHOD_NOT_ALLOWED' });
     }
 
-    const relative = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
+    const relative = url.pathname === '/' ? 'index.html' : decodeOrEmpty(url.pathname.slice(1));
     const path = resolve(files.publicDir, relative);
     if (!path.startsWith(files.publicDir + sep) || !(await exists(path))) {
         return sendJson(response, 404, { error: 'NOT_FOUND' });

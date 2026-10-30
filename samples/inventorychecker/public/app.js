@@ -109,23 +109,26 @@ function showItem(item) {
     $('unit-on-hand').textContent = item.baseUnit;
     $('unit-available').textContent = item.baseUnit;
 
+    showStockPill(item.qtyAvailable);
+    showImage(item.image);
+    showWarehouses(item.warehouses);
+    showIncoming(item.onOrder);
+    setState('result');
+    scheduleReset();
+}
+
+function showStockPill(qtyAvailable) {
     const pill = $('stock-pill');
-    if (item.qtyAvailable <= 0) {
+    if (qtyAvailable <= 0) {
         pill.className = 'stock-pill out';
         pill.textContent = 'Out of stock';
-    } else if (item.qtyAvailable <= lowStockThreshold) {
+    } else if (qtyAvailable <= lowStockThreshold) {
         pill.className = 'stock-pill low';
         pill.textContent = 'Low stock';
     } else {
         pill.className = 'stock-pill in';
         pill.textContent = 'In stock';
     }
-
-    showImage(item.image);
-    showWarehouses(item.warehouses);
-    showIncoming(item.onOrder);
-    setState('result');
-    scheduleReset();
 }
 
 function showImage(source) {
@@ -470,7 +473,7 @@ function renderReserveLocations() {
             );
             chip.onclick = () => {
                 reserveState.from = entry;
-                reserveState.quantity = Math.min(reserveState.quantity, entry.qtyOnHand);
+                reserveState.quantity = Math.max(1, Math.min(reserveState.quantity, Math.floor(entry.qtyOnHand)));
                 renderReserveLocations();
             };
             return chip;
@@ -495,7 +498,8 @@ function setReserveStatus(kind, text) {
 }
 
 async function confirmReserve() {
-    const { inventoryId, quantity, from } = reserveState;
+    const state = reserveState;
+    const { inventoryId, quantity, from } = state;
     reserveState.busy = true;
     $('reserve-form').hidden = true;
     setReserveStatus('busy', `Releasing a transfer of ${quantity} from ${from.location}`);
@@ -512,6 +516,11 @@ async function confirmReserve() {
         body = await response.json();
     } catch {
         response = undefined;
+    }
+
+    if (state !== reserveState) {
+        refreshItem(inventoryId);
+        return;
     }
 
     reserveState.busy = false;
@@ -575,6 +584,10 @@ function closeReserve() {
 /** Reads the item again after a reservation and counts the changed quantities to their new values. */
 async function refreshItem(inventoryId) {
     const before = currentItem;
+    if (before?.inventoryId !== inventoryId) {
+        return;
+    }
+
     try {
         const response = await fetch(`/api/items/${encodeURIComponent(inventoryId)}`);
         if (!response.ok || currentItem !== before) {
@@ -583,6 +596,7 @@ async function refreshItem(inventoryId) {
 
         const item = await response.json();
         currentItem = item;
+        showStockPill(item.qtyAvailable);
         for (const entry of item.warehouses) {
             const cell = document.querySelector(`.warehouse-qty[data-warehouse="${CSS.escape(entry.warehouse)}"]`);
             const previous = before.warehouses.find(old => old.warehouse === entry.warehouse);
@@ -616,7 +630,7 @@ function countUp(element, from, to, duration, delay) {
     const step = now => {
         const progress = Math.min(1, Math.max(0, (now - start) / duration));
         const eased = 1 - Math.pow(1 - progress, 3);
-        element.textContent = quantityFormat.format(Math.round(from + (to - from) * eased));
+        element.textContent = quantityFormat.format(progress < 1 ? Math.round(from + (to - from) * eased) : to);
         if (progress < 1) {
             requestAnimationFrame(step);
         }
@@ -629,7 +643,7 @@ $('reserve-cancel').addEventListener('click', closeReserve);
 $('reserve-confirm').addEventListener('click', confirmReserve);
 document.querySelectorAll('.stepper button').forEach(button =>
     button.addEventListener('click', () => {
-        const max = reserveState.from?.qtyOnHand ?? 1;
+        const max = Math.max(1, Math.floor(reserveState.from?.qtyOnHand ?? 1));
         reserveState.quantity = Math.min(max, Math.max(1, reserveState.quantity + Number(button.dataset.step)));
         $('reserve-quantity').textContent = reserveState.quantity;
         renderReserveButton();

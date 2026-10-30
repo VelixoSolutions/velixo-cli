@@ -123,6 +123,7 @@ test('refuses a code that cannot be an inventory ID, without calling the CLI', a
         const response = await fetch(`${baseUrl}/api/items/${encodeURIComponent(code)}`);
         assert.equal(response.status, 400, code);
     }
+    assert.equal((await fetch(`${baseUrl}/api/items/%E0`)).status, 400);
     assert.equal(cliCalls().length, 0);
 });
 
@@ -242,10 +243,19 @@ test('reserves units with a transfer from the chosen location to the reserved on
     assert.match(transfer[transfer.indexOf('--intent') + 1], /reserved location/);
 });
 
-test('refuses a reservation from the reserved location itself, without writing', async () => {
-    const response = await reserve({ quantity: 1, fromLocation: 'RESERVED' });
-    assert.equal(response.status, 400);
+test('refuses a reservation from the reserved location itself, however it is spelled, without writing', async () => {
+    for (const fromLocation of ['RESERVED', 'reserved']) {
+        const response = await reserve({ quantity: 1, fromLocation });
+        assert.equal(response.status, 400, fromLocation);
+    }
     assert.equal(cliCalls().length, 0);
+});
+
+test('does not invite a retry when the transfer may have run', async () => {
+    const response = await reserve({ quantity: 5, fromLocation: 'STORAGE' });
+
+    assert.equal(response.status, 502);
+    assert.match((await response.json()).message, /may have gone through/);
 });
 
 test('refuses a quantity that is not a whole number of at least one', async () => {
