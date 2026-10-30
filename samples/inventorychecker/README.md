@@ -1,6 +1,6 @@
 # Inventory checker
 
-A full-screen kiosk for a store floor. Scan an item's barcode and the screen shows the item from Acumatica, live: its description and image, the quantity on hand and available, the same quantities for each warehouse, and when the next purchase order is expected to arrive. Staff can also move units to the store's `RESERVED` location with one tap, which runs an inventory transfer in Acumatica.
+A full-screen kiosk for a store floor. Scan an item's barcode and the screen shows the item from Acumatica, live: its description and image, the quantity on hand and available, the same quantities for each warehouse, and when the next purchase order is expected to arrive. Tap a warehouse to see the item's stock in each of its locations. Staff can also move units to the store's `RESERVED` location with one tap, which runs an inventory transfer in Acumatica.
 
 ![The checker showing an item on order](docs/result.jpg)
 
@@ -45,6 +45,7 @@ google-chrome --kiosk http://localhost:8080
 | `KIOSK_RESERVE_INTENT` | `Move units of a scanned item to the reserved location from the in-store kiosk` | The intent the CLI records for each transfer. |
 | `KIOSK_PASSWORD` | none | A password the browser asks for before it shows the kiosk, with any user name. Set it whenever the kiosk is reachable from the internet: anyone who opens the page can reserve units. |
 | `KIOSK_IMAGE_CACHE` | `.cache/images` | Where the checker keeps the item images it downloaded. |
+| `KIOSK_TLS_CERT`, `KIOSK_TLS_KEY` | none | The paths of a certificate and its private key in PEM. With both set, the server answers on HTTPS, which a phone needs for the camera and to install the app. |
 
 Every other setting of the CLI applies too, such as `VELIXO_PROFILE` and `VELIXO_ENV`.
 
@@ -59,6 +60,24 @@ docker run -d -v kiosk-data:/data -e VELIXO_CONNECTION=<connection> -p 8080:8080
 ```
 
 `--build-arg VELIXO_VERSION=<version>` pins a CLI release.
+
+## Use it on a phone
+
+The checker is also a progressive web app. On a phone it shows a layout of its own: the search screen is the rear camera, which reads every barcode put in front of it, with a box to type a code below. The item screen scrolls, and each warehouse lists the item's stock by location when tapped, as on the kiosk.
+
+![The phone layout: the camera, the item and the stock by location](docs/phone.jpg)
+
+A phone opens the camera and installs the app only for a page on HTTPS. Give the server a certificate, and let it listen on the network:
+
+```sh
+HOST=0.0.0.0 KIOSK_TLS_CERT=cert.pem KIOSK_TLS_KEY=key.pem VELIXO_CONNECTION=my-acumatica npm start
+```
+
+Any HTTPS in front of the server works as well, such as a reverse proxy or a tunnel. Open the page on the phone, then **Add to Home Screen** in Safari or **Install app** in Chrome. Set `KIOSK_PASSWORD` too: the page is then reachable by anyone on the network.
+
+- **The layout follows the screen.** A touch screen narrower than 820 pixels gets the phone layout; every other screen gets the kiosk. Add `?layout=mobile` or `?layout=kiosk` to the address to choose one.
+- **Reading barcodes.** Chrome on Android reads them with the browser's own barcode detector. Safari has none, so on an iPhone the page loads a WebAssembly build of ZXing from jsDelivr the first time it scans (the `barcode-detector` package). Both read Code 128, Code 39, EAN, UPC, QR and Data Matrix codes. The camera stops while an item shows, and a barcode still in front of it when the search screen comes back is not read again until it has left the picture.
+- **Offline.** The service worker keeps the page and the item images, so the app opens without a network. It never keeps a quantity: every scan asks the ERP.
 
 ## The reserved location
 
@@ -80,10 +99,13 @@ velixo command run --batch velixo/add-location.batch.json \
 
 A scan takes about half a second; the first scan of an item takes about one more for its image.
 
+Tapping a warehouse sends `GET /api/items/<inventory ID>/warehouses/<warehouse>/locations`, and the server runs `velixo/locations.vql` for that warehouse. The list shows every location that holds the item, the reserved one included. The locations are read when the warehouse is tapped, not with the scan, so a scan stays fast; tapping the warehouse again after closing it shows the list it already read.
+
 ```sh
 velixo query run --query velixo/item.vql --param "Inventory ID=AACOMPUT01"
 velixo query run --query velixo/warehouses.vql --param "Inventory ID=AACOMPUT01"
 velixo query run --query velixo/on-order.vql --param "Inventory ID=AACOMPUT01"
+velixo query run --query velixo/locations.vql --param "Inventory ID=AACOMPUT01" --param Warehouse=WHOLESALE
 velixo command run --batch velixo/item-image.batch.json \
   --param InventoryID=AACOMPUT01 --param ImageFile=AACOMPUT01.jpg \
   --download-dir images
@@ -158,10 +180,12 @@ Ideas to take it further:
 | `Dockerfile` | The kiosk in a container, with the CLI from `cli.velixo.com`. |
 | `server.mjs` | Serves the page and the API, and runs the CLI. |
 | `public/` | The page: `index.html`, `styles.css`, `app.js` and the Velixo logos. |
+| `public/camera.js` | Reads barcodes from the phone's camera. |
+| `public/manifest.webmanifest`, `public/sw.js`, `public/icons/` | What makes the page an installable app: its manifest, its service worker and its icons. |
 | `velixo/item.vql` | The item and its total quantities. |
 | `velixo/warehouses.vql` | The item's quantities in each warehouse. |
 | `velixo/on-order.vql` | The open purchase order lines of the item. |
-| `velixo/locations.vql` | The item's quantity in each location of one warehouse. |
+| `velixo/locations.vql` | The item's quantity in each location of one warehouse, for reserving and for the stock by location. |
 | `velixo/item-image.batch.json` | Downloads the item's image from the Stock Items screen. |
 | `velixo/reserve-transfer.batch.json` | Moves units to the reserved location with a released transfer. |
 | `velixo/add-location.batch.json` | Adds the reserved location to a warehouse. |

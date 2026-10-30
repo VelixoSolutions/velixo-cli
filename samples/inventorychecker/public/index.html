@@ -4,7 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#04060d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Inventory">
     <title>Inventory Check</title>
+    <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+    <link rel="icon" href="velixo-symbol.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <script>
+        /* Phones get the camera layout, every other screen the kiosk. ?layout=mobile or ?layout=kiosk overrides it. */
+        document.documentElement.dataset.layout =
+            new URLSearchParams(location.search).get('layout') ??
+            (matchMedia('(pointer: coarse) and (max-width: 820px), (pointer: coarse) and (max-height: 500px)').matches ? 'mobile' : 'kiosk');
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -38,6 +51,25 @@
     <main class="stage">
         <!-- Idle and searching -->
         <section class="screen screen-scan" aria-live="polite">
+            <!-- Phone layout: the rear camera reads barcodes for as long as this screen shows -->
+            <div class="camera" id="camera" data-status="starting">
+                <video id="camera-video" playsinline muted autoplay></video>
+                <div class="camera-frame" aria-hidden="true">
+                    <span class="corner tl"></span><span class="corner tr"></span>
+                    <span class="corner bl"></span><span class="corner br"></span>
+                    <div class="camera-beam"></div>
+                </div>
+                <p class="camera-status" id="camera-status"></p>
+                <button class="camera-retry ghost-button" id="camera-retry" type="button">Turn on the camera</button>
+                <button class="icon-button camera-torch" id="camera-torch" type="button" aria-label="Flashlight" aria-pressed="false" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 6h-6zM9 9l1 12h4l1-12M12 13v3"/></svg>
+                </button>
+            </div>
+            <form class="manual-entry" id="manual-entry" autocomplete="off">
+                <input id="manual-code" name="code" type="text" inputmode="text" autocapitalize="characters" spellcheck="false" enterkeyhint="search" placeholder="Or type an inventory ID" maxlength="30" aria-label="Inventory ID">
+                <button class="primary-button" type="submit">Search</button>
+            </form>
+
             <div class="scanner">
                 <svg class="scanner-rings" viewBox="0 0 200 200" aria-hidden="true">
                     <defs>

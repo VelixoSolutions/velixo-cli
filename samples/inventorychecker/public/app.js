@@ -1,5 +1,9 @@
 // The kiosk's screen: it reads a barcode scanner as keystrokes, asks the server for the item and shows it.
+// On a phone it reads barcodes from the camera instead. Each warehouse can list the item's stock by location.
 
+import { createScanner } from './camera.js';
+
+const isMobile = document.documentElement.dataset.layout === 'mobile';
 const resetAfterSeconds = 30;
 const lowStockThreshold = 5;
 
@@ -25,17 +29,31 @@ let lookup = 0;
 
 function setState(state) {
     document.body.dataset.state = state;
+    if (!isMobile) {
+        return;
+    }
+
+    if (state === 'idle' && document.visibilityState === 'visible') {
+        scanner.start();
+    } else if (state === 'result' || state === 'message') {
+        scanner.stop();
+    }
 }
 
 function goIdle() {
     clearTimeout(resetTimer);
     $('scan-title').textContent = 'Scan an item';
-    $('scan-subtitle').textContent = 'Hold the barcode under the scanner';
+    $('scan-subtitle').textContent = isMobile ? 'Point the camera at the barcode' : 'Hold the barcode under the scanner';
     setState('idle');
 }
 
+/** The kiosk returns to the scan screen on its own; a phone keeps the item until its user leaves it. */
 function scheduleReset() {
     clearTimeout(resetTimer);
+    if (isMobile) {
+        return;
+    }
+
     document.body.style.setProperty('--reset-after', `${resetAfterSeconds}s`);
     resetTimer = setTimeout(goIdle, resetAfterSeconds * 1000);
 }
@@ -157,6 +175,7 @@ function showImage(source) {
 }
 
 function showWarehouses(warehouses) {
+    warehouseLocations.clear();
     const largest = Math.max(1, ...warehouses.map(entry => entry.qtyOnHand));
     $('warehouse-list').replaceChildren(
         ...warehouses.map((entry, index) => {
@@ -183,6 +202,10 @@ function showWarehouses(warehouses) {
             });
             available.dataset.warehouse = entry.warehouse;
             row.append(name, bar, onHand, available);
+            const button = locationsButton(entry);
+            row.append(button);
+            row.classList.add('expandable');
+            row.onclick = event => event.target !== button && button.click();
             return row;
         })
     );
@@ -190,6 +213,75 @@ function showWarehouses(warehouses) {
     if (!warehouses.length) {
         $('warehouse-list').append(Object.assign(document.createElement('li'), { className: 'empty', textContent: 'Not stocked in any warehouse' }));
     }
+}
+
+// Each warehouse has a button that reads the item's stock by location, once, when tapped.
+const warehouseLocations = new Map();
+
+function locationsButton(entry) {
+    const button = Object.assign(document.createElement('button'), { type: 'button', className: 'locations-button' });
+    button.setAttribute('aria-label', `Locations in ${entry.name || entry.warehouse}`);
+    button.setAttribute('aria-expanded', 'false');
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    button.onclick = () => toggleLocations(button, entry.warehouse);
+    return button;
+}
+
+async function toggleLocations(button, warehouse) {
+    scheduleReset();
+    const row = button.closest('li');
+    const open = row.nextElementSibling?.classList.contains('locations') ? row.nextElementSibling : undefined;
+    if (open) {
+        open.remove();
+        button.setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    const item = currentItem;
+    const panel = Object.assign(document.createElement('li'), { className: 'locations' });
+    row.after(panel);
+    button.setAttribute('aria-expanded', 'true');
+
+    let result = warehouseLocations.get(warehouse);
+    if (!result) {
+        panel.classList.add('loading');
+        panel.textContent = 'Reading locations';
+        try {
+            const response = await fetch(`/api/items/${encodeURIComponent(item.inventoryId)}/warehouses/${encodeURIComponent(warehouse)}/locations`);
+            const body = await response.json();
+            if (!response.ok) {
+                throw new Error(body.message);
+            }
+            result = { locations: body.locations, readAt: new Date() };
+            warehouseLocations.set(warehouse, result);
+        } catch (error) {
+            if (panel.isConnected) {
+                panel.className = 'locations failed';
+                panel.textContent = error.message || 'The locations could not be read. Tap the warehouse to try again.';
+            }
+            return;
+        }
+    }
+
+    if (!panel.isConnected || currentItem !== item) {
+        return;
+    }
+
+    panel.className = 'locations';
+    const lines = result.locations.map(entry => {
+        const line = document.createElement('div');
+        line.className = 'location-line';
+        line.classList.toggle('reserved', Boolean(reserveConfig) && warehouse === reserveConfig.warehouse && entry.location === reserveConfig.location);
+        line.append(
+            Object.assign(document.createElement('code'), { textContent: entry.location }),
+            Object.assign(document.createElement('span'), { textContent: quantityFormat.format(entry.qtyOnHand) })
+        );
+        return line;
+    });
+    panel.replaceChildren(
+        ...(lines.length ? lines : [Object.assign(document.createElement('div'), { className: 'location-line empty', textContent: 'No stock in any location' })]),
+        Object.assign(document.createElement('small'), { textContent: `On hand by location, read at ${clockFormat.format(result.readAt)}` })
+    );
 }
 
 function showIncoming(receipts) {
@@ -290,7 +382,7 @@ let buffer = '';
 let bufferTimer;
 
 document.addEventListener('keydown', event => {
-    if (!$('keypad').hidden || event.metaKey || event.ctrlKey || event.altKey) {
+    if (!$('keypad').hidden || event.metaKey || event.ctrlKey || event.altKey || event.target.matches?.('input')) {
         return;
     }
 
@@ -400,6 +492,7 @@ document.addEventListener(
     'pointerdown',
     () => {
         if (
+            !isMobile &&
             !document.fullscreenElement &&
             document.body.dataset.state === 'idle' &&
             $('keypad').hidden
@@ -613,6 +706,7 @@ async function refreshItem(inventoryId) {
 
         const item = await response.json();
         currentItem = item;
+        warehouseLocations.clear();
         showStockPill(item.qtyAvailable);
         for (const entry of item.warehouses) {
             const cell = document.querySelector(`.warehouse-qty[data-warehouse="${CSS.escape(entry.warehouse)}"]`);
@@ -681,6 +775,55 @@ fetch('/api/config')
     .then(response => response.json())
     .then(config => (reserveConfig = config.reserve ?? undefined))
     .catch(() => {});
+
+// The phone's camera scanner runs only while the search screen shows and the app is in front.
+const cameraMessages = {
+    starting: 'Starting the camera',
+    scanning: '',
+    denied: 'The camera is blocked. Allow it in the browser settings, or type the code below.',
+    unavailable: 'No camera could be opened. Type the code below.',
+    unsupported: window.isSecureContext
+        ? 'This browser cannot open the camera. Type the code below.'
+        : 'The camera needs the page on HTTPS. Type the code below.',
+    'no-detector': 'Barcode reading could not load. Check the connection, or type the code below.',
+};
+
+const scanner = createScanner($('camera-video'), {
+    onCode: code => search(code),
+    onStatus: status => {
+        $('camera').dataset.status = status;
+        $('camera-status').textContent = cameraMessages[status] ?? '';
+        $('camera-torch').hidden = status !== 'scanning' || !scanner.hasTorch();
+    },
+});
+
+$('camera-retry').addEventListener('click', () => scanner.start());
+$('camera-torch').addEventListener('click', async () => {
+    const on = await scanner.toggleTorch().catch(() => false);
+    $('camera-torch').setAttribute('aria-pressed', String(on));
+});
+$('manual-entry').addEventListener('submit', event => {
+    event.preventDefault();
+    const input = $('manual-code');
+    const code = input.value;
+    input.value = '';
+    input.blur();
+    search(code);
+});
+document.addEventListener('visibilitychange', () => {
+    if (!isMobile) {
+        return;
+    }
+    if (document.visibilityState === 'hidden') {
+        scanner.stop();
+    } else if (document.body.dataset.state === 'idle') {
+        scanner.start();
+    }
+});
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 function tick() {
     $('clock').textContent = clockFormat.format(new Date());

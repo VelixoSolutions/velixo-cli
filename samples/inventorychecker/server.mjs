@@ -4,9 +4,10 @@
 
 import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
+import { createServer as createSecureServer } from 'node:https';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +24,8 @@ const settings = {
     reserveLocation: process.env.KIOSK_RESERVE_LOCATION ?? 'RESERVED',
     reserveIntent: process.env.KIOSK_RESERVE_INTENT ?? 'Move units of a scanned item to the reserved location from the in-store kiosk',
     password: process.env.KIOSK_PASSWORD,
+    tlsCert: process.env.KIOSK_TLS_CERT,
+    tlsKey: process.env.KIOSK_TLS_KEY,
 };
 
 const files = {
@@ -39,6 +42,8 @@ const contentTypes = {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.webmanifest': 'application/manifest+json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
@@ -151,6 +156,15 @@ async function itemLocations(inventoryId) {
     };
 }
 
+/** Returns the item's quantity on hand in every location of one warehouse that holds some. */
+async function warehouseLocations(inventoryId, warehouse) {
+    const rows = await runQuery(files.locationsQuery, { 'Inventory ID': inventoryId, Warehouse: warehouse });
+    return {
+        warehouse,
+        locations: rows.map(row => ({ location: row['Location'].trim(), qtyOnHand: row['Qty. On Hand'] })),
+    };
+}
+
 /** Moves units of the item to the reserved location with a one-step transfer that the batch saves and releases. */
 async function reserveUnits(inventoryId, { quantity, fromLocation }) {
     // --force skips the CLI's duplicate guard, which would refuse reserving the same quantity of the same item
@@ -260,11 +274,26 @@ function decodeOrEmpty(segment) {
 async function handle(request, response) {
     const url = new URL(request.url, 'http://kiosk');
     const itemRoute = url.pathname.match(/^\/api\/items\/([^/]+)(?:\/(image|locations|reserve))?$/);
+    const warehouseRoute = url.pathname.match(/^\/api\/items\/([^/]+)\/warehouses\/([^/]+)\/locations$/);
 
     if (url.pathname === '/api/config' && request.method === 'GET') {
         return sendJson(response, 200, {
             reserve: settings.warehouse ? { warehouse: settings.warehouse, location: settings.reserveLocation } : null,
         });
+    }
+
+    if (warehouseRoute && request.method === 'GET') {
+        const inventoryId = decodeOrEmpty(warehouseRoute[1]);
+        const warehouse = decodeOrEmpty(warehouseRoute[2]);
+        if (!inventoryIdPattern.test(inventoryId) || !inventoryIdPattern.test(warehouse)) {
+            return sendJson(response, 400, { error: 'INVALID_ID', message: 'That is not an inventory ID and a warehouse.' });
+        }
+
+        try {
+            return sendJson(response, 200, await warehouseLocations(inventoryId, warehouse));
+        } catch (error) {
+            return sendVelixoError(response, error);
+        }
     }
 
     if (itemRoute && (itemRoute[2] === 'locations' || itemRoute[2] === 'reserve') && !settings.warehouse) {
@@ -366,7 +395,12 @@ function signedIn(request) {
     return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-const server = createServer((request, response) => {
+// Phones allow the camera and the service worker only on a secure page, so serving them needs HTTPS.
+const tls = settings.tlsCert && settings.tlsKey
+    ? { cert: await readFile(settings.tlsCert), key: await readFile(settings.tlsKey) }
+    : undefined;
+
+const listener = (request, response) => {
     if (settings.password && !signedIn(request)) {
         response.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Inventory kiosk"' });
         return response.end();
@@ -377,7 +411,9 @@ const server = createServer((request, response) => {
             sendJson(response, 500, { error: 'INTERNAL' });
         }
     });
-}).listen(settings.port, settings.host, () => {
-    console.log(`Inventory kiosk on http://${settings.host}:${server.address().port}`);
+};
+
+const server = (tls ? createSecureServer(tls, listener) : createServer(listener)).listen(settings.port, settings.host, () => {
+    console.log(`Inventory kiosk on ${tls ? 'https' : 'http'}://${settings.host}:${server.address().port}`);
     console.log(`Connection: ${settings.connection ?? "the profile's default"}`);
 });
