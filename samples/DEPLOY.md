@@ -12,9 +12,9 @@ The app is one machine that never stops, with a 1 GB volume, `data`, at `/data`.
 
 ## Set it up once
 
-The app `velixo-cli-samples` and its volume `data` in `iad` already exist.
+The app `velixo-cli-samples` already exists. Its volume `data` lives in `yyz`, Toronto: the first deploy creates it there from `initial_size` in `fly.toml`. An earlier, unused `data` volume in `iad` can be deleted with `fly volumes list --app velixo-cli-samples`, then `fly volumes destroy <id>`.
 
-1. **Connect the repository.** In the Fly dashboard, launch from GitHub with `VelixoSolutions/velixo-cli` and branch `main`, region `iad`, where the volume is. Fly reads the root `fly.toml`, so it needs no other setting. To deploy from a checkout instead: `fly deploy --app velixo-cli-samples --ha=false` at the repository root.
+1. **Connect the repository.** In the Fly dashboard, launch from GitHub with `VelixoSolutions/velixo-cli` and branch `main`, region `yyz`, where the volume is. Fly reads the root `fly.toml`, so it needs no other setting. To deploy from a checkout instead: `fly deploy --app velixo-cli-samples --ha=false` at the repository root.
 
 2. **Set the app's secrets.** In the dashboard under Secrets, or with `fly secrets set --app velixo-cli-samples NAME=value`. Each one is optional: a demo without its keys answers 503 on that path, and the rest keeps working.
 
