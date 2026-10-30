@@ -1,6 +1,6 @@
 # Inventory checker
 
-A full-screen kiosk for a store floor. Scan an item's barcode and the screen shows the item from Acumatica, live: its description and image, the quantity on hand and available, the same quantities for each warehouse, and when the next purchase order is expected to arrive. Staff can also move units to the store's `RESERVED` location with one tap, which runs an inventory transfer in Acumatica.
+A full-screen kiosk for a store floor. Scan an item's barcode and the screen shows the item from Acumatica, live: its description and image, the quantity on hand and available, the same quantities for each warehouse, and when the next purchase order is expected to arrive. Tap a warehouse to see the item's stock in each of its locations. Staff can also move units to the store's `RESERVED` location with one tap, which runs an inventory transfer in Acumatica.
 
 ![The checker showing an item on order](docs/result.jpg)
 
@@ -63,7 +63,7 @@ docker run -d -v kiosk-data:/data -e VELIXO_CONNECTION=<connection> -p 8080:8080
 
 ## Use it on a phone
 
-The checker is also a progressive web app. On a phone it shows a layout of its own: the search screen is the rear camera, which reads every barcode put in front of it, with a box to type a code below. The item screen scrolls, and each warehouse has a button that lists the item's stock by location in that warehouse. The locations are read when the button is tapped, not with the scan, so a scan stays as fast as on the kiosk.
+The checker is also a progressive web app. On a phone it shows a layout of its own: the search screen is the rear camera, which reads every barcode put in front of it, with a box to type a code below. The item screen scrolls, and each warehouse lists the item's stock by location when tapped, as on the kiosk.
 
 ![The phone layout: the camera, the item and the stock by location](docs/phone.jpg)
 
@@ -99,7 +99,7 @@ velixo command run --batch velixo/add-location.batch.json \
 
 A scan takes about half a second; the first scan of an item takes about one more for its image.
 
-On a phone, tapping a warehouse sends `GET /api/items/<inventory ID>/warehouses/<warehouse>/locations`, and the server runs `velixo/locations.vql` for that warehouse. The list shows every location that holds the item, the reserved one included.
+Tapping a warehouse sends `GET /api/items/<inventory ID>/warehouses/<warehouse>/locations`, and the server runs `velixo/locations.vql` for that warehouse. The list shows every location that holds the item, the reserved one included. The locations are read when the warehouse is tapped, not with the scan, so a scan stays fast; tapping the warehouse again after closing it shows the list it already read.
 
 ```sh
 velixo query run --query velixo/item.vql --param "Inventory ID=AACOMPUT01"
@@ -185,7 +185,7 @@ Ideas to take it further:
 | `velixo/item.vql` | The item and its total quantities. |
 | `velixo/warehouses.vql` | The item's quantities in each warehouse. |
 | `velixo/on-order.vql` | The open purchase order lines of the item. |
-| `velixo/locations.vql` | The item's quantity in each location of one warehouse, for reserving and for the phone's stock by location. |
+| `velixo/locations.vql` | The item's quantity in each location of one warehouse, for reserving and for the stock by location. |
 | `velixo/item-image.batch.json` | Downloads the item's image from the Stock Items screen. |
 | `velixo/reserve-transfer.batch.json` | Moves units to the reserved location with a released transfer. |
 | `velixo/add-location.batch.json` | Adds the reserved location to a warehouse. |

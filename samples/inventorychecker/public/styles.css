@@ -692,18 +692,20 @@ body[data-state='searching'] .manual-entry { opacity: 0.5; pointer-events: none;
 [data-layout='mobile'] .warehouses-columns span { width: 68px; }
 [data-layout='mobile'] .warehouses-columns::after { content: ''; width: 40px; }
 [data-layout='mobile'] .warehouses li { grid-template-columns: 1fr auto auto auto; padding: 10px 6px 10px 10px; }
-[data-layout='mobile'] .warehouses li.expandable { cursor: pointer; }
 [data-layout='mobile'] .warehouse-name { flex-direction: column; align-items: flex-start; gap: 2px; }
 [data-layout='mobile'] .warehouse-name b { font-size: 16px; max-width: 100%; white-space: normal; }
 [data-layout='mobile'] .warehouse-name em { font-size: 10px; }
 [data-layout='mobile'] .warehouse-qty { width: 68px; font-size: 18px; }
 
-.locations-button { position: relative; z-index: 1; width: 34px; height: 34px; margin-left: 6px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(155, 108, 255, 0.5); background: rgba(155, 108, 255, 0.12); }
+.locations-button { position: relative; z-index: 1; width: clamp(34px, 2.6vw, 44px); height: clamp(34px, 2.6vw, 44px); margin-left: clamp(6px, 0.8vw, 16px); display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(155, 108, 255, 0.5); background: rgba(155, 108, 255, 0.12); }
 .locations-button svg { width: 18px; height: 18px; fill: none; stroke: var(--violet); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 200ms; }
 .locations-button[aria-expanded='true'] { background: rgba(155, 108, 255, 0.3); }
 .locations-button[aria-expanded='true'] svg { transform: rotate(180deg); }
 
-[data-layout='mobile'] .warehouses li.locations {
+.warehouses li.expandable { grid-template-columns: 1fr auto auto auto; cursor: pointer; }
+.warehouses-columns::after { content: ''; width: clamp(48px, 3.4vw, 60px); }
+
+.warehouses li.locations {
     display: grid;
     grid-template-columns: 1fr;
     gap: 4px;
@@ -714,11 +716,13 @@ body[data-state='searching'] .manual-entry { opacity: 0.5; pointer-events: none;
     border: 1px dashed rgba(155, 108, 255, 0.35);
     animation: enter 240ms ease-out;
 }
-[data-layout='mobile'] .warehouses li.locations.loading, [data-layout='mobile'] .warehouses li.locations.failed { display: block; }
+.warehouses li.locations.loading, .warehouses li.locations.failed { display: block; }
 .warehouses li.locations.loading { color: var(--muted); }
 .warehouses li.locations.loading::after { content: '…'; }
 .warehouses li.locations.failed { color: var(--red); }
-.location-line { display: flex; justify-content: space-between; gap: 16px; font-size: 16px; }
+.location-line { display: flex; justify-content: space-between; gap: 16px; font-size: clamp(16px, 1.2vw, 20px); }
+.location-line span { margin-right: calc(clamp(48px, 3.4vw, 60px) + clamp(90px, 8vw, 130px) - 14px); }
+[data-layout='mobile'] .location-line span { margin-right: 0; }
 .location-line code { font-family: var(--mono); font-weight: 600; }
 .location-line span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .location-line.reserved code::after { content: 'Reserved'; margin-left: 8px; font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--violet); }

@@ -50,6 +50,10 @@ These are the developer's requests, in order, each with what Claude Code did wit
 
     Claude Code added a manifest, a service worker and icons, and a phone layout that the page picks on a narrow touch screen. Its search screen reads barcodes from the rear camera, with the browser's barcode detector or, where there is none, ZXing in WebAssembly. Each warehouse on the item screen has a button that runs the existing `locations.vql` for that warehouse when tapped, so it needed no new query. The server can now serve HTTPS, which a phone needs for the camera.
 
+12. > I would like you to show stock by location on desktops too.
+
+    The kiosk's warehouses got the same button. Opening a warehouse's locations restarts the kiosk's 30-second return to the scan screen, and a barcode scanner still works after a click.
+
 ## How it was checked
 
 - `npm test` runs 20 tests against the fake CLI.

@@ -1,5 +1,5 @@
 // The kiosk's screen: it reads a barcode scanner as keystrokes, asks the server for the item and shows it.
-// On a phone it reads barcodes from the camera instead, and can list an item's stock by location.
+// On a phone it reads barcodes from the camera instead. Each warehouse can list the item's stock by location.
 
 import { createScanner } from './camera.js';
 
@@ -202,12 +202,10 @@ function showWarehouses(warehouses) {
             });
             available.dataset.warehouse = entry.warehouse;
             row.append(name, bar, onHand, available);
-            if (isMobile) {
-                const button = locationsButton(entry);
-                row.append(button);
-                row.classList.add('expandable');
-                row.onclick = event => event.target !== button && button.click();
-            }
+            const button = locationsButton(entry);
+            row.append(button);
+            row.classList.add('expandable');
+            row.onclick = event => event.target !== button && button.click();
             return row;
         })
     );
@@ -217,7 +215,7 @@ function showWarehouses(warehouses) {
     }
 }
 
-// On a phone, each warehouse has a button that reads the item's stock by location, once, when tapped.
+// Each warehouse has a button that reads the item's stock by location, once, when tapped.
 const warehouseLocations = new Map();
 
 function locationsButton(entry) {
@@ -230,6 +228,7 @@ function locationsButton(entry) {
 }
 
 async function toggleLocations(button, warehouse) {
+    scheduleReset();
     const row = button.closest('li');
     const open = row.nextElementSibling?.classList.contains('locations') ? row.nextElementSibling : undefined;
     if (open) {
