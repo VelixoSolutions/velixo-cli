@@ -4,7 +4,9 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-30
+## [0.4.1] - 2026-10-30
+
+The first release of the changes below. The 0.4.0 tag exists, but its release was never published: GitHub cancelled its macOS Apple Silicon build.
 
 ### Added
 
@@ -70,7 +72,7 @@ First version. The CLI is one binary named `velixo` for Linux, macOS and Windows
 - An automatic update check, and tokens in the operating system's credential store.
 - Package managers: Homebrew, Scoop, WinGet, apt, yum and the Docker image.
 
-[0.4.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.4.0
+[0.4.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.4.1
 [0.3.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.1
 [0.3.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.0
 [0.2.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.2.0
