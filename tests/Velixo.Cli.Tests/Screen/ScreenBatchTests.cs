@@ -25,6 +25,19 @@ public sealed class ScreenBatchTests
         }
     }
 
+    [Theory]
+    [InlineData("""{"target":"IN202500","writes":false,"commands":[{"type":"Clear"},{"type":"Set","name":"Item.InventoryCD","value":"X"},{"type":"DownloadAttachments","name":"Item"}]}""", false)]
+    [InlineData("""{"target":"IN202500","writes":false,"commands":[{"type":"Set","name":"Item.Descr","value":"edited"},{"type":"Action","name":"Save"}]}""", true)]
+    [InlineData("""{"target":"BC:customers","writes":true,"commands":[{"type":"Key","name":"number","value":"C1"},{"type":"Get","name":"displayName"}]}""", true)]
+    [InlineData("""{"target":"IN202500","commands":[{"type":"Clear"},{"type":"Get","name":"Item.Descr"}]}""", false)]
+    [InlineData("""{"target":"IN202500","commands":[{"type":"Action","name":"Save"}]}""", true)]
+    public void A_batch_writes_when_the_server_says_so_or_a_command_can_save(string json, bool writes)
+    {
+        ScreenBatch batch = ScreenBatch.From(JsonNode.Parse(json), "b.json");
+
+        Assert.Equal(writes, batch.Writes([batch.Commands, batch.LineCommands, batch.SplitCommands, batch.FinishCommands]));
+    }
+
     [Fact]
     public void A_document_without_target_and_commands_is_a_usage_error()
     {
@@ -37,11 +50,60 @@ public sealed class ScreenBatchTests
     [Theory]
     [InlineData("""[{"type":"Clear"},{"type":"Get","name":"Document.Status"}]""", true)]
     [InlineData("""[{"type":"clear"},{"type":"get","name":"Document.Status"}]""", true)]
-    [InlineData("""[{"type":"Clear"},{"type":"Key","name":"Document.RefNbr","value":"INV1"},{"type":"Get","name":"Document.Status"}]""", false)]
+    [InlineData("""[{"type":"Clear"},{"type":"Key","name":"Document.RefNbr","value":"INV1"},{"type":"Get","name":"Document.Status"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Set","name":"Item.InventoryCD","value":"{{InventoryID}}","commit":null},{"type":"DownloadAttachments","name":"Item","value":"*"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"ListAttachments","name":"Document"}]""", true)]
     [InlineData("""[{"type":"Clear"},{"type":"Action","name":"Save"}]""", false)]
-    public void Only_a_batch_of_Get_and_Clear_is_read_only(string commands, bool readOnly)
+    [InlineData("""[{"type":"Set","name":"Parameters.ReportID","value":"AR631000"},{"type":"Action","name":"RunReport"}]""", true)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Action","name":"Next"},{"type":"Action","name":"cancel"}]""", true)]
+    [InlineData("""[{"type":"Clear"},{"type":"Action","name":"RunReport","commit":true}]""", false)]
+    [InlineData("""[{"type":"Clear"},{"type":"Action","name":"Release"}]""", false)]
+    [InlineData("""[{"type":"Clear"},{"type":"Action"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.Descr","value":"x"},{"type":"Action","name":"Save"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"Set","name":"Document.NoteText","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"NotePopupText","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteFiles","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteActivity","value":"x"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":true}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.RefNbr","value":"INV1"},{"type":"UploadAttachment","name":"Document"}]""", false)]
+    [InlineData("""[{"type":"ServiceCommand","name":"Transactions.NewRow"}]""", false)]
+    [InlineData("""[{"type":"ContinueOn"}]""", false)]
+    [InlineData("""[{"type":"SomethingNew"}]""", false)]
+    [InlineData("""[{"name":"Document.Status"}]""", false)]
+    public void Only_a_batch_that_can_leave_nothing_in_the_ERP_is_read_only(string commands, bool readOnly)
     {
-        Assert.Equal(readOnly, ScreenBatch.OnlyReads([JsonNode.Parse(commands)!.AsArray(), null]));
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads("SO301000", [JsonNode.Parse(commands)!.AsArray(), null]));
+    }
+
+    [Theory]
+    [InlineData("customers", """[{"type":"Key","name":"number","value":"C1"},{"type":"Get","name":"displayName"},{"type":"DownloadAttachments","value":"*"}]""", true)]
+    [InlineData("customers", """[{"type":"Key","name":"number","value":"C1"},{"type":"Set","name":"displayName","value":"X"}]""", false)]
+    [InlineData("accounts-receivable/customer", """[{"type":"Key","name":"id","value":"C1"},{"type":"Action","name":"Next"}]""", false)]
+    [InlineData("IN202500", """[{"type":"Key","name":"Item.InventoryCD","value":"X"},{"type":"Set","name":"Item.Descr","value":"x"}]""", true)]
+    public void Outside_Acumatica_a_set_or_an_action_is_a_write_without_the_servers_answer(string target, string commands, bool readOnly)
+    {
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads(target, [JsonNode.Parse(commands)!.AsArray()]));
+    }
+
+    [Theory]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":"true"}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":1}]""", false)]
+    [InlineData("""[{"type":"Set","name":"Document.Descr","value":"x","commit":false}]""", true)]
+    [InlineData("""[{"type":"Set","name":"Document.NoteText ","value":"x"}]""", false)]
+    public void A_commit_that_is_not_false_and_a_padded_note_name_count_as_writes(string commands, bool readOnly)
+    {
+        Assert.Equal(readOnly, ScreenBatch.OnlyReads("SO301000", [JsonNode.Parse(commands)!.AsArray()]));
+    }
+
+    [Theory]
+    [InlineData("\"true\"", true)]
+    [InlineData("1", true)]
+    [InlineData("false", false)]
+    public void A_writes_answer_that_is_not_a_boolean_counts_as_a_write(string writes, bool expected)
+    {
+        ScreenBatch batch = ScreenBatch.From(JsonNode.Parse($$"""{"target":"IN202500","writes":{{writes}},"commands":[{"type":"Get","name":"Item.Descr"}]}"""), "b.json");
+
+        Assert.Equal(expected, batch.ServerSaysWrites);
     }
 
     [Fact]

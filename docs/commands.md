@@ -148,7 +148,9 @@ Output for one query:
 }
 ```
 
-Output for a plan, one entry per item in the plan's order:
+A plan of one query, whether a library number or name or a `--plan` file, prints this too, so `jq '.result.data.rows'` reads every single-query run. It adds the plan's `note` as a top-level `note` key when the plan has one, so a run from the library keeps the merge keys and sign convention that the build wrote.
+
+Output for a plan of more than one query, one entry per item in the plan's order:
 
 ```json
 {
@@ -159,7 +161,7 @@ Output for a plan, one entry per item in the plan's order:
 }
 ```
 
-With `--output csv` the first line holds the captions and each row follows; a plan of more than one item cannot be written as CSV. With `--output table` the captions head the table and a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`; a plan prints its note, then each item's purpose and table. `truncated: true` or a `warning` in a result means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr, with any `warnings` the ERP sent.
+With `--output csv` the first line holds the captions and each row follows; a plan of more than one item cannot be written as CSV. With `--output table` the captions head the table and a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`; a plan of more than one query prints each item's purpose and table. `truncated: true` or a `warning` in a result means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr, with any `warnings` the ERP sent.
 
 An HTTP 400 from the ERP, such as a conversion error in the built query, exits 6 with the ERP's message in `error.detail`. Build the query again and quote that message.
 
@@ -184,7 +186,7 @@ Tool: `create_workbook_from_query`. Sends the query text as `query` and the para
 
 ## ERP commands
 
-### `velixo command build "REQUEST" [--target SCREEN] [--name NAME] [--save FILE]`
+### `velixo command build "REQUEST" [--target SCREEN] [--name NAME] [--save FILE] [--accept-defaults]`
 
 Tool: `prepare_commands`. Describe the operation in the user's words with `{{Placeholders}}` for values. The builder finds the screen. Pass `--target` only with a screen id that an earlier build returned. The output is the batch, a reusable template:
 
@@ -207,6 +209,8 @@ Tool: `prepare_commands`. Describe the operation in the user's words with `{{Pla
 ```
 
 Save it with `--save FILE`, or with a redirect: `velixo command build "..." > create-order.batch.json`. At a terminal the batch prints to read: the screen, whether it writes, the values and detail rows a run takes, how the record gets its key, and the `command run` commands that check and run it, with the `--connection` the build named. When the builder stops with an `ERROR:` question, such as a choice between candidate screens, the command exits 3 with `BUILDER_REFUSAL`, whether the build finished or failed with the question.
+
+`--accept-defaults` adds one sentence to the request: "Leave every field this request does not name at its default." The builder then lets the ERP fill those fields, as the screen would, instead of asking for them. A branch or a project is otherwise one of the values it asks for, because it identifies a business entity. Pass it only when the user said to use the defaults. The library keeps the request as typed, without the sentence. When a `command build` refusal offers to use the defaults, its `nextStep` names the flag, along with `--target` when the refusal gives one.
 
 ### `velixo command run [NUMBER|NAME | --batch FILE|-] [flags]`
 
@@ -258,9 +262,9 @@ Tool: `execute_commands`.
 }
 ```
 
-`commandCount` counts each set once and the detail and sub-detail sets once per row. `rows` is the number of detail rows. A continuation adds `"continuation"`.
+`commandCount` counts each set once and the detail and sub-detail sets once per row. `rows` is the number of detail rows. A continuation adds `"continuation"`. `wouldWrite` is `false` only for a run that is a read, as the Confirmation paragraph below defines it.
 
-**Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, the record it continues and the number of rows, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. Without a terminal, or with `--non-interactive`, it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. The CLI treats every `command run` as a write unless the batch sends only `Get` and `Clear` commands. A continuation is always a write.
+**Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, the record it continues and the number of rows, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. Without a terminal, or with `--non-interactive`, it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. A run is a read, with no confirmation and no duplicate guard, only when all of these hold. The build's `writes` is `false` or absent; any value other than `false` counts as a write. The run continues no record, does not pass `--leave-open`, and attaches no file. On an Acumatica screen, every command is a `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` or `Set`, or an action that persists nothing (`First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh`, `RunReport`), with no `commit` and no `Set` on a note field (`NoteText`, `NotePopupText`, `NoteFiles` or `NoteActivity`): the screen keeps a change only after an action such as Save or Release, and Acumatica saves a note on a locked record without a Save. On a Business Central or Sage Intacct target, which keeps no record open, every command is a `Get`, `Clear`, `Key`, `ListAttachments` or `DownloadAttachments`. Every other run is a write.
 
 **Duplicate guard.** The CLI keeps a SHA-256 fingerprint of the connection, the target, the command sets, the variables, the rows and the continued record for 10 minutes after each write it ran. A write that failed in the ERP, timed out or lost the network counts too, because part of it may have saved. It refuses the same fingerprint with exit 2 and `error.code: "DUPLICATE_RUN"` unless you add `--force`.
 

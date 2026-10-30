@@ -61,6 +61,24 @@ public sealed class LibraryTests
     }
 
     [Fact]
+    public async Task A_plan_of_one_query_run_by_number_or_name_prints_the_single_query_document()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(Plan)).ThenText(ScreenHarness.Done(NoRows)).ThenText(ScreenHarness.Done(NoRows));
+        await test.RunAsync("query", "build", "AR balance as of {{AsOfDate}}", "--name", "ar", "--intent", ScreenHarness.Intent);
+
+        foreach (var reference in new[] { "1", "ar" })
+        {
+            test.Console.OutWriter.GetStringBuilder().Clear();
+            var exit = await test.RunAsync("query", "run", reference, "--param", "As Of Date=2026-09-30", "--intent", ScreenHarness.Intent);
+
+            Assert.Equal(ExitCodes.Success, exit);
+            Assert.Null(test.Output["results"]);
+            Assert.Equal(0, (int?)test.Output["result"]!["data"]!["totalCount"]);
+        }
+    }
+
+    [Fact]
     public async Task List_shows_the_entries_and_a_deleted_number_is_never_reused()
     {
         using var test = new ScreenHarness();

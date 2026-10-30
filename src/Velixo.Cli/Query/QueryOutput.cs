@@ -154,14 +154,14 @@ internal static partial class QueryOutput
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(combined);
 
+        var results = combined["results"] as JsonArray ?? [];
         if (output.Format == OutputFormat.Json)
         {
-            output.WriteJson(combined);
+            output.WriteJson(results.Count == 1 ? SingleResult(combined) : combined);
             return;
         }
 
         // The plan's note is left out of a table: it was shown when the plan was built, and it is in the JSON.
-        var results = combined["results"] as JsonArray ?? [];
 
         foreach (JsonObject entry in results.OfType<JsonObject>())
         {
@@ -177,6 +177,28 @@ internal static partial class QueryOutput
                 output.WriteText(string.Empty);
             }
         }
+    }
+
+    /// <summary>The result of a plan's only item, as <c>--query</c> prints it.</summary>
+    public static JsonObject OnlyResult(JsonObject combined)
+    {
+        ArgumentNullException.ThrowIfNull(combined);
+        return (JsonObject)combined["results"]![0]!["result"]!;
+    }
+
+    /// <summary>
+    /// The JSON of a plan of one item: the item's result, which a <c>--query</c> run of the same query prints,
+    /// with the plan's note added as <c>note</c> so that a run from the library still carries it.
+    /// </summary>
+    private static JsonObject SingleResult(JsonObject combined)
+    {
+        var single = (JsonObject)OnlyResult(combined).DeepClone();
+        if (CommandText.String(combined["note"]) is { Length: > 0 } note)
+        {
+            single["note"] = note;
+        }
+
+        return single;
     }
 
     /// <summary>

@@ -40,11 +40,16 @@ internal sealed class ScreenRunPlan
     public IReadOnlyList<ScreenAttachment> Attachments { get; private init; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether the call can write. The client cannot know which batches write,
-    /// so every batch is a write unless it holds only <c>Get</c> and <c>Clear</c>, and a continuation is
-    /// always one: it adds to a record left open.
+    /// Gets a value indicating whether the call can write. A continuation adds to a record left open, a call that
+    /// leaves its record open holds values a later call saves, and attachments land on the record, so each is a
+    /// write whatever its commands. Otherwise the server's answer and the commands this call sends decide.
     /// </summary>
-    public bool CanWrite => Continuation is not null || !ScreenBatch.OnlyReads([Header, Line, Split, Finish]);
+    public bool CanWrite =>
+        Continuation is not null
+        || LeaveOpen
+        || Attachments.Count > 0
+        || Batch.ServerSaysWrites == true
+        || !ScreenBatch.OnlyReads(Batch.Target, [Header, Line, Split, Finish]);
 
     /// <summary>Gets the number of commands the screen runs: each set once, the detail and sub-detail sets once per row.</summary>
     public int CommandCount =>
