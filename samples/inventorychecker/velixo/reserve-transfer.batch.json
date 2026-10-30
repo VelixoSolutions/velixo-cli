@@ -1,0 +1,206 @@
+{
+  "target": "IN304000",
+  "screenName": "Transfers",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transfer.RefNbr",
+      "value": "<NEW>",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transfer.TransferType",
+      "value": "1-Step",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transfer.SiteID",
+      "value": "{{Warehouse}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transfer.ToSiteID",
+      "value": "{{Warehouse}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transfer.TranDesc",
+      "value": "{{Description}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "ServiceCommand",
+      "name": "transactions.NewRow",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transactions.InventoryID",
+      "value": "{{InventoryID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transactions.LocationID",
+      "value": "{{FromLocation}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transactions.ToLocationID",
+      "value": "{{ToLocation}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "transactions.Qty",
+      "value": "{{Quantity}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": true,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "ReleaseFromHold",
+      "value": null,
+      "commit": true,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Release",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.RefNbr",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.Status",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.TransferType",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.SiteID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.ToSiteID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transfer.TranDesc",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transactions.InventoryID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transactions.LocationID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transactions.ToLocationID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "transactions.Qty",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "Warehouse",
+      "type": "string",
+      "description": "Source and destination warehouse"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "description": "Transfer description"
+    },
+    {
+      "name": "InventoryID",
+      "type": "string",
+      "description": "Stock item code"
+    },
+    {
+      "name": "FromLocation",
+      "type": "string",
+      "description": "Source warehouse location"
+    },
+    {
+      "name": "ToLocation",
+      "type": "string",
+      "description": "Destination warehouse location"
+    },
+    {
+      "name": "Quantity",
+      "type": "number",
+      "description": "Quantity to transfer"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+DECLARE [InventoryID] SCHEMA [PX.Objects.IN.InventoryItem].InventoryCD AS 'Inventory ID' REQUIRED
+FROM [PX.Objects.IN.INSiteStatus] As Stock
+INNER JOIN [PX.Objects.IN.InventoryItem] As Item ON Stock.InventoryID = Item.InventoryID
+INNER JOIN [PX.Objects.IN.INSite] As Site ON Stock.SiteID = Site.SiteID
+WHERE Item.InventoryCD = [InventoryID]
+GROUP BY Site.SiteCD
+ORDER BY Site.SiteCD ASC
+SELECT Site.SiteCD AS 'Warehouse', Site.Descr AS 'Warehouse Name', {=SUM([Stock.QtyOnHand])} SCHEMA [PX.Objects.IN.INSiteStatus].QtyOnHand AS 'Qty. On Hand', {=SUM([Stock.QtyAvail])} SCHEMA [PX.Objects.IN.INSiteStatus].QtyAvail AS 'Qty. Available'

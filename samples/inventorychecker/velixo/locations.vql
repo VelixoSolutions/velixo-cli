@@ -1,0 +1,9 @@
+DECLARE [InventoryID] SCHEMA [PX.Objects.IN.InventoryItem].InventoryCD AS 'Inventory ID' REQUIRED
+DECLARE [Warehouse] SCHEMA [PX.Objects.IN.INSite].SiteCD AS 'Warehouse' REQUIRED
+FROM [PX.Objects.IN.INLocationStatus] As Stock
+INNER JOIN [PX.Objects.IN.InventoryItem] As Item ON Stock.InventoryID = Item.InventoryID
+INNER JOIN [PX.Objects.IN.INLocation] As Loc ON Stock.LocationID = Loc.LocationID
+INNER JOIN [PX.Objects.IN.INSite] As Site ON Stock.SiteID = Site.SiteID
+WHERE Item.InventoryCD = [InventoryID] AND Site.SiteCD = [Warehouse] AND Stock.QtyOnHand <> 0
+ORDER BY Stock.QtyOnHand DESC
+SELECT Loc.LocationCD AS 'Location', Stock.QtyOnHand AS 'Qty. On Hand'

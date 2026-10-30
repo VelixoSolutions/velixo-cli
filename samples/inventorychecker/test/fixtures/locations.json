@@ -1,0 +1,35 @@
+{
+  "taskId": "0e34d000a06a4fb7a913dc435c6f391c",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 2,
+      "columns": [
+        {
+          "objectName": "Loc",
+          "fieldName": "LocationCD",
+          "caption": "Location",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Stock",
+          "fieldName": "QtyOnHand",
+          "caption": "Qty. On Hand",
+          "type": "Decimal",
+          "precision": 2
+        }
+      ],
+      "rows": [
+        [
+          "STORAGE   ",
+          434.000000
+        ],
+        [
+          "RESERVED  ",
+          1.000000
+        ]
+      ]
+    }
+  }
+}
