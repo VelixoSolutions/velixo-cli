@@ -7,12 +7,17 @@ set -euo pipefail
 public="https://${FLY_APP_NAME:-localhost}.fly.dev"
 mkdir -p "$VELIXO_CONFIG_DIR" /data/images /data/state/acumatica /data/state/sageintacct
 
-(
-    cd /app/inventorychecker
-    export HOST=127.0.0.1 PORT=8081 KIOSK_IMAGE_CACHE=/data/images
-    if [ -n "${KIOSK_CONNECTION:-}" ]; then export VELIXO_CONNECTION="$KIOSK_CONNECTION"; fi
-    exec node server.mjs
-) &
+# The kiosk can reserve stock, so it starts only behind a password. Without one, its path explains what to set.
+if [ -n "${KIOSK_PASSWORD:-}" ]; then
+    (
+        cd /app/inventorychecker
+        export HOST=127.0.0.1 PORT=8081 KIOSK_IMAGE_CACHE=/data/images
+        if [ -n "${KIOSK_CONNECTION:-}" ]; then export VELIXO_CONNECTION="$KIOSK_CONNECTION"; fi
+        exec node server.mjs
+    ) &
+else
+    caddy respond --listen 127.0.0.1:8081 --status 503 --body "The inventory checker is off: set the KIOSK_PASSWORD secret on the Fly app." &
+fi
 
 # Each demo reads the settings named for its ERP. The ones shared by both, such as OPENROUTER_API_KEY and the Twilio
 # account, reach it unchanged.

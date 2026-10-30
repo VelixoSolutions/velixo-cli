@@ -1,6 +1,6 @@
 # Deploying the samples
 
-`.github/workflows/deploy-samples.yml` deploys both CLI samples to one Fly.io app, `velixo-cli-samples`, whenever a sample changes on `main`. You can also run it by hand from the Actions tab.
+Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integration deploys it from this folder on every push to `main`.
 
 | Path | What answers |
 |---|---|
@@ -12,24 +12,26 @@ The app is one machine that never stops, with a 1 GB volume, `data`, at `/data`.
 
 ## Set it up once
 
-The app `velixo-cli-samples` and its volume `data` in `iad` already exist, and the `samples` GitHub environment holds the Fly token.
+The app `velixo-cli-samples` and its volume `data` in `iad` already exist.
 
-1. **Fill in the settings.** The `samples` environment has every setting the workflow reads, empty or with a known value. Set them in GitHub under Settings › Environments › samples. A setting can be a secret or a variable; the workflow reads either, and sends the ones that are not empty to Fly as the app's secrets. Emptying a setting later does not remove it from Fly: run `fly secrets unset` for that.
+1. **Point Fly's deploy at this folder.** In the Fly dashboard, open the app's GitHub deploy settings and set the working directory to `samples` and the config file to `fly.toml`. The config path is relative to the working directory, so `samples/fly.toml` would point at `samples/samples/fly.toml`.
 
-   | Setting | Meaning |
+2. **Set the app's secrets.** In the dashboard under Secrets, or with `fly secrets set --app velixo-cli-samples NAME=value`. Each one is optional: a demo without its keys answers 503 on that path, and the rest keeps working.
+
+   | Secret | Meaning |
    |---|---|
-   | `KIOSK_PASSWORD` | **Required.** The password the browser asks for before it shows the kiosk. The kiosk can reserve stock, so the workflow does not deploy without one. |
+   | `KIOSK_PASSWORD` | The password the browser asks for before it shows the kiosk. The kiosk can reserve stock, so without a password it does not start, and its page says to set one. |
    | `KIOSK_CONNECTION`, `KIOSK_WAREHOUSE` | The kiosk's CLI connection and store warehouse. Without a warehouse the kiosk only reads. |
    | `OPENROUTER_API_KEY` | The key both expense demos use to read receipts. |
-   | `ACUMATICA_CONNECTION`, `SAGEINTACCT_CONNECTION` | Each expense demo's CLI connection: `demo` and `skyline`. |
-   | `ACUMATICA_URL`, `ACUMATICA_COMPANY` | The Acumatica instance and company, for the link in the reply. |
+   | `ACUMATICA_CONNECTION`, `SAGEINTACCT_CONNECTION` | Each expense demo's CLI connection. They default to `demo` and `skyline`. |
+   | `ACUMATICA_URL`, `ACUMATICA_COMPANY` | The Acumatica instance and company, for the link in the reply. The address defaults to `https://demo.velixo.com`. |
    | `SAGE_EXPENSE_URL_TEMPLATE` | A link to a Sage Intacct expense report, with `{id}` in place of its key. |
    | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | The Twilio account both demos send from. |
-   | `ACUMATICA_TWILIO_FROM_NUMBER`, `SAGEINTACCT_TWILIO_FROM_NUMBER` | Each demo's own number. |
-   | `ACUMATICA_TELEGRAM_BOT_TOKEN`, `SAGEINTACCT_TELEGRAM_BOT_TOKEN` | Each demo's own Telegram bot. |
-   | `TELEGRAM_WEBHOOK_SECRET` | A long random secret both bots send with each update. |
+   | `ACUMATICA_TWILIO_FROM_NUMBER`, `SAGEINTACCT_TWILIO_FROM_NUMBER` | Each demo's own number, such as `+15551234567`. |
+   | `ACUMATICA_TELEGRAM_BOT_TOKEN`, `SAGEINTACCT_TELEGRAM_BOT_TOKEN` | Each demo's own Telegram bot, from @BotFather. |
+   | `TELEGRAM_WEBHOOK_SECRET` | A long random secret both bots send with each update, for example from `openssl rand -hex 32`. |
 
-2. **Deploy.** Run **Deploy samples** from the Actions tab. It skips, with a notice, while `FLY_API_TOKEN` or `KIOSK_PASSWORD` is empty, or while either sample folder is missing from `main`.
+   Setting a secret restarts the machine with the new value.
 
 3. **Sign in to Velixo once.** The app starts signed out:
 
@@ -39,7 +41,7 @@ The app `velixo-cli-samples` and its volume `data` in `iad` already exist, and t
    fly ssh console --app velixo-cli-samples -C 'velixo login --complete "<redirected URL>"'
    ```
 
-   The account must reach all three connections. Sign in from nowhere else with the same files: two copies of one sign-in end each other's session.
+   The account must reach every connection the samples use. Sign in from nowhere else with the same files: two copies of one sign-in end each other's session.
 
 4. **Point the numbers and bots at the app.**
    - In Twilio, set each number's "A message comes in" webhook to `https://velixo-cli-samples.fly.dev/acumatica/sms` or `.../sageintacct/sms`.
