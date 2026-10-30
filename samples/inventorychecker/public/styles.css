@@ -566,7 +566,7 @@ body[data-state='result'] .warehouse-bar { animation: bar-grow 900ms var(--delay
 
 [data-layout='mobile'] body { overscroll-behavior: none; }
 
-[data-layout='mobile'] .topbar { padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: linear-gradient(rgba(4, 6, 13, 0.92), rgba(4, 6, 13, 0)); }
+[data-layout='mobile'] .topbar { padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: rgba(4, 6, 13, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(120, 200, 255, 0.08); }
 [data-layout='mobile'] .brand { font-size: 18px; gap: 10px; }
 [data-layout='mobile'] .brand-mark { width: 28px; height: 28px; }
 [data-layout='mobile'] .topbar-right { display: none; }
@@ -744,5 +744,5 @@ body[data-state='searching'] .manual-entry { opacity: 0.5; pointer-events: none;
 [data-layout='mobile'] .stepper { justify-content: center; }
 [data-layout='mobile'] .stepper button { width: 60px; height: 60px; }
 [data-layout='mobile'] .stepper output { font-size: 44px; min-width: 90px; }
-[data-layout='mobile'] .sheet-actions button { flex: 1 1 0; }
+[data-layout='mobile'] .sheet-actions button { flex: 1 1 0; padding: 14px 12px; white-space: nowrap; }
 [data-layout='mobile'] .celebrate-crate { display: none; }
