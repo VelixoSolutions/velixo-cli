@@ -4,6 +4,8 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
 ### Added
 
 - `connections list` prints each connection's `company` and `url`, the address the user opens the ERP at, when the server returns them, so an app can link the user to a record it creates. The `--output table` and `--output csv` forms show `url` last, and leave out `description` when it only repeats the type.
@@ -67,6 +69,7 @@ First version. The CLI is one binary named `velixo` for Linux, macOS and Windows
 - An automatic update check, and tokens in the operating system's credential store.
 - Package managers: Homebrew, Scoop, WinGet, apt, yum and the Docker image.
 
+[0.4.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.4.0
 [0.3.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.1
 [0.3.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.3.0
 [0.2.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v0.2.0
