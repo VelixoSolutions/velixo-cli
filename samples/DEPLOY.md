@@ -20,10 +20,10 @@ The app `velixo-cli-samples` and its volume `data` in `iad` already exist.
 
    | Secret | Meaning |
    |---|---|
-   | `KIOSK_PASSWORD` | A password the browser asks for before it shows the kiosk. Without it, anyone with the address can look up items and reserve units, which suits a demo company. |
-   | `KIOSK_CONNECTION`, `KIOSK_WAREHOUSE` | The kiosk's CLI connection and store warehouse. Without a warehouse the kiosk only reads. |
+   | `KIOSK_WAREHOUSE` | The store's warehouse. It needs a `RESERVED` location for reservations. Without it, the kiosk only reads. |
    | `OPENROUTER_API_KEY` | The key both expense demos use to read receipts. |
-   | `ACUMATICA_CONNECTION`, `SAGEINTACCT_CONNECTION` | Each expense demo's CLI connection. They default to `demo` and `skyline`. |
+   | `ACUMATICA_CONNECTION` | The CLI connection for the kiosk and the Acumatica expense demo. It defaults to `demo`. |
+   | `SAGEINTACCT_CONNECTION` | The CLI connection for the Sage Intacct expense demo. It defaults to `skyline`. |
    | `ACUMATICA_URL`, `ACUMATICA_COMPANY` | The Acumatica instance and company, for the link in the reply. The address defaults to `https://demo.velixo.com`. |
    | `SAGE_EXPENSE_URL_TEMPLATE` | A link to a Sage Intacct expense report, with `{id}` in place of its key. |
    | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | The Twilio account both demos send from. |

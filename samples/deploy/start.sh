@@ -10,7 +10,7 @@ mkdir -p "$VELIXO_CONFIG_DIR" /data/images /data/state/acumatica /data/state/sag
 (
     cd /app/inventorychecker
     export HOST=127.0.0.1 PORT=8081 KIOSK_IMAGE_CACHE=/data/images
-    if [ -n "${KIOSK_CONNECTION:-}" ]; then export VELIXO_CONNECTION="$KIOSK_CONNECTION"; fi
+    export VELIXO_CONNECTION="${ACUMATICA_CONNECTION:-demo}"
     exec node server.mjs
 ) &
 
