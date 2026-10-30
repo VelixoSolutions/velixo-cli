@@ -1,0 +1,17 @@
+{
+	admin off
+}
+
+:{$PORT}
+
+handle_path /acumatica/* {
+	reverse_proxy 127.0.0.1:8091
+}
+
+handle_path /sageintacct/* {
+	reverse_proxy 127.0.0.1:8092
+}
+
+handle {
+	reverse_proxy 127.0.0.1:8081
+}
