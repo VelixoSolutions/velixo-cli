@@ -4,7 +4,7 @@ Both CLI samples run in one Fly.io app, `velixo-cli-samples`. Fly's GitHub integ
 
 | Path | What answers |
 |---|---|
-| `https://velixo-cli-samples.fly.dev/` | The inventory checker kiosk, behind its password |
+| `https://velixo-cli-samples.fly.dev/` | The inventory checker kiosk |
 | `/acumatica/sms`, `/acumatica/telegram` | The expense receipts demo on Acumatica |
 | `/sageintacct/sms`, `/sageintacct/telegram` | The expense receipts demo on Sage Intacct |
 
@@ -20,7 +20,7 @@ The app `velixo-cli-samples` and its volume `data` in `iad` already exist.
 
    | Secret | Meaning |
    |---|---|
-   | `KIOSK_PASSWORD` | The password the browser asks for before it shows the kiosk. The kiosk can reserve stock, so without a password it does not start, and its page says to set one. |
+   | `KIOSK_PASSWORD` | A password the browser asks for before it shows the kiosk. Without it, anyone with the address can look up items and reserve units, which suits a demo company. |
    | `KIOSK_CONNECTION`, `KIOSK_WAREHOUSE` | The kiosk's CLI connection and store warehouse. Without a warehouse the kiosk only reads. |
    | `OPENROUTER_API_KEY` | The key both expense demos use to read receipts. |
    | `ACUMATICA_CONNECTION`, `SAGEINTACCT_CONNECTION` | Each expense demo's CLI connection. They default to `demo` and `skyline`. |
