@@ -210,6 +210,13 @@ public static class QueryCommands
                     return ExitCodes.Success;
                 }
 
+                // A plan of one query prints what --query prints for it, so a script reads both the same way.
+                if (read.Items.Count == 1)
+                {
+                    QueryOutput.WriteResult(services.Output, (JsonObject)combined["results"]![0]!["result"]!, options.Skip);
+                    return ExitCodes.Success;
+                }
+
                 QueryOutput.WritePlanResults(services.Output, combined, options.Skip);
                 return ExitCodes.Success;
             }

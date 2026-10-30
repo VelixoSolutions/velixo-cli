@@ -203,6 +203,22 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_plan_of_one_query_prints_what_the_same_query_from_a_file_prints()
+    {
+        var plan = WriteFile("p.plan.json", """{"queries":[{"purpose":"Balance","query":"FROM X SELECT Y"}],"note":"Join on CustomerID."}""");
+        var query = WriteFile("p.vql", "FROM X SELECT Y");
+        _mcp.ThenText(Done(QueryResult(2, 2))).ThenText(Done(QueryResult(2, 2)));
+
+        await Run("query", "run", "--plan", plan);
+        var fromPlan = Output().ToJsonString();
+        _test.Console.OutWriter.GetStringBuilder().Clear();
+        await Run("query", "run", "--query", query);
+
+        Assert.Equal(Output().ToJsonString(), fromPlan);
+        Assert.Equal(2, (int?)Output()["result"]!["data"]!["totalCount"]);
+    }
+
+    [Fact]
     public async Task Run_without_an_intent_sends_the_command_path_as_the_intent()
     {
         var query = WriteFile("q.vql", "FROM X SELECT Y");

@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- `velixo query run` prints the same JSON for a plan of one query, run by its number, its name or `--plan`, as for the same query run with `--query`: `{ taskId, status, result }`. It printed `{ note, results: [{ purpose, result }] }` before, so `jq '.result.data.rows'` broke when a script switched from a file to a saved query. A plan of more than one query still prints `{ note, results }`.
+
 ## [0.3.1] - 2026-10-29
 
 ### Fixed

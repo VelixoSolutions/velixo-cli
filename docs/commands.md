@@ -148,7 +148,9 @@ Output for one query:
 }
 ```
 
-Output for a plan, one entry per item in the plan's order:
+A plan of one query, whether a library number or name or a `--plan` file, prints exactly this too, so `jq '.result.data.rows'` reads every single-query run. The plan's note is printed by `query build`, not by the run.
+
+Output for a plan of more than one query, one entry per item in the plan's order:
 
 ```json
 {
@@ -159,7 +161,7 @@ Output for a plan, one entry per item in the plan's order:
 }
 ```
 
-With `--output csv` the first line holds the captions and each row follows; a plan of more than one item cannot be written as CSV. With `--output table` the captions head the table and a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`; a plan prints its note, then each item's purpose and table. `truncated: true` or a `warning` in a result means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr, with any `warnings` the ERP sent.
+With `--output csv` the first line holds the captions and each row follows; a plan of more than one item cannot be written as CSV. With `--output table` the captions head the table and a footer names the window, for example `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`; a plan of more than one query prints each item's purpose and table. `truncated: true` or a `warning` in a result means the ERP matched more rows than the call returned; the CLI repeats the warning on stderr, with any `warnings` the ERP sent.
 
 An HTTP 400 from the ERP, such as a conversion error in the built query, exits 6 with the ERP's message in `error.detail`. Build the query again and quote that message.
 
