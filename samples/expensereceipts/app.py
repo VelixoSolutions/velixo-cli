@@ -41,8 +41,12 @@ def create_app() -> Flask:
 
     app = Flask(__name__, static_folder=str(HERE / "static"))
 
-    def in_background(phone: str, text: str, photos: list[bytes], send) -> None:
-        threading.Thread(target=conversation.handle, args=(phone, text, photos, lambda reply: send(phone, reply)), daemon=True).start()
+    def in_background(phone: str, text: str, photos, send) -> None:
+        """Handles the message on its own thread; `photos` returns the photo bytes, so downloads happen there too."""
+        def handle():
+            conversation.handle(phone, text, photos(), lambda reply: send(phone, reply))
+
+        threading.Thread(target=handle, daemon=True).start()
 
     @app.post("/sms")
     def twilio_webhook():
@@ -50,14 +54,18 @@ def create_app() -> Flask:
             abort(503, "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER to receive texts.")
         _check_twilio_signature(twilio.auth_token)
 
-        photos = [
-            _download(request.form[f"MediaUrl{index}"], twilio)
+        urls = [
+            request.form[f"MediaUrl{index}"]
             for index in range(int(request.form.get("NumMedia", "0")))
             if request.form.get(f"MediaContentType{index}", "").startswith("image/")
         ]
-        in_background(request.form["From"], request.form.get("Body", ""), photos, twilio.send)
+        in_background(request.form["From"], request.form.get("Body", ""), lambda: [_download(url, twilio) for url in urls], twilio.send)
         return Response("<Response/>", mimetype="application/xml")
 
+    if twilio is not None:
+        return app
+
+    # The simulator lets anyone send as any phone number, so it runs only while Twilio is not set up.
     @app.get("/")
     def simulator():
         return send_from_directory(app.static_folder, "simulator.html")
@@ -73,7 +81,7 @@ def create_app() -> Flask:
 
         preview = f"data:{upload.mimetype};base64,{base64.b64encode(photo).decode()}" if photo else None
         outbox.incoming(phone, text, preview)
-        in_background(phone, text, [photo] if photo else [], outbox.send)
+        in_background(phone, text, lambda: [photo] if photo else [], outbox.send)
         return jsonify(ok=True)
 
     @app.get("/simulator/messages")
@@ -98,9 +106,12 @@ def _check_twilio_signature(auth_token: str) -> None:
 
 def _download(url: str, twilio: TwilioSender) -> bytes:
     """Twilio serves a message's photos only to the account that received it."""
-    response = requests.get(url, auth=(twilio.account_sid, twilio.auth_token), timeout=60)
-    response.raise_for_status()
-    return response.content[:MAX_PHOTO_BYTES]
+    with requests.get(url, auth=(twilio.account_sid, twilio.auth_token), timeout=60, stream=True) as response:
+        response.raise_for_status()
+        photo = response.raw.read(MAX_PHOTO_BYTES + 1, decode_content=True)
+    if len(photo) > MAX_PHOTO_BYTES:
+        raise ValueError("The photo is larger than 10 MB.")
+    return photo
 
 
 if __name__ == "__main__":

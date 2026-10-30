@@ -186,3 +186,41 @@ def test_says_the_system_is_offline_when_the_cli_is_signed_out(erp, tmp_path):
     send, _ = talk(erp, FakeReader(), tmp_path)
 
     assert "offline" in send(KNOWN_PHONE, photo=True)
+
+
+@pytest.mark.parametrize("text, amount", [("52.10", 52.10), ("52,10", 52.10), ("1,234", 1234.0), ("1,234.50", 1234.50), ("$ 40", 40.0)])
+def test_reads_the_amount_the_employee_types(erp, tmp_path, text, amount):
+    send, _ = talk(erp, FakeReader(total=None), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+    send(KNOWN_PHONE, text)
+
+    assert erp.created[0].amount == f"{amount:.2f}"
+
+
+def test_takes_no_for_no_project_whatever_its_case(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(project_hint="the big one"), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+    send(KNOWN_PHONE, "No")
+
+    assert erp.created[0].project is None
+
+
+def test_forgets_the_receipt_when_the_erp_refuses_it_so_a_reply_cannot_create_it_twice(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(project_hint="marlin"), tmp_path)
+    send(KNOWN_PHONE, photo=True)
+    erp.failure = VelixoError("TIMEOUT", "No answer.", 1)
+    send(KNOWN_PHONE, "1")
+    erp.failure = None
+
+    assert send(KNOWN_PHONE, "1").startswith("Send me a photo")
+    assert erp.created == []
+
+
+def test_answers_even_when_something_unexpected_fails(erp, tmp_path):
+    reader = FakeReader()
+    reader.read = lambda *args: (_ for _ in ()).throw(ConnectionError("network down"))
+    send, _ = talk(erp, reader, tmp_path)
+
+    assert "Something went wrong" in send(KNOWN_PHONE, photo=True)

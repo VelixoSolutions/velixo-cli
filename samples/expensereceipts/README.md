@@ -93,6 +93,8 @@ The queries and batches in `velixo/` were built with `velixo query build` and `v
 - Acumatica refuses a receipt with a project and no project task, and, when cost codes are on, without a cost code. The batch sets the project's task and the tenant's default cost code (`default-cost-code.vql`) whenever the receipt has a project.
 - Sage Intacct refuses an expense on a project the employee is not a resource of, so its project list is the employee's own (`projects.vql` takes the employee ID).
 - Sage Intacct needs a base currency on the report and a location on each line; the line takes the employee's own location.
+- The app trusts the answer to "who are you?": a number the ERP does not know can name any employee, and the app remembers it. Before real use, confirm the answer, for example with a code sent to the employee's email.
+- The simulator lets anyone send as any phone number, so the app serves it only while the Twilio variables are not set.
 
 ## Files
 

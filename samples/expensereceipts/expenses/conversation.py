@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
+import os
 import re
 import threading
 import uuid
@@ -45,7 +47,8 @@ class Store:
         self._lock = threading.Lock()
 
     def draft(self, phone: str) -> Draft | None:
-        data = self._load()["drafts"].get(phone)
+        with self._lock:
+            data = self._load()["drafts"].get(phone)
         return Draft(**data) if data else None
 
     def save_draft(self, phone: str, draft: Draft | None) -> None:
@@ -58,7 +61,8 @@ class Store:
             self._save(data)
 
     def known_employee(self, phone: str) -> str | None:
-        return self._load()["phones"].get(phone)
+        with self._lock:
+            return self._load()["phones"].get(phone)
 
     def remember_employee(self, phone: str, employee_id: str) -> None:
         with self._lock:
@@ -78,7 +82,9 @@ class Store:
         return json.loads(self._file.read_text())
 
     def _save(self, data: dict) -> None:
-        self._file.write_text(json.dumps(data, indent=2))
+        temporary = self._file.with_suffix(".tmp")
+        temporary.write_text(json.dumps(data, indent=2))
+        os.replace(temporary, self._file)
 
 
 class Conversation:
@@ -86,7 +92,7 @@ class Conversation:
         self.erp = erp
         self.reader = reader
         self.store = store
-        self.base_currency = base_currency
+        self.base_currency = base_currency.upper()
         self.today = today
         self._locks: dict[str, threading.Lock] = {}
 
@@ -96,7 +102,12 @@ class Conversation:
             try:
                 self._handle(phone, text.strip(), photos, reply)
             except VelixoError as error:
+                self.store.save_draft(phone, None)
                 reply(_velixo_failure(error))
+            except Exception:
+                logging.exception("Could not handle a message")
+                self.store.save_draft(phone, None)
+                reply("Something went wrong with that receipt. Please send the photo again.")
 
     def _handle(self, phone: str, text: str, photos: list[bytes], reply: Reply) -> None:
         if photos:
@@ -191,7 +202,7 @@ class Conversation:
             draft.reading = asdict(reading)
 
         elif draft.asking == "project":
-            if text.strip() in {"0", "none", "no"}:
+            if text.strip().lower() in {"0", "none", "no"}:
                 reading.project_hint = None
             else:
                 choice = _pick(text, draft.options, self.erp.projects(self._employee(draft)))
@@ -269,8 +280,10 @@ def _closest(hint: str, projects: list[Choice]) -> list[Choice]:
 
 
 def _amount(text: str) -> float | None:
-    match = re.search(r"\d+(?:[.,]\d{1,2})?", text.replace(",", "") if text.count(",") and text.count(".") else text)
-    return float(match.group().replace(",", ".")) if match else None
+    """Reads an amount such as 42.50, 42,50 or 1,234.50; commas before three digits separate thousands."""
+    match = re.search(r"\d+(?:[.,]\d{1,2})?(?!\d)", re.sub(r",(?=\d{3}(?!\d))", "", text))
+    amount = float(match.group().replace(",", ".")) if match else None
+    return amount if amount else None
 
 
 def _velixo_failure(error: VelixoError) -> str:
