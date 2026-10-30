@@ -54,7 +54,7 @@ internal static class ScreenOutput
         string Heading(string text) => useColor ? $"\u001b[1m{text}\u001b[0m" : text;
 
         JsonArray?[] sets = [batch.Commands, batch.LineCommands, batch.SplitCommands, batch.FinishCommands];
-        var writes = !ScreenBatch.OnlyReads(sets);
+        var writes = batch.Writes(sets);
         var count = sets.Sum(set => set?.Count ?? 0);
 
         var text = new StringBuilder();
