@@ -29,7 +29,6 @@ ENV EXPENSES_ERP=acumatica \
     VELIXO_CONFIG_DIR=/data/velixo \
     EXPENSES_STATE=/data/state \
     PORT=8090
-VOLUME ["/data/velixo", "/data/state"]
 EXPOSE 8090
 
 # One worker: the simulator's messages and each phone's turn-taking live in memory.
