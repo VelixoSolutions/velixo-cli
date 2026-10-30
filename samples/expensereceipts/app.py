@@ -17,6 +17,7 @@ from expenses.conversation import Conversation, Store
 from expenses.erp import Acumatica, AcumaticaSettings, SageIntacct, SageIntacctSettings
 from expenses.reader import ReceiptReader
 from expenses.sms import SimulatorOutbox, TwilioSender
+from expenses.telegram import TelegramBot
 from expenses.velixo import Velixo
 
 HERE = Path(__file__).resolve().parent
@@ -35,9 +36,11 @@ def create_app() -> Flask:
     else:
         raise SystemExit(f"EXPENSES_ERP must be acumatica or sageintacct, not {erp_name}.")
 
-    conversation = Conversation(erp, ReceiptReader(), Store(Path(os.environ.get("EXPENSES_STATE", HERE / ".state"))), base_currency)
+    state = Path(os.environ.get("EXPENSES_STATE", HERE / ".state"))
+    conversation = Conversation(erp, ReceiptReader(), Store(state), base_currency)
     outbox = SimulatorOutbox()
     twilio = _twilio_sender()
+    telegram = TelegramBot(os.environ["TELEGRAM_BOT_TOKEN"], state) if os.environ.get("TELEGRAM_BOT_TOKEN") else None
 
     app = Flask(__name__, static_folder=str(HERE / "static"))
 
@@ -62,10 +65,21 @@ def create_app() -> Flask:
         in_background(request.form["From"], request.form.get("Body", ""), lambda: [_download(url, twilio) for url in urls], twilio.send)
         return Response("<Response/>", mimetype="application/xml")
 
-    if twilio is not None:
+    @app.post("/telegram")
+    def telegram_webhook():
+        if telegram is None:
+            abort(503, "Set TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET to receive Telegram messages.")
+        secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+        if not secret or request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+            abort(403)
+        update = request.get_json(silent=True) or {}
+        threading.Thread(target=telegram.receive, args=(update, conversation.handle), daemon=True).start()
+        return jsonify(ok=True)
+
+    if twilio is not None or telegram is not None:
         return app
 
-    # The simulator lets anyone send as any phone number, so it runs only while Twilio is not set up.
+    # The simulator lets anyone send as any phone number, so it runs only while neither Twilio nor Telegram is set up.
     @app.get("/")
     def simulator():
         return send_from_directory(app.static_folder, "simulator.html")

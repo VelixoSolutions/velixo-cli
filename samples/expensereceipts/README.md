@@ -45,6 +45,7 @@ Open <http://localhost:8090>, attach a photo of a receipt, and send it. The phon
 | `ACUMATICA_URL`, `ACUMATICA_COMPANY` | The instance address and company, for the link in the reply. |
 | `SAGE_EXPENSE_URL_TEMPLATE` | A link to an expense report with `{id}` in place of its key. Without it, the reply gives the report's number only. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | The Twilio number that receives the texts and sends the replies. |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The Telegram bot that receives receipts, and the secret Telegram sends with each update. |
 | `TWILIO_WEBHOOK_URL` | The public URL Twilio posts to, when the app runs behind a tunnel or proxy, so the signature check passes. |
 | `PORT`, `HOST` | Where the app listens. Default `127.0.0.1:8090`. |
 
@@ -55,6 +56,21 @@ Open <http://localhost:8090>, attach a photo of a receipt, and send it. The phon
 3. In the Twilio console, set the number's "A message comes in" webhook to `https://<that address>/sms`, method POST.
 
 The app answers Twilio at once and sends its replies through Twilio's API, because reading a receipt and creating the expense take longer than Twilio waits.
+
+## Receive receipts in Telegram
+
+The same app also works as a Telegram bot, beside the text messages or instead of them.
+
+1. In Telegram, message @BotFather, send `/newbot`, and put the token it gives you in `TELEGRAM_BOT_TOKEN`.
+2. Choose a long random secret for `TELEGRAM_WEBHOOK_SECRET`, and give the app a public HTTPS address as for Twilio.
+3. Point the bot at the app once:
+
+   ```sh
+   curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+     -d url=https://<that address>/telegram -d secret_token=$TELEGRAM_WEBHOOK_SECRET
+   ```
+
+A Telegram message carries no phone number, so the bot's first reply shows a "Share my phone number" button. Telegram sends the number of the user's own account, and the app then finds the employee by it, as for a text message. It remembers the number for that chat in `telegram-phones.json`.
 
 ## Two demos with Docker
 
@@ -94,18 +110,19 @@ The queries and batches in `velixo/` were built with `velixo query build` and `v
 - Sage Intacct refuses an expense on a project the employee is not a resource of, so its project list is the employee's own (`projects.vql` takes the employee ID).
 - Sage Intacct needs a base currency on the report and a location on each line; the line takes the employee's own location.
 - The app trusts the answer to "who are you?": a number the ERP does not know can name any employee, and the app remembers it. Before real use, confirm the answer, for example with a code sent to the employee's email.
-- The simulator lets anyone send as any phone number, so the app serves it only while the Twilio variables are not set.
+- The simulator lets anyone send as any phone number, so the app serves it only while neither Twilio nor Telegram is set up.
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `app.py` | The web app: the Twilio webhook and the simulator. |
+| `app.py` | The web app: the Twilio and Telegram webhooks, and the simulator. |
 | `expenses/conversation.py` | The conversation: what to ask, and when to create the expense. |
 | `expenses/erp.py` | Acumatica and Sage Intacct behind one interface. |
 | `expenses/velixo.py` | Runs the CLI. |
 | `expenses/scan.py` | Finds and straightens the receipt. |
 | `expenses/reader.py` | Reads the receipt through OpenRouter. |
+| `expenses/telegram.py` | The Telegram bot: the shared phone number, photos and replies. |
 | `expenses/sms.py` | Sends replies through Twilio, or to the simulator. |
 | `static/simulator.html` | The simulator page. |
 | `velixo/` | The CLI queries and batches, one folder per ERP. |
