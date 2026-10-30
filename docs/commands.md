@@ -148,7 +148,7 @@ Output for one query:
 }
 ```
 
-A plan of one query, whether a library number or name or a `--plan` file, prints exactly this too, so `jq '.result.data.rows'` reads every single-query run. The plan's note is printed by `query build`, not by the run.
+A plan of one query, whether a library number or name or a `--plan` file, prints this too, so `jq '.result.data.rows'` reads every single-query run. It adds the plan's `note` as a top-level `note` key when the plan has one, so a run from the library keeps the merge keys and sign convention that the build wrote.
 
 Output for a plan of more than one query, one entry per item in the plan's order:
 

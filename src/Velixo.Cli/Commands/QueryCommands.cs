@@ -201,19 +201,12 @@ public static class QueryCommands
                         : ParameterBinder.ForQuery(only.Query!, given, onlyDeclared: true);
                     await QueryPager.PageAsync(
                         services,
-                        (JsonObject)combined["results"]![0]!["result"]!,
+                        QueryOutput.OnlyResult(combined),
                         options.Skip,
                         options.Top,
                         only.Purpose,
                         (skip, token) => PageRunner(skip).RunAsync(only, bound.Send, token),
                         cancellationToken).ConfigureAwait(false);
-                    return ExitCodes.Success;
-                }
-
-                // A plan of one query prints what --query prints for it, so a script reads both the same way.
-                if (read.Items.Count == 1)
-                {
-                    QueryOutput.WriteResult(services.Output, (JsonObject)combined["results"]![0]!["result"]!, options.Skip);
                     return ExitCodes.Success;
                 }
 

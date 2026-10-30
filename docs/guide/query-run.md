@@ -62,7 +62,7 @@ The same question for another customer, period or date range is the same query w
 
 For one query, `result.data` holds `columns`, `rows` and `totalCount`. `rows[i][j]` lines up with `columns[j]`. `totalCount` is the full match count, whatever the window.
 
-A plan of one query prints the same document as `--query`: `{ taskId, status, result: { data } }`. A plan of more than one query prints `{ note, results: [{ purpose, result }] }`, one entry per item in the plan's order. Combine them as the `note` says: merge keys, tie-out, sign convention, top N, entities with no activity shown as zero. When you report a reconciliation, state the total you tied out to and the sign convention you used.
+A plan of one query prints the same document as `--query`: `{ taskId, status, result: { data } }`, with the plan's `note` added as `note` when it has one. A plan of more than one query prints `{ note, results: [{ purpose, result }] }`, one entry per item in the plan's order. Combine them as the `note` says: merge keys, tie-out, sign convention, top N, entities with no activity shown as zero. When you report a reconciliation, state the total you tied out to and the sign convention you used.
 
 - A column with `allowedValues` lists its codes as `{ value, label }`. Use it to name a code: `A` is Active. It is not a whitelist. A row can hold a retired code, a comma-joined pair from a multi-select field, or free text, so never call a value invalid because the list omits it.
 - `truncated: true` and a `warning` mean the ERP matched more rows than the call returned. The CLI repeats the warning on stderr. Never analyse or present those rows as the whole answer. Their absence is what makes a result complete: the last window of a paged walk carries neither.
