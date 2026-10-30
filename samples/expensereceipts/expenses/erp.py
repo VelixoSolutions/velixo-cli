@@ -89,6 +89,10 @@ class Erp:
         """Returns the projects the employee can charge an expense to."""
         return self._cached(f"projects:{employee.id}", lambda: self._read_projects(employee))
 
+    def project_tasks(self, employee: Employee, project_id: str) -> list[Choice]:
+        """Returns the tasks an expense on the project can go to, the default first. Empty when the ERP has none."""
+        return []
+
     def employee_by_phone(self, phone: str) -> Employee | None:
         wanted = normalize_phone(phone)
         matches = [employee for employee in self.employees() if wanted and wanted in employee.phones]
@@ -193,6 +197,12 @@ class Acumatica(Erp):
             if project_id not in projects or row["Default Task"]:
                 projects[project_id] = Choice(project_id, row["Description"] or "", task)
         return list(projects.values())
+
+    def project_tasks(self, employee: Employee, project_id: str) -> list[Choice]:
+        rows = self._cached("all_projects", lambda: self.velixo.query(HERE / "acumatica" / "projects.vql"))
+        tasks = [Choice(row["Task"].strip(), row["Task Description"] or "") for row in rows if row["ID"].strip() == project_id and row["Default Task"]]
+        tasks += [Choice(row["Task"].strip(), row["Task Description"] or "") for row in rows if row["ID"].strip() == project_id and not row["Default Task"]]
+        return tasks
 
     def create_expense(self, expense: Expense) -> CreatedExpense:
         document = self.velixo.run_batch(

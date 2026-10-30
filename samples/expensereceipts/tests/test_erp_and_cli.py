@@ -146,3 +146,23 @@ def test_finds_no_similar_expense_when_the_query_returns_no_rows(cli, tmp_path):
     answer({}, queries={"result": {"data": {"columns": [{"caption": "ID"}], "rows": []}}})
 
     assert Acumatica(velixo).similar_expense(expense(tmp_path).employee, "2026-10-28", "54.22") is None
+
+
+def test_acumatica_lists_a_projects_active_tasks_with_the_default_first(cli, tmp_path):
+    velixo, answer, _ = cli
+    columns = [{"caption": c} for c in ["ID", "Description", "Expires", "Task", "Task Description", "Default Task"]]
+    answer({}, queries={"result": {"data": {"columns": columns, "rows": [
+        ["CSTR-ELEC ", "Building 4", None, "01        ", "General Conditions", False],
+        ["CSTR-ELEC ", "Building 4", None, "16        ", "Electrical", True],
+        ["INTERNAL25", "Internal", None, "01OPS", "Operations", True],
+    ]}}})
+
+    tasks = Acumatica(velixo).project_tasks(expense(tmp_path).employee, "CSTR-ELEC")
+
+    assert [(task.id, task.description) for task in tasks] == [("16", "Electrical"), ("01", "General Conditions")]
+
+
+def test_sage_intacct_has_no_project_tasks(cli, tmp_path):
+    velixo, _, _ = cli
+
+    assert SageIntacct(velixo).project_tasks(expense(tmp_path).employee, "10001") == []

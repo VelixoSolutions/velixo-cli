@@ -35,11 +35,14 @@ class FakeTelegram:
 
     def __init__(self):
         self.sent = []
+        self.calls = []
         self.photo = receipt_photo()
 
     def post(self, url, json, timeout):
-        assert url.endswith("/sendMessage")
-        self.sent.append(json)
+        method = url.rsplit("/", 1)[1]
+        self.calls.append((method, json))
+        if method == "sendMessage":
+            self.sent.append(json)
         return FakeResponse()
 
     def get(self, url, params=None, timeout=None, stream=False):
@@ -53,13 +56,19 @@ def bot(tmp_path):
     telegram = FakeTelegram()
     handled = []
 
-    def handle(phone, text, photos, reply):
+    def handle(phone, text, photos, reply, buttons=None):
         handled.append((phone, text, photos))
-        reply("Created expense receipt 000123.")
+        if text == "ask":
+            buttons("What kind of expense is this?", [("Business dinner and lunch", "MEALS"), ("Other…", "other")])
+        else:
+            reply("Created expense receipt 000123.")
 
     def receive(message):
         TelegramBot("token", tmp_path, session=telegram).receive({"message": {"chat": {"id": CHAT}, "from": {"id": USER}, **message}}, handle)
 
+    receive.tap = lambda data: TelegramBot("token", tmp_path, session=telegram).receive(
+        {"callback_query": {"id": "cb1", "data": data, "from": {"id": USER}, "message": {"message_id": 55, "chat": {"id": CHAT}}}}, handle
+    )
     return receive, telegram, handled
 
 
@@ -112,3 +121,28 @@ def test_remembers_the_number_across_restarts(bot, tmp_path):
     share_phone(receive)
 
     assert json.loads((tmp_path / "telegram-phones.json").read_text()) == {str(CHAT): "+17773452246"}
+
+
+def test_shows_a_questions_choices_as_buttons_under_it(bot):
+    receive, telegram, _ = bot
+    share_phone(receive)
+
+    receive({"text": "ask"})
+
+    assert telegram.sent[-1]["text"] == "What kind of expense is this?"
+    assert telegram.sent[-1]["reply_markup"]["inline_keyboard"] == [
+        [{"text": "Business dinner and lunch", "callback_data": "MEALS"}],
+        [{"text": "Other…", "callback_data": "other"}],
+    ]
+
+
+def test_passes_a_tap_on_as_the_answer_and_takes_the_buttons_away(bot):
+    receive, telegram, handled = bot
+    share_phone(receive)
+
+    receive.tap("MEALS")
+
+    assert handled[-1] == ("+17773452246", "MEALS", [])
+    methods = [method for method, _ in telegram.calls]
+    assert methods[-3:] == ["answerCallbackQuery", "editMessageReplyMarkup", "sendMessage"]
+    assert telegram.calls[-2][1] == {"chat_id": CHAT, "message_id": 55, "reply_markup": {"inline_keyboard": []}}

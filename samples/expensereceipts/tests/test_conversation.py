@@ -35,6 +35,9 @@ class FakeErp(Erp):
     def _read_projects(self, employee):
         return [Choice("INTERNAL25", "Internal projects 2025 - track expenses"), Choice("TMR03", "Marlin Beverage Process Re-architecture")]
 
+    def project_tasks(self, employee, project_id):
+        return {"TMR03": [Choice("01", "Design"), Choice("02", "Build")], "INTERNAL25": [Choice("01OPS", "Operations")]}.get(project_id, [])
+
     def similar_expense(self, employee, expense_date, amount):
         self.similar_asked.append((employee.id, expense_date, amount))
         return self.existing
@@ -76,6 +79,19 @@ def talk(erp, reader, tmp_path):
         return replies[-1]
 
     return send, replies
+
+
+def talk_with_buttons(erp, reader, tmp_path):
+    """Talks as Telegram does: each question comes with its choices, and a tap sends a choice's answer back."""
+    conversation = Conversation(erp, reader, Store(tmp_path), today=lambda: date(2026, 10, 30))
+    said = []
+
+    def send(text="", photo=False):
+        conversation.handle(KNOWN_PHONE, text, [receipt_photo()] if photo else [], lambda reply: said.append((reply, None)),
+                            lambda question, choices: said.append((question, choices)))
+        return said[-1]
+
+    return send, said
 
 
 def test_creates_the_expense_from_a_photo_and_replies_with_its_link(erp, tmp_path):
@@ -296,3 +312,86 @@ def test_asks_again_when_the_answer_is_neither_yes_nor_no(erp, tmp_path):
 
     assert send(KNOWN_PHONE, "maybe") == "Please reply YES to create the expense, or NO to stop."
     assert erp.created == []
+
+
+def test_asks_with_the_readers_three_likeliest_items_when_it_is_unsure(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(expense_item=None, expense_item_candidates=["TRAVEL", "MEALS"]), tmp_path)
+
+    question = send(KNOWN_PHONE, photo=True)
+    assert question == "What kind of expense is this?\n1. Business Travel - Air, Train, Miles\n2. Business dinner and lunch\nOr reply with another item's ID."
+
+    assert send(KNOWN_PHONE, "meals").startswith("Created expense receipt 000123: 54.22 USD, MEALS.")
+
+
+def test_remembers_the_item_chosen_for_a_merchant_and_does_not_ask_again(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(expense_item=None, expense_item_candidates=["MEALS", "TRAVEL"]), tmp_path)
+    send(KNOWN_PHONE, photo=True)
+    send(KNOWN_PHONE, "2")
+
+    assert send(KNOWN_PHONE, photo=True).startswith("Created expense receipt 000123: 54.22 USD, TRAVEL.")
+    assert [expense.expense_item for expense in erp.created] == ["TRAVEL", "TRAVEL"]
+
+
+def test_with_buttons_shows_a_summary_and_creates_on_create(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, FakeReader(), tmp_path)
+
+    question, choices = send(photo=True)
+    assert question == "Lunch at The Corner Bistro — 54.22 USD, Business dinner and lunch, 2026-10-28"
+    assert choices == [("✅ Create", "create"), ("📁 Project…", "project"), ("🏷 Expense item…", "item")]
+    assert erp.created == []
+
+    assert send("create")[0].startswith("Created expense receipt 000123")
+
+
+def test_with_buttons_picks_a_project_then_its_task_before_creating(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, FakeReader(), tmp_path)
+    send("marlin lunch", photo=True)
+
+    question, choices = send("project")
+    assert question == "Which project?"
+    assert choices[0] == ("Marlin Beverage Process Re-architecture", "TMR03"), "the project closest to the note comes first"
+    assert choices[-1] == ("No project", "none")
+
+    question, choices = send("TMR03")
+    assert (question, choices) == ("Which task of TMR03?", [("Design", "01"), ("Build", "02")])
+
+    question, _ = send("02")
+    assert question.endswith("\nProject TMR03, task 02")
+
+    send("create")
+    assert (erp.created[0].project, erp.created[0].project_task) == ("TMR03", "02")
+
+
+def test_with_buttons_takes_a_projects_only_task_without_asking(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, FakeReader(), tmp_path)
+    send(photo=True)
+    send("project")
+
+    question, _ = send("INTERNAL25")
+
+    assert question.endswith("\nProject INTERNAL25, task 01OPS")
+
+
+def test_with_buttons_offers_the_likeliest_items_then_every_item_on_other(erp, tmp_path):
+    send, _ = talk_with_buttons(erp, FakeReader(expense_item=None, expense_item_candidates=["TRAVEL"]), tmp_path)
+
+    question, choices = send(photo=True)
+    assert (question, choices) == ("What kind of expense is this?", [("Business Travel - Air, Train, Miles", "TRAVEL"), ("Other…", "other")])
+
+    question, choices = send("other")
+    assert question == "Which expense item?"
+    assert [value for _, value in choices] == ["MEALS", "TRAVEL"]
+
+    assert send("MEALS")[0].startswith("Lunch at The Corner Bistro — 54.22 USD, Business dinner and lunch")
+
+
+def test_with_buttons_asks_about_a_duplicate_with_buttons(erp, tmp_path):
+    erp.existing = ExistingExpense("000834", "2026-10-28", "54.22", "USD", "Lunch at The Corner Bistro")
+    send, _ = talk_with_buttons(erp, FakeReader(), tmp_path)
+    send(photo=True)
+
+    question, choices = send("create")
+
+    assert question.endswith("Create another one?")
+    assert choices == [("✅ Create anyway", "yes"), ("✖ Cancel", "no")]
+    assert send("yes")[0].startswith("Created expense receipt 000123")

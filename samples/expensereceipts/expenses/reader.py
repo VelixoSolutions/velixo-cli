@@ -6,7 +6,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import requests
 
@@ -25,7 +25,8 @@ shows only a symbol, such as $, return null: a $ alone can be several currencies
 amount in its own currency.
 
 Choose the expense item from the list that fits the purchase. Use the merchant, what was bought and the
-employee's own words. Return null only when no item in the list could reasonably fit.
+employee's own words. When you are not confident which one fits, return null for expense_item and list up to three
+likely items in expense_item_candidates, the most likely first; otherwise return an empty list there.
 
 Choose a project only when the employee's words name one or clearly point to one, by its ID or its description.
 Copy the words they used into project_hint, even when no project in the list matches them. When they say nothing
@@ -34,7 +35,7 @@ about a project, return null for both.
 Write a short description for the expense, under 60 characters, such as "Client dinner at Nobu" or "Taxi to
 airport". Include the employee's notes when they add something the receipt does not show."""
 
-FIELDS = ["merchant", "date", "total", "currency", "expense_item", "project", "project_hint", "description"]
+FIELDS = ["merchant", "date", "total", "currency", "expense_item", "expense_item_candidates", "project", "project_hint", "description"]
 
 
 @dataclass
@@ -47,6 +48,7 @@ class ReceiptReading:
     project: str | None
     project_hint: str | None
     description: str
+    expense_item_candidates: list[str] = field(default_factory=list)
 
 
 class ReceiptNotRead(Exception):
@@ -98,7 +100,10 @@ class ReceiptReader:
             fields = json.loads(content)
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
             raise ReceiptNotRead("The reader returned no receipt.") from error
-        return ReceiptReading(**{name: fields.get(name) for name in FIELDS} | {"description": fields.get("description") or "Expense"})
+        return ReceiptReading(
+            **{name: fields.get(name) for name in FIELDS}
+            | {"description": fields.get("description") or "Expense", "expense_item_candidates": list(dict.fromkeys(fields.get("expense_item_candidates") or []))[:3]}
+        )
 
 
 def _schema(expense_items: list[Choice], projects: list[Choice]) -> dict:
@@ -116,6 +121,7 @@ def _schema(expense_items: list[Choice], projects: list[Choice]) -> dict:
             "total": {"type": ["number", "null"]},
             "currency": {"type": ["string", "null"], "description": "ISO 4217 code, such as USD"},
             "expense_item": one_of([item.id for item in expense_items]),
+            "expense_item_candidates": {"type": "array", "items": {"type": "string", "enum": [item.id for item in expense_items]} if expense_items else {"type": "string"}},
             "project": one_of([project.id for project in projects]),
             "project_hint": nullable_string,
             "description": {"type": "string"},
