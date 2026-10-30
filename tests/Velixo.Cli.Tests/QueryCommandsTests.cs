@@ -193,13 +193,50 @@ public sealed class QueryCommandsTests : IDisposable
     [Fact]
     public async Task A_plan_run_in_a_table_does_not_repeat_the_note()
     {
-        var plan = WriteFile("p.plan.json", """{"queries":[{"purpose":"Balance","query":"FROM X SELECT Y"}],"note":"Join on CustomerID."}""");
-        _mcp.ThenText(Done(QueryResult(1, 1)));
+        var plan = WriteFile("p.plan.json", """{"queries":[{"purpose":"Balance","query":"FROM X SELECT Y"},{"purpose":"Customers","query":"FROM C SELECT D"}],"note":"Join on CustomerID."}""");
+        _mcp.ThenText(Done(QueryResult(1, 1))).ThenText(Done(QueryResult(1, 1)));
 
         var exit = await Run("query", "run", "--plan", plan, "--output", "table");
 
         Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("Balance", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("Customers", _test.Console.StdOut, StringComparison.Ordinal);
         Assert.DoesNotContain("Join on CustomerID.", _test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_plan_of_one_query_in_a_table_or_csv_prints_as_before()
+    {
+        var plan = WriteFile("p.plan.json", """{"queries":[{"purpose":"Balance","query":"FROM X SELECT Y"}],"note":"Join on CustomerID."}""");
+        _mcp.ThenText(Done(QueryResult(1, 1))).ThenText(Done(QueryResult(1, 1)));
+
+        await Run("query", "run", "--plan", plan, "--output", "table");
+        var table = _test.Console.StdOut;
+        _test.Console.OutWriter.GetStringBuilder().Clear();
+        await Run("query", "run", "--plan", plan, "--output", "csv");
+
+        Assert.StartsWith("Balance", table, StringComparison.Ordinal);
+        Assert.DoesNotContain("Join on CustomerID.", table, StringComparison.Ordinal);
+        Assert.DoesNotContain("Balance", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("{", _test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_plan_of_one_query_prints_what_the_same_query_from_a_file_prints()
+    {
+        var plan = WriteFile("p.plan.json", """{"queries":[{"purpose":"Balance","query":"FROM X SELECT Y"}],"note":"Join on CustomerID."}""");
+        var query = WriteFile("p.vql", "FROM X SELECT Y");
+        _mcp.ThenText(Done(QueryResult(2, 2))).ThenText(Done(QueryResult(2, 2)));
+
+        await Run("query", "run", "--plan", plan);
+        JsonObject fromPlan = Output().AsObject();
+        _test.Console.OutWriter.GetStringBuilder().Clear();
+        await Run("query", "run", "--query", query);
+
+        Assert.Equal("Join on CustomerID.", (string?)fromPlan["note"]);
+        fromPlan.Remove("note");
+        Assert.Equal(Output().ToJsonString(), fromPlan.ToJsonString());
+        Assert.Equal(2, (int?)Output()["result"]!["data"]!["totalCount"]);
     }
 
     [Fact]
