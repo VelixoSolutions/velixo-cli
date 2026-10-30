@@ -28,6 +28,12 @@ internal sealed class ScreenBatch
     /// <summary>Gets the build's note on how the record's key gets its value, or null when it gave none.</summary>
     public JsonNode? KeyNumbering { get; init; }
 
+    /// <summary>
+    /// Gets the server's answer to whether the batch writes, the build's <c>writes</c>, or null when the batch
+    /// came from a server that does not give one or was written by hand.
+    /// </summary>
+    public bool? ServerSaysWrites { get; init; }
+
     public static ScreenBatch Read(string path)
     {
         if (!File.Exists(path))
@@ -87,6 +93,7 @@ internal sealed class ScreenBatch
             SplitCommands = Set(body, "splitCommands", source),
             FinishCommands = Set(body, "finishCommands", source),
             KeyNumbering = body["keyNumbering"],
+            ServerSaysWrites = body["writes"] is JsonValue writes && writes.TryGetValue(out bool says) ? says : null,
             Variables = body["variables"] as JsonArray,
         };
     }
@@ -99,14 +106,29 @@ internal sealed class ScreenBatch
     /// <c>commit</c> and a <c>Set</c> on a note still count as writes, because Acumatica saves a note on a
     /// locked record without a Save. A command type the CLI does not know is a write.
     /// </summary>
+    /// <remarks>
+    /// The server decides whether a batch writes and sends the answer with the build, as <see cref="ServerSaysWrites"/>.
+    /// This check stays beside it because a batch file can be edited after its build: <see cref="Writes"/> counts the
+    /// batch as a write when either says so.
+    /// </remarks>
     public static bool OnlyReads(IEnumerable<JsonArray?> sets) =>
         sets.Where(set => set is not null).SelectMany(set => set!).All(IsRead);
+
+    /// <summary>
+    /// Returns whether running <paramref name="sets"/> of this batch can leave a change in the ERP: when the server
+    /// said so, or when <see cref="OnlyReads"/> finds a command that can persist. Without the server's answer, the
+    /// check alone decides.
+    /// </summary>
+    public bool Writes(IEnumerable<JsonArray?> sets) => ServerSaysWrites == true || !OnlyReads(sets);
 
     private static readonly string[] _readTypes = ["Get", "Clear", "Key", "Set", "ListAttachments", "DownloadAttachments"];
 
     private static readonly string[] _noteFields = ["NoteText", "NotePopupText"];
 
-    /// <summary>The same list as <c>ScreenRecordCheck.ReadOnlyActions</c> in the MCP server, which takes it from the Acumatica customization.</summary>
+    /// <summary>
+    /// Mirrors <c>ScreenRecordCheck.ReadOnlyActions</c> in the MCP server, which takes it from the Acumatica
+    /// customization. The server's <c>writes</c> is the answer; this list only keeps an edited batch honest.
+    /// </summary>
     private static readonly string[] _readOnlyActions = ["First", "Previous", "Next", "Last", "Cancel", "PreviousPeriod", "NextPeriod", "Refresh", "RunReport"];
 
     private static bool IsRead(JsonNode? command)

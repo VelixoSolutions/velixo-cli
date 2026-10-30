@@ -258,7 +258,7 @@ Tool: `execute_commands`.
 }
 ```
 
-`commandCount` counts each set once and the detail and sub-detail sets once per row. `rows` is the number of detail rows. A continuation adds `"continuation"`.
+`commandCount` counts each set once and the detail and sub-detail sets once per row. `rows` is the number of detail rows. A continuation adds `"continuation"`. `wouldWrite` is `true` when the build's `writes` says the batch writes, or when the batch holds a command that can save: an action outside the read-only ones, a file upload, a `commit` or a `Set` on a note. A batch from a server that gives no `writes` is judged by its commands alone.
 
 **Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, the record it continues and the number of rows, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. Without a terminal, or with `--non-interactive`, it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. A batch is a read, with no confirmation and no duplicate guard, when it sends only `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, none with `commit: true` and no `Set` on a `NoteText` or `NotePopupText` field: the screen keeps a change only after an action such as Save or Release, or a file upload, and Acumatica saves a note on a locked record without a Save. Every other batch, and every continuation, is a write.
 

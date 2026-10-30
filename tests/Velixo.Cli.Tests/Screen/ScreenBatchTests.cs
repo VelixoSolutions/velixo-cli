@@ -25,6 +25,19 @@ public sealed class ScreenBatchTests
         }
     }
 
+    [Theory]
+    [InlineData("""{"target":"IN202500","writes":false,"commands":[{"type":"Clear"},{"type":"Set","name":"Item.InventoryCD","value":"X"},{"type":"DownloadAttachments","name":"Item"}]}""", false)]
+    [InlineData("""{"target":"IN202500","writes":false,"commands":[{"type":"Set","name":"Item.Descr","value":"edited"},{"type":"Action","name":"Save"}]}""", true)]
+    [InlineData("""{"target":"BC:customers","writes":true,"commands":[{"type":"Key","name":"number","value":"C1"},{"type":"Get","name":"displayName"}]}""", true)]
+    [InlineData("""{"target":"IN202500","commands":[{"type":"Clear"},{"type":"Get","name":"Item.Descr"}]}""", false)]
+    [InlineData("""{"target":"IN202500","commands":[{"type":"Action","name":"Save"}]}""", true)]
+    public void A_batch_writes_when_the_server_says_so_or_a_command_can_save(string json, bool writes)
+    {
+        ScreenBatch batch = ScreenBatch.From(JsonNode.Parse(json), "b.json");
+
+        Assert.Equal(writes, batch.Writes([batch.Commands, batch.LineCommands, batch.SplitCommands, batch.FinishCommands]));
+    }
+
     [Fact]
     public void A_document_without_target_and_commands_is_a_usage_error()
     {

@@ -40,10 +40,10 @@ internal sealed class ScreenRunPlan
     public IReadOnlyList<ScreenAttachment> Attachments { get; private init; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether the call can write: unless <see cref="ScreenBatch.OnlyReads"/> says
-    /// the batch only reads, and a continuation always can, because it adds to a record left open.
+    /// Gets a value indicating whether the call can write: when <see cref="ScreenBatch.Writes"/> says the batch
+    /// writes, and always for a continuation, because it adds to a record left open.
     /// </summary>
-    public bool CanWrite => Continuation is not null || !ScreenBatch.OnlyReads([Header, Line, Split, Finish]);
+    public bool CanWrite => Continuation is not null || Batch.Writes([Header, Line, Split, Finish]);
 
     /// <summary>Gets the number of commands the screen runs: each set once, the detail and sub-detail sets once per row.</summary>
     public int CommandCount =>
