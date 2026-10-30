@@ -145,10 +145,8 @@ public sealed class ImportCommandsTests : IDisposable
     [Fact]
     public async Task A_file_token_imports_a_staged_file_without_staging_it_again()
     {
-        _test.Services.Profiles.SaveStagedFiles("prod", new StagedFilesFile
-        {
-            Files = [new StoredStagedFile { FileToken = "ft_9", FileName = "customers.csv", SizeBytes = 120, ExpiresAt = "2999-01-01T00:00:00Z" }],
-        });
+        _test.Services.Profiles.UpdateStagedFiles("prod", staged =>
+            staged.Files = [new StoredStagedFile { FileToken = "ft_9", FileName = "customers.csv", SizeBytes = 120, ExpiresAt = "2999-01-01T00:00:00Z" }]);
         _mcp.ThenText(Preview(rows: 3, warnings: []));
 
         var exit = await _test.RunAsync([.. _baseArguments, "--file-token", "ft_9", "--validate-only"]);

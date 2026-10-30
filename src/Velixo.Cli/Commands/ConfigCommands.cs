@@ -35,9 +35,7 @@ public static class ConfigCommands
         {
             var key = parse.GetValue(setKey)!;
             var value = parse.GetValue(setValue);
-            CliConfig config = services.Profiles.LoadConfig();
-            Write(config, key, string.IsNullOrEmpty(value) ? null : value);
-            services.Profiles.SaveConfig(config);
+            CliConfig config = services.Profiles.UpdateConfig(config => Write(config, key, string.IsNullOrEmpty(value) ? null : value));
             services.Output.WriteResult(new JsonObject { ["key"] = key, ["value"] = Read(config, key) });
             return ExitCodes.Success;
         });

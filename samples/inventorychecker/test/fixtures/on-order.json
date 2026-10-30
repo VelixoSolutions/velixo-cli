@@ -1,0 +1,47 @@
+{
+  "taskId": "b20549ed055541f2a17c4d6672920ebf",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 1,
+      "columns": [
+        {
+          "objectName": "Line",
+          "fieldName": "OrderNbr",
+          "caption": "Order Nbr.",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Line",
+          "fieldName": "PromisedDate",
+          "caption": "Promised Date",
+          "type": "DateTime",
+          "precision": null
+        },
+        {
+          "objectName": "Line",
+          "fieldName": "=[Line.BaseOrderQty]-[Line.BaseReceivedQty]",
+          "caption": "Quantity Still to Receive (Base)",
+          "type": "Decimal",
+          "precision": 6
+        },
+        {
+          "objectName": "Vendor",
+          "fieldName": "AcctName",
+          "caption": "Vendor Name",
+          "type": "String",
+          "precision": null
+        }
+      ],
+      "rows": [
+        [
+          "PO002768",
+          "2026-10-22T00:00:00",
+          1000.000000,
+          "Goto Vendor Inc"
+        ]
+      ]
+    }
+  }
+}

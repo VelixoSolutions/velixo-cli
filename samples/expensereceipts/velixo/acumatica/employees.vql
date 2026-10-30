@@ -1,0 +1,5 @@
+FROM [PX.Objects.EP.EPEmployee] As Emp
+INNER JOIN [PX.Objects.CR.Contact] As Ct ON Emp.DefContactID = Ct.ContactID
+WHERE Emp.VStatus = 'A'
+ORDER BY Emp.AcctCD ASC
+SELECT Emp.AcctCD AS 'Employee ID', Emp.AcctName AS 'Name', Ct.EMail AS 'Email', Ct.Phone1 AS 'Phone 1', Ct.Phone2 AS 'Phone 2', Ct.Phone3 AS 'Phone 3'

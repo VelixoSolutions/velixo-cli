@@ -82,6 +82,9 @@ Bump `<Version>` in `Directory.Build.props`, date the version's section in `CHAN
 then tag: `git tag -a v0.2.0 -m "Velixo CLI 0.2.0" && git push origin v0.2.0`. The Release workflow
 tests, builds the seven targets with NativeAOT, signs, packages, checksums and publishes them.
 
+The repository's releases must stay public. `install.sh` downloads from GitHub Releases, so when the
+repository is private or internal, the script fails with 404 for everyone outside the organization.
+
 `velixo.exe` is Authenticode-signed with the Velixo EV certificate in Azure Key Vault, with
 AzureSignTool, as Velixo Classic is; `.github/code-signing.json` names the certificate and mirrors
 `build-scripts/code-signing.json` in Velixo-NextGen. The organization secret

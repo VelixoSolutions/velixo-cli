@@ -271,13 +271,11 @@ public sealed class ScreenContinuationTests
 
     private static void Store(ScreenHarness test, long stamp, string session)
     {
-        ProfileState state = test.State;
-        state.LastContinuation = new StoredContinuation
+        test.Profiles.UpdateState("prod", state => state.LastContinuation = new StoredContinuation
         {
             Continuation = JsonNode.Parse($$"""{ {{ScreenHarness.Continuation(stamp)}} }""")!["continuation"]!.DeepClone(),
             SessionId = session,
             ExpiresAt = test.Clock.Now.AddMinutes(2),
-        };
-        test.Profiles.SaveState("prod", state);
+        });
     }
 }

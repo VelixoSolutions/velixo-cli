@@ -14,6 +14,24 @@ public sealed class ConfigPaths(string root)
 
     public string CredentialsFile => Path.Combine(Root, "credentials.json");
 
+    /// <summary>
+    /// The lock a process holds while it refreshes, replaces or deletes the profile's stored tokens:
+    /// <c>token-refresh.&lt;profile&gt;.lock</c>. A sign-in stores one refresh token per profile, so the
+    /// processes that share it are the ones that use the same profile.
+    /// </summary>
+    public string TokenRefreshLockFile(string profile) => Path.Combine(Root, $"token-refresh.{ProfileNames.Validate(profile)}.lock");
+
+    /// <summary>
+    /// The lock a process holds while it refreshes the token it was given in <c>VELIXO_TOKEN</c>:
+    /// <c>token-refresh.env-&lt;hash&gt;.lock</c>, named after the token's hash. The same token can drive
+    /// several profiles, so the processes that share it are not the ones that share a profile.
+    /// </summary>
+    public string EnvironmentTokenRefreshLockFile(string tokenHash) =>
+        Path.Combine(Root, $"token-refresh.env-{tokenHash[..Math.Min(16, tokenHash.Length)]}.lock");
+
+    /// <summary>The lock a process holds while it reads, changes and writes back <paramref name="file"/>.</summary>
+    public static string UpdateLockFile(string file) => file + ".lock";
+
     public string StateDirectory => Path.Combine(Root, "state");
 
     public string StateFile(string profile) => Path.Combine(StateDirectory, ProfileNames.Validate(profile) + ".json");

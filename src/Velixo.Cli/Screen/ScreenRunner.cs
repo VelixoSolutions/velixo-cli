@@ -219,18 +219,18 @@ internal static class ScreenRunner
             return;
         }
 
-        ProfileState state = services.Profiles.LoadState(profile);
-        if (record)
+        services.Profiles.UpdateState(profile, state =>
         {
-            ScreenDuplicateGuard.Record(state, fingerprint!, services.Clock.GetUtcNow());
-        }
+            if (record)
+            {
+                ScreenDuplicateGuard.Record(state, fingerprint!, services.Clock.GetUtcNow());
+            }
 
-        if (endsContinuation)
-        {
-            state.LastContinuation = null;
-        }
-
-        services.Profiles.SaveState(profile, state);
+            if (endsContinuation)
+            {
+                state.LastContinuation = null;
+            }
+        });
     }
 
     /// <summary>
@@ -241,26 +241,26 @@ internal static class ScreenRunner
     private static void AfterSuccess(CliServices services, string profile, string? fingerprint, UnwrappedToolResult result)
     {
         DateTimeOffset now = services.Clock.GetUtcNow();
-        ProfileState state = services.Profiles.LoadState(profile);
-        if (fingerprint is not null)
+        services.Profiles.UpdateState(profile, state =>
         {
-            ScreenDuplicateGuard.Record(state, fingerprint, now);
-        }
-
-        state.LastContinuation = null;
-        if (!result.IsRunning && result.Document["result"] is JsonObject body)
-        {
-            if (body["continuation"] is JsonObject continuation)
+            if (fingerprint is not null)
             {
-                DateTimeOffset expiresAt = ScreenContinuations.Remember(state, continuation, services.Mcp.SessionId, now);
-                body["continuationExpiresAt"] = ScreenContinuations.FormatTime(expiresAt);
+                ScreenDuplicateGuard.Record(state, fingerprint, now);
             }
-            else
-            {
-                body["continuation"] = null;
-            }
-        }
 
-        services.Profiles.SaveState(profile, state);
+            state.LastContinuation = null;
+            if (!result.IsRunning && result.Document["result"] is JsonObject body)
+            {
+                if (body["continuation"] is JsonObject continuation)
+                {
+                    DateTimeOffset expiresAt = ScreenContinuations.Remember(state, continuation, services.Mcp.SessionId, now);
+                    body["continuationExpiresAt"] = ScreenContinuations.FormatTime(expiresAt);
+                }
+                else
+                {
+                    body["continuation"] = null;
+                }
+            }
+        });
     }
 }

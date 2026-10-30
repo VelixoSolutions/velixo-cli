@@ -201,7 +201,7 @@ public static class QueryCommands
                         : ParameterBinder.ForQuery(only.Query!, given, onlyDeclared: true);
                     await QueryPager.PageAsync(
                         services,
-                        (JsonObject)combined["results"]![0]!["result"]!,
+                        QueryOutput.OnlyResult(combined),
                         options.Skip,
                         options.Top,
                         only.Purpose,

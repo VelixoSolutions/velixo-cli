@@ -1,0 +1,107 @@
+{
+  "target": "IN204000",
+  "screenName": "Warehouses",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "site.SiteCD",
+      "value": "{{Warehouse}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "ServiceCommand",
+      "name": "location.NewRow",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "location.LocationCD",
+      "value": "{{LocationID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "location.Descr",
+      "value": "{{Description}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "location.Active",
+      "value": "True",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "location.InclQtyAvail",
+      "value": "False",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "location.LocationCD",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "location.Descr",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "location.Active",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "location.InclQtyAvail",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "Warehouse",
+      "type": "string",
+      "description": "Existing warehouse ID"
+    },
+    {
+      "name": "LocationID",
+      "type": "string",
+      "description": "New warehouse location ID"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "description": "Warehouse location description"
+    }
+  ]
+}

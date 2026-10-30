@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#04060d">
+    <title>Inventory Check</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="idle">
+    <div class="backdrop" aria-hidden="true">
+        <div class="glow glow-a"></div>
+        <div class="glow glow-b"></div>
+        <div class="grid-floor"></div>
+    </div>
+
+    <header class="topbar">
+        <div class="brand">
+            <img class="brand-mark" src="velixo-symbol.svg" alt="" aria-hidden="true">
+            <span class="brand-text">Inventory<b>Check</b></span>
+        </div>
+        <div class="topbar-right">
+            <span class="live"><span class="live-dot"></span>Live from Acumatica</span>
+            <time class="clock" id="clock"></time>
+            <button class="icon-button" id="fullscreen" type="button" aria-label="Full screen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="stage">
+        <!-- Idle and searching -->
+        <section class="screen screen-scan" aria-live="polite">
+            <div class="scanner">
+                <svg class="scanner-rings" viewBox="0 0 200 200" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#22e6ff"/>
+                            <stop offset="1" stop-color="#9b6cff"/>
+                        </linearGradient>
+                    </defs>
+                    <circle class="ring ring-outer" cx="100" cy="100" r="92"/>
+                    <circle class="ring ring-mid" cx="100" cy="100" r="76"/>
+                    <circle class="ring ring-inner" cx="100" cy="100" r="60"/>
+                </svg>
+                <svg class="scanner-code" viewBox="0 0 64 40" aria-hidden="true">
+                    <path d="M4 4v32M9 4v32M12 4v32M18 4v32M22 4v32M25 4v32M31 4v32M36 4v32M38 4v32M44 4v32M49 4v32M52 4v32M57 4v32M60 4v32"/>
+                </svg>
+                <div class="scanner-beam" aria-hidden="true"></div>
+            </div>
+            <h1 class="scan-title" id="scan-title">Scan an item</h1>
+            <p class="scan-subtitle" id="scan-subtitle">Hold the barcode under the scanner</p>
+            <button class="ghost-button" id="type-code" type="button">Type a code instead</button>
+        </section>
+
+        <!-- Result -->
+        <section class="screen screen-result">
+            <div class="holo">
+                <span class="corner tl"></span><span class="corner tr"></span>
+                <span class="corner bl"></span><span class="corner br"></span>
+                <div class="holo-sweep" aria-hidden="true"></div>
+                <img id="item-image" alt="">
+                <div class="holo-empty" id="image-empty">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg>
+                    <span>No image</span>
+                </div>
+            </div>
+
+            <div class="details">
+                <div class="id-chip"><span>ITEM</span><code id="item-id"></code></div>
+                <h2 class="description" id="item-description"></h2>
+
+                <div class="stats">
+                    <div class="stat stat-primary">
+                        <span class="stat-label">On hand</span>
+                        <span class="stat-value"><b id="qty-on-hand"></b><small id="unit-on-hand"></small></span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Available</span>
+                        <span class="stat-value"><b id="qty-available"></b><small id="unit-available"></small></span>
+                    </div>
+                    <div class="stock-pill" id="stock-pill"></div>
+                    <button class="reserve-button" id="reserve-open" type="button" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v10l-8 4-8-4V7l8-4zM8 12h8M12 8v8"/></svg>
+                        Reserve units
+                    </button>
+                </div>
+
+                <div class="warehouses">
+                    <div class="warehouses-head">
+                        <span>By warehouse</span>
+                        <span class="warehouses-columns"><span>On hand</span><span>Available</span></span>
+                    </div>
+                    <ul id="warehouse-list"></ul>
+                </div>
+
+                <div class="incoming" id="incoming">
+                    <div class="incoming-head">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M6.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+                        <span>Next delivery</span>
+                    </div>
+                    <div class="incoming-main">
+                        <div class="incoming-date" id="next-date"></div>
+                        <div class="incoming-when" id="next-when"></div>
+                    </div>
+                    <div class="incoming-meta" id="next-meta"></div>
+                    <ul class="incoming-more" id="more-receipts"></ul>
+                </div>
+            </div>
+
+            <div class="reset-bar" aria-hidden="true"><span id="reset-progress"></span></div>
+        </section>
+
+        <!-- Not found and errors -->
+        <section class="screen screen-message">
+            <div class="message-icon" id="message-icon" aria-hidden="true"></div>
+            <h1 class="message-title" id="message-title"></h1>
+            <p class="message-text" id="message-text"></p>
+        </section>
+    </main>
+
+    <footer class="hint" id="hint">Scan another item at any time</footer>
+
+    <div class="powered-by">
+        <span>Powered by</span>
+        <img src="velixo-logo.svg" alt="Velixo">
+    </div>
+
+    <!-- On-screen keypad for typing a code on a touch screen -->
+    <div class="keypad" id="keypad" hidden>
+        <div class="keypad-panel">
+            <div class="keypad-display"><span id="keypad-value"></span><i class="caret"></i></div>
+            <div class="keypad-keys" id="keypad-keys"></div>
+            <div class="keypad-actions">
+                <button type="button" class="ghost-button" data-action="cancel">Cancel</button>
+                <button type="button" class="primary-button" data-action="search">Search</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff panel: move units to the reserved location with an inventory transfer -->
+    <div class="sheet" id="reserve" hidden>
+        <div class="sheet-panel">
+            <div class="sheet-head">
+                <h2>Reserve <code id="reserve-item"></code></h2>
+                <p id="reserve-subtitle"></p>
+            </div>
+
+            <div class="sheet-body" id="reserve-form">
+                <span class="sheet-label">From location</span>
+                <div class="chips" id="reserve-locations"></div>
+
+                <span class="sheet-label">Quantity</span>
+                <div class="stepper">
+                    <button type="button" data-step="-1" aria-label="One less">−</button>
+                    <output id="reserve-quantity">1</output>
+                    <button type="button" data-step="1" aria-label="One more">+</button>
+                </div>
+            </div>
+
+            <div class="sheet-status" id="reserve-status"></div>
+
+            <!-- Played once the transfer is released -->
+            <div class="celebrate" id="reserve-celebrate" hidden aria-live="polite">
+                <div class="celebrate-track" aria-hidden="true">
+                    <span class="celebrate-from" id="celebrate-from"></span>
+                    <span class="celebrate-path"></span>
+                    <span class="celebrate-crate">
+                        <svg viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7l8-4zM4 7l8 4 8-4M12 11v10"/></svg>
+                    </span>
+                    <span class="celebrate-vault" id="celebrate-to"></span>
+                </div>
+                <div class="celebrate-seal" aria-hidden="true">
+                    <svg viewBox="0 0 120 120">
+                        <circle class="seal-ring" cx="60" cy="60" r="52"/>
+                        <path class="seal-check" d="M38 62l15 15 30-34"/>
+                    </svg>
+                    <div class="burst" id="celebrate-burst"></div>
+                </div>
+                <div class="celebrate-text">
+                    <strong><span id="celebrate-count">0</span> reserved</strong>
+                    <span>Transfer <b id="celebrate-transfer"></b> released</span>
+                </div>
+            </div>
+
+            <div class="sheet-actions">
+                <button type="button" class="ghost-button" id="reserve-cancel">Cancel</button>
+                <button type="button" class="primary-button" id="reserve-confirm"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js" type="module"></script>
+</body>
+</html>

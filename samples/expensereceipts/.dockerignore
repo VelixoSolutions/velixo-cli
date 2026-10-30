@@ -1,0 +1,7 @@
+.state
+.env
+.env.*
+__pycache__
+.venv
+tests
+*.md

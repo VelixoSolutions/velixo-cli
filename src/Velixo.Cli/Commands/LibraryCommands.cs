@@ -57,7 +57,6 @@ internal static partial class LibraryCommands
         ArgumentNullException.ThrowIfNull(document);
 
         var profile = services.Settings.ProfileName;
-        LibraryFile library = services.Profiles.LoadLibrary(profile);
         var entry = new LibraryEntry
         {
             Name = name,
@@ -67,8 +66,7 @@ internal static partial class LibraryCommands
             BuiltAt = services.Clock.GetUtcNow(),
             Document = (JsonObject)document.DeepClone(),
         };
-        LibraryEntry? renamed = library.Add(kind, entry);
-        services.Profiles.SaveLibrary(profile, library);
+        LibraryEntry? renamed = services.Profiles.UpdateLibrary(profile, library => library.Add(kind, entry));
 
         document[NumberKey] = entry.Number;
         if (name is not null)
@@ -125,10 +123,8 @@ internal static partial class LibraryCommands
         command.SetAction(parse =>
         {
             var profile = services.Settings.ProfileName;
-            LibraryFile library = services.Profiles.LoadLibrary(profile);
-            LibraryEntry entry = Resolve(services, kind, library, parse.GetValue(number), "delete");
-            library.Entries(kind).Remove(entry);
-            services.Profiles.SaveLibrary(profile, library);
+            LibraryEntry entry = Resolve(services, kind, services.Profiles.LoadLibrary(profile), parse.GetValue(number), "delete");
+            services.Profiles.UpdateLibrary(profile, library => library.Entries(kind).RemoveAll(kept => kept.Number == entry.Number));
 
             services.Output.WriteResult(new JsonObject { ["deleted"] = entry.Number, ["name"] = entry.Name, ["title"] = entry.Title });
             return ExitCodes.Success;
