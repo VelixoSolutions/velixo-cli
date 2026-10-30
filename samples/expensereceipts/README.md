@@ -8,7 +8,7 @@ The app is a small Python server. Every ERP read and write goes through the Veli
 
 1. **Who:** the phone number is compared, digits only, with every phone of every active employee. When none matches, the app asks for an employee ID or work email and remembers the answer for that number.
 2. **The photo:** OpenCV finds the receipt, by its outline or as the largest light shape on a darker table, straightens it into a portrait image, and turns it into a black and white scan. The scan is what the ERP keeps.
-3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note.
+3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note. When it is not sure of the expense item, it ranks its three likeliest, and the app asks with those. The item an employee chooses for a merchant is remembered, so the next receipt from that merchant gets it without a question.
 4. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
 
 Before it creates the expense, the app looks for one the same employee already has, for the same amount, dated within three days of the receipt (`similar-expenses.vql`). Matching on the amount and a narrow window keeps that a query for a handful of rows. When it finds one, it names that expense and asks: YES creates the new one anyway, NO drops the receipt.
@@ -74,6 +74,14 @@ The same app also works as a Telegram bot, beside the text messages or instead o
    ```
 
 A Telegram message carries no phone number, so the bot's first reply shows a "Share my phone number" button. Telegram sends the number of the user's own account, and the app then finds the employee by it, as for a text message. It remembers the number for that chat in `telegram-phones.json`.
+
+In Telegram, every question comes with buttons, and the expense waits for a tap before it is created. The bot shows a summary, such as "Lunch at The Corner Bistro — 54.22 USD, Business dinner and lunch, 2026-10-28", with three buttons:
+
+- **✅ Create** creates the expense.
+- **📁 Project…** lists the employee's projects, the ones closest to their note first, 8 at a time. On Acumatica, a project with several tasks then lists its tasks, the default first. Sage Intacct has no task on an expense line.
+- **🏷 Expense item…** lists every expense item.
+
+A tap removes the buttons, so an old question cannot be answered twice. Text messages keep the flow above: numbered questions, and no summary.
 
 ## Two demos with Docker
 
