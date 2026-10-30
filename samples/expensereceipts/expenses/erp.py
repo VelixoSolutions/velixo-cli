@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
@@ -48,6 +48,20 @@ class Expense:
 
 
 @dataclass
+class ExistingExpense:
+    """An expense the ERP already holds, as a likely duplicate of a new receipt."""
+
+    id: str
+    date: str
+    amount: str
+    currency: str | None
+    description: str
+
+
+SIMILAR_DAYS = 3
+
+
+@dataclass
 class CreatedExpense:
     id: str
     url: str | None
@@ -58,6 +72,7 @@ class Erp:
 
     name = "ERP"
     expense_noun = "expense"
+    folder = ""
 
     def __init__(self, velixo: Velixo, cache_seconds: int = 900):
         self.velixo = velixo
@@ -86,6 +101,29 @@ class Erp:
             if wanted in {employee.id.strip().lower(), (employee.email or "").lower(), employee.name.lower()}:
                 return employee
         return None
+
+    def similar_expense(self, employee: Employee, expense_date: str, amount: str) -> ExistingExpense | None:
+        """Returns the employee's expense for the same amount dated within three days of `expense_date`, the
+        closest date first, or None. Matching on the amount and a narrow date window is what keeps this a query for
+        a handful of rows rather than a read of every expense."""
+        try:
+            day = date.fromisoformat(expense_date)
+        except ValueError:
+            return None
+        rows = self.velixo.query(
+            HERE / self.folder / "similar-expenses.vql",
+            {
+                "Employee ID": employee.id,
+                "Amount": amount,
+                "From Date": (day - timedelta(days=SIMILAR_DAYS)).isoformat(),
+                "To Date": (day + timedelta(days=SIMILAR_DAYS)).isoformat(),
+            },
+        )
+        found = [
+            ExistingExpense(str(row["ID"]).strip(), str(row["Date"])[:10], f"{float(row['Amount']):.2f}", row["Currency"], row["Description"] or "")
+            for row in rows
+        ]
+        return min(found, key=lambda existing: abs((date.fromisoformat(existing.date) - day).days), default=None)
 
     def create_expense(self, expense: Expense) -> CreatedExpense:
         raise NotImplementedError
@@ -122,6 +160,7 @@ class Acumatica(Erp):
 
     name = "Acumatica"
     expense_noun = "expense receipt"
+    folder = "acumatica"
 
     def __init__(self, velixo: Velixo, settings: AcumaticaSettings | None = None, **kwargs):
         super().__init__(velixo, **kwargs)
@@ -198,6 +237,7 @@ class SageIntacct(Erp):
 
     name = "Sage Intacct"
     expense_noun = "expense report"
+    folder = "sageintacct"
 
     def __init__(self, velixo: Velixo, settings: SageIntacctSettings | None = None, **kwargs):
         super().__init__(velixo, **kwargs)

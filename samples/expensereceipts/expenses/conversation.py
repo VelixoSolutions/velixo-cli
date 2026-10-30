@@ -36,6 +36,7 @@ class Draft:
     reading: dict | None = None
     asking: str | None = None
     options: list[str] = field(default_factory=list)
+    duplicate_checked: bool = False
 
 
 class Store:
@@ -177,6 +178,19 @@ class Conversation:
             self._ask(phone, draft, "project", [project.id for project in candidates], question, reply)
             return
 
+        if not draft.duplicate_checked:
+            draft.duplicate_checked = True
+            existing = self.erp.similar_expense(employee, self._date(reading), f"{reading.total:.2f}")
+            if existing:
+                about = f" ({existing.description})" if existing.description else ""
+                question = (
+                    f"You already have {self.erp.expense_noun} {existing.id} for {existing.amount} "
+                    f"{existing.currency or self.base_currency} on {existing.date}{about}. "
+                    "Create another one? Reply YES to create it, or NO to stop."
+                )
+                self._ask(phone, draft, "duplicate", [], question, reply)
+                return
+
         self._create(phone, draft, reading, reply)
 
     def _answer(self, phone: str, draft: Draft, text: str, reply: Reply) -> None:
@@ -208,6 +222,16 @@ class Conversation:
             reading.expense_item = choice
             draft.reading = asdict(reading)
 
+        elif draft.asking == "duplicate":
+            answer = text.strip().lower()
+            if answer in {"no", "n", "non"}:
+                self.store.save_draft(phone, None)
+                reply("OK, I didn't create it.")
+                return
+            if answer not in {"yes", "y", "oui"}:
+                reply("Please reply YES to create the expense, or NO to stop.")
+                return
+
         elif draft.asking == "project":
             if text.strip().lower() in {"0", "none", "no"}:
                 reading.project_hint = None
@@ -226,7 +250,7 @@ class Conversation:
         created: CreatedExpense = self.erp.create_expense(
             Expense(
                 employee=employee,
-                date=reading.date or self.today().isoformat(),
+                date=self._date(reading),
                 amount=f"{reading.total:.2f}",
                 expense_item=reading.expense_item,
                 description=reading.description,
@@ -240,6 +264,9 @@ class Conversation:
         project = f", project {reading.project}" if reading.project else ""
         link = f"\n{created.url}" if created.url else ""
         reply(f"Created {self.erp.expense_noun} {created.id}: {reading.total:.2f} {self.base_currency}, {reading.expense_item}{project}.{link}")
+
+    def _date(self, reading: ReceiptReading) -> str:
+        return reading.date or self.today().isoformat()
 
     def _employee(self, draft: Draft):
         return next(e for e in self.erp.employees() if e.id == draft.employee_id)

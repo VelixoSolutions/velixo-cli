@@ -122,3 +122,27 @@ def test_reports_a_missing_cli():
     with pytest.raises(VelixoError) as raised:
         Velixo(binary="/nonexistent/velixo").query(Path("x.vql"))
     assert raised.value.code == "CLI_NOT_FOUND"
+
+
+@pytest.mark.parametrize("erp_class, folder", [(Acumatica, "acumatica"), (SageIntacct, "sageintacct")])
+def test_looks_for_a_similar_expense_three_days_around_the_date(cli, tmp_path, erp_class, folder):
+    velixo, answer, calls = cli
+    answer({}, queries={"result": {"data": {
+        "columns": [{"caption": c} for c in ("ID", "Date", "Amount", "Currency", "Description")],
+        "rows": [["000830", "2026-10-25T00:00:00", 54.22, "USD", "Taxi"], ["000834", "2026-10-28T00:00:00", 54.22, "USD", "Lunch"]],
+    }}})
+
+    found = erp_class(velixo).similar_expense(expense(tmp_path).employee, "2026-10-28", "54.22")
+
+    assert (found.id, found.date, found.amount, found.description) == ("000834", "2026-10-28", "54.22", "Lunch"), "the closest date wins"
+    args = calls()[-1]["args"]
+    assert args[3].endswith(f"{folder}/similar-expenses.vql")
+    for param in ["Employee ID=1103", "Amount=54.22", "From Date=2026-10-25", "To Date=2026-10-31"]:
+        assert param in args
+
+
+def test_finds_no_similar_expense_when_the_query_returns_no_rows(cli, tmp_path):
+    velixo, answer, _ = cli
+    answer({}, queries={"result": {"data": {"columns": [{"caption": "ID"}], "rows": []}}})
+
+    assert Acumatica(velixo).similar_expense(expense(tmp_path).employee, "2026-10-28", "54.22") is None

@@ -11,6 +11,8 @@ The app is a small Python server. Every ERP read and write goes through the Veli
 3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note.
 4. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
 
+Before it creates the expense, the app looks for one the same employee already has, for the same amount, dated within three days of the receipt (`similar-expenses.vql`). Matching on the amount and a narrow window keeps that a query for a handful of rows. When it finds one, it names that expense and asks: YES creates the new one anyway, NO drops the receipt.
+
 | | Acumatica | Sage Intacct |
 |---|---|---|
 | What it creates | An expense receipt (Expense Receipts, EP301020) | An employee expense report with one line |
@@ -125,6 +127,6 @@ The queries and batches in `velixo/` were built with `velixo query build` and `v
 | `expenses/telegram.py` | The Telegram bot: the shared phone number, photos and replies. |
 | `expenses/sms.py` | Sends replies through Twilio, or to the simulator. |
 | `static/simulator.html` | The simulator page. |
-| `velixo/` | The CLI queries and batches, one folder per ERP. |
+| `velixo/` | The CLI queries and batches, one folder per ERP, including `similar-expenses.vql`, the duplicate check. |
 | `tests/` | The tests, and the synthetic receipt photo they use. |
 | `Dockerfile.sageintacct`, `Dockerfile.acumatica` | One demo each, with the CLI from `cli.velixo.com`. |

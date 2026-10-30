@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from expenses.conversation import Conversation, Store
-from expenses.erp import Choice, CreatedExpense, Employee, Erp
+from expenses.erp import Choice, CreatedExpense, Employee, Erp, ExistingExpense
 from expenses.reader import ReceiptNotRead, ReceiptReading
 from expenses.velixo import VelixoError
 from tests.receipt_photo import receipt_photo
@@ -20,6 +20,8 @@ class FakeErp(Erp):
         super().__init__(velixo=None)
         self.created = []
         self.failure: VelixoError | None = None
+        self.existing: ExistingExpense | None = None
+        self.similar_asked = []
 
     def _read_employees(self):
         return [
@@ -32,6 +34,10 @@ class FakeErp(Erp):
 
     def _read_projects(self, employee):
         return [Choice("INTERNAL25", "Internal projects 2025 - track expenses"), Choice("TMR03", "Marlin Beverage Process Re-architecture")]
+
+    def similar_expense(self, employee, expense_date, amount):
+        self.similar_asked.append((employee.id, expense_date, amount))
+        return self.existing
 
     def create_expense(self, expense):
         if self.failure:
@@ -238,3 +244,55 @@ def test_answers_even_when_something_unexpected_fails(erp, tmp_path):
     send, _ = talk(erp, reader, tmp_path)
 
     assert "Something went wrong" in send(KNOWN_PHONE, photo=True)
+
+
+def test_checks_for_a_similar_expense_with_the_employee_amount_and_date(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert erp.similar_asked == [("EP00000002", "2026-10-28", "54.22")]
+
+
+def test_asks_before_creating_an_expense_that_looks_like_one_already_there(erp, tmp_path):
+    erp.existing = ExistingExpense("000834", "2026-10-28", "54.22", "USD", "Lunch at The Corner Bistro")
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    assert send(KNOWN_PHONE, photo=True) == (
+        "You already have expense receipt 000834 for 54.22 USD on 2026-10-28 (Lunch at The Corner Bistro). "
+        "Create another one? Reply YES to create it, or NO to stop."
+    )
+    assert erp.created == []
+
+
+@pytest.mark.parametrize("answer", ["YES", "y", "Oui"])
+def test_creates_the_expense_anyway_when_the_employee_says_yes(erp, tmp_path, answer):
+    erp.existing = ExistingExpense("000834", "2026-10-28", "54.22", "USD", "")
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert send(KNOWN_PHONE, answer).startswith("Created expense receipt 000123")
+    assert len(erp.similar_asked) == 1, "asked once, not again after the yes"
+
+
+@pytest.mark.parametrize("answer", ["no", "N", "non"])
+def test_drops_the_receipt_when_the_employee_says_no(erp, tmp_path, answer):
+    erp.existing = ExistingExpense("000834", "2026-10-28", "54.22", "USD", "")
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert send(KNOWN_PHONE, answer) == "OK, I didn't create it."
+    assert erp.created == []
+    assert send(KNOWN_PHONE, "yes").startswith("Send me a photo"), "the receipt is gone"
+
+
+def test_asks_again_when_the_answer_is_neither_yes_nor_no(erp, tmp_path):
+    erp.existing = ExistingExpense("000834", "2026-10-28", "54.22", "USD", "")
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert send(KNOWN_PHONE, "maybe") == "Please reply YES to create the expense, or NO to stop."
+    assert erp.created == []

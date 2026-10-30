@@ -1,0 +1,8 @@
+DECLARE [EmployeeID] TYPE string AS 'Employee ID' REQUIRED
+DECLARE [Amount] TYPE number AS 'Amount' REQUIRED
+DECLARE [FromDate] TYPE date AS 'From Date' REQUIRED
+DECLARE [ToDate] TYPE date AS 'To Date' REQUIRED
+FROM [expenses/employee-expense-line] AS Line
+WHERE Line.employeeExpense.employee.id = [EmployeeID] AND Line.txnAmount = [Amount] AND Line.entryDate BETWEEN [FromDate] AND [ToDate]
+ORDER BY Line.entryDate DESC, Line.employeeExpense.id DESC
+SELECT Line.employeeExpense.id AS 'ID', Line.entryDate AS 'Date', Line.txnAmount AS 'Amount', Line.txnCurrency AS 'Currency', Line.paidFor AS 'Description'
