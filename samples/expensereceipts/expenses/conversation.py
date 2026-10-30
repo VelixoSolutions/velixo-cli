@@ -17,7 +17,7 @@ from typing import Callable
 
 from .erp import Choice, CreatedExpense, Erp, Expense
 from .reader import ReceiptNotRead, ReceiptReader, ReceiptReading
-from .scan import straighten_receipt
+from .scan import black_and_white, straighten_receipt
 from .velixo import VelixoError
 
 Reply = Callable[[str], None]
@@ -31,10 +31,12 @@ class Draft:
 
     receipt_path: str
     notes: str
+    scan_path: str | None = None
     employee_id: str | None = None
     reading: dict | None = None
     asking: str | None = None
     options: list[str] = field(default_factory=list)
+    duplicate_checked: bool = False
 
 
 class Store:
@@ -70,11 +72,15 @@ class Store:
             data["phones"][phone] = employee_id
             self._save(data)
 
-    def save_receipt(self, jpeg: bytes) -> Path:
-        path = self.folder / "receipts" / f"receipt-{uuid.uuid4().hex[:12]}.jpg"
-        path.parent.mkdir(exist_ok=True)
-        path.write_bytes(jpeg)
-        return path
+    def save_receipt(self, receipt: bytes, scan: bytes) -> tuple[Path, Path]:
+        """Saves the straightened photo, which the reader reads, and its black and white scan, which the ERP keeps."""
+        folder = self.folder / "receipts"
+        folder.mkdir(exist_ok=True)
+        name = f"receipt-{uuid.uuid4().hex[:12]}"
+        photo, scanned = folder / f"{name}.jpg", folder / f"{name}.png"
+        photo.write_bytes(receipt)
+        scanned.write_bytes(scan)
+        return photo, scanned
 
     def _load(self) -> dict:
         if not self._file.exists():
@@ -113,10 +119,12 @@ class Conversation:
         if photos:
             try:
                 receipt = straighten_receipt(photos[0])
+                scan = black_and_white(receipt)
             except ValueError:
                 reply("I couldn't open that photo. Please send the receipt as a JPEG or PNG picture.")
                 return
-            draft = Draft(receipt_path=str(self.store.save_receipt(receipt)), notes=text)
+            photo, scanned = self.store.save_receipt(receipt, scan)
+            draft = Draft(receipt_path=str(photo), scan_path=str(scanned), notes=text)
             if len(photos) > 1:
                 reply("I'll take the first photo. Send each receipt in its own message.")
             self._advance(phone, draft, reply)
@@ -170,6 +178,19 @@ class Conversation:
             self._ask(phone, draft, "project", [project.id for project in candidates], question, reply)
             return
 
+        if not draft.duplicate_checked:
+            draft.duplicate_checked = True
+            existing = self.erp.similar_expense(employee, self._date(reading), f"{reading.total:.2f}")
+            if existing:
+                about = f" ({existing.description})" if existing.description else ""
+                question = (
+                    f"You already have {self.erp.expense_noun} {existing.id} for {existing.amount} "
+                    f"{existing.currency or self.base_currency} on {existing.date}{about}. "
+                    "Create another one? Reply YES to create it, or NO to stop."
+                )
+                self._ask(phone, draft, "duplicate", [], question, reply)
+                return
+
         self._create(phone, draft, reading, reply)
 
     def _answer(self, phone: str, draft: Draft, text: str, reply: Reply) -> None:
@@ -201,6 +222,16 @@ class Conversation:
             reading.expense_item = choice
             draft.reading = asdict(reading)
 
+        elif draft.asking == "duplicate":
+            answer = text.strip().lower()
+            if answer in {"no", "n", "non"}:
+                self.store.save_draft(phone, None)
+                reply("OK, I didn't create it.")
+                return
+            if answer not in {"yes", "y", "oui"}:
+                reply("Please reply YES to create the expense, or NO to stop.")
+                return
+
         elif draft.asking == "project":
             if text.strip().lower() in {"0", "none", "no"}:
                 reading.project_hint = None
@@ -219,12 +250,12 @@ class Conversation:
         created: CreatedExpense = self.erp.create_expense(
             Expense(
                 employee=employee,
-                date=reading.date or self.today().isoformat(),
+                date=self._date(reading),
                 amount=f"{reading.total:.2f}",
                 expense_item=reading.expense_item,
                 description=reading.description,
                 project=reading.project,
-                receipt=Path(draft.receipt_path),
+                receipt=Path(draft.scan_path or draft.receipt_path),
                 project_task=next((p.task for p in self.erp.projects(employee) if p.id == reading.project), None),
             )
         )
@@ -233,6 +264,9 @@ class Conversation:
         project = f", project {reading.project}" if reading.project else ""
         link = f"\n{created.url}" if created.url else ""
         reply(f"Created {self.erp.expense_noun} {created.id}: {reading.total:.2f} {self.base_currency}, {reading.expense_item}{project}.{link}")
+
+    def _date(self, reading: ReceiptReading) -> str:
+        return reading.date or self.today().isoformat()
 
     def _employee(self, draft: Draft):
         return next(e for e in self.erp.employees() if e.id == draft.employee_id)

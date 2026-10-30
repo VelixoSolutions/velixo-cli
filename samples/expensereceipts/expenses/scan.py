@@ -1,4 +1,5 @@
-"""Finds the receipt in a photo, straightens it and crops away the table it lies on."""
+"""Finds the receipt in a photo, straightens it and crops away the table it lies on, and turns it into a black and
+white scan."""
 
 from __future__ import annotations
 
@@ -25,6 +26,28 @@ def straighten_receipt(photo: bytes) -> bytes:
     return encoded.tobytes()
 
 
+def black_and_white(receipt: bytes) -> bytes:
+    """Returns the receipt as a black and white PNG, like a scan: dark print on white, with shadows and the
+    paper's tint evened out. Each pixel is compared with its neighbourhood, so a shadow across the paper does
+    not turn the print around it black."""
+    image = cv2.imdecode(np.frombuffer(receipt, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise ValueError("The file is not an image this sample can read.")
+
+    # The outline found is the paper's edge, give or take a few pixels of table, which would print as a dotted frame.
+    height, width = image.shape
+    image = image[height * 2 // 100 : height * 98 // 100, width * 2 // 100 : width * 98 // 100]
+
+    smoothed = cv2.medianBlur(image, 3)
+    block = max(15, (max(image.shape) // 40) | 1)
+    scan = cv2.adaptiveThreshold(smoothed, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block, 12)
+
+    ok, encoded = cv2.imencode(".png", scan)
+    if not ok:
+        raise ValueError("The scan could not be saved as a PNG.")
+    return encoded.tobytes()
+
+
 def _downsize(image: np.ndarray) -> np.ndarray:
     height, width = image.shape[:2]
     scale = MAX_SIDE / max(height, width)
@@ -34,8 +57,29 @@ def _downsize(image: np.ndarray) -> np.ndarray:
 
 
 def _receipt_corners(image: np.ndarray) -> np.ndarray | None:
-    """Returns the four corners of the largest bright, roughly rectangular shape: a receipt is lighter than the
-    table under it."""
+    """Returns the four corners of the receipt: first the largest four-sided outline among the photo's edges, which
+    works on any table; else the largest shape lighter than the table, since a receipt is paper."""
+    corners = _outline_from_edges(image)
+    return corners if corners is not None else _outline_from_brightness(image)
+
+
+def _outline_from_edges(image: np.ndarray) -> np.ndarray | None:
+    gray = cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    edges = cv2.dilate(cv2.Canny(gray, 50, 150), cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    area = image.shape[0] * image.shape[1]
+    for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:5]:
+        # Under a tenth it is a detail, not the receipt. A four-sided outline may nearly fill the photo.
+        if cv2.contourArea(contour) < 0.1 * area:
+            return None
+        outline = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+        if len(outline) == 4 and cv2.contourArea(outline) < 0.98 * area:
+            return outline.reshape(4, 2).astype(np.float32)
+    return None
+
+
+def _outline_from_brightness(image: np.ndarray) -> np.ndarray | None:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)

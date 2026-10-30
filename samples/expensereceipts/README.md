@@ -7,9 +7,11 @@ The app is a small Python server. Every ERP read and write goes through the Veli
 ## What it does with a receipt
 
 1. **Who:** the phone number is compared, digits only, with every phone of every active employee. When none matches, the app asks for an employee ID or work email and remembers the answer for that number.
-2. **The photo:** OpenCV finds the receipt, the largest light shape on the darker table, and straightens it into a portrait image.
-3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency, and chooses the expense item and the project from the ERP's own lists, using the employee's note.
+2. **The photo:** OpenCV finds the receipt, by its outline or as the largest light shape on a darker table, straightens it into a portrait image, and turns it into a black and white scan. The scan is what the ERP keeps.
+3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note.
 4. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
+
+Before it creates the expense, the app looks for one the same employee already has, for the same amount, dated within three days of the receipt (`similar-expenses.vql`). Matching on the amount and a narrow window keeps that a query for a handful of rows. When it finds one, it names that expense and asks: YES creates the new one anyway, NO drops the receipt.
 
 | | Acumatica | Sage Intacct |
 |---|---|---|
@@ -125,6 +127,6 @@ The queries and batches in `velixo/` were built with `velixo query build` and `v
 | `expenses/telegram.py` | The Telegram bot: the shared phone number, photos and replies. |
 | `expenses/sms.py` | Sends replies through Twilio, or to the simulator. |
 | `static/simulator.html` | The simulator page. |
-| `velixo/` | The CLI queries and batches, one folder per ERP. |
+| `velixo/` | The CLI queries and batches, one folder per ERP, including `similar-expenses.vql`, the duplicate check. |
 | `tests/` | The tests, and the synthetic receipt photo they use. |
 | `Dockerfile.sageintacct`, `Dockerfile.acumatica` | One demo each, with the CLI from `cli.velixo.com`. |
