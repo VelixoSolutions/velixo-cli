@@ -203,17 +203,12 @@ async function itemImagePath(inventoryId, imageFile) {
 
     await mkdir(folder, { recursive: true });
 
-    // The batch only reads: it sets the inventory ID to load the item and downloads one attachment, with no Save.
-    // The CLI still counts a batch that sets a field as a write, so it needs --yes, and --force lets the kiosk
-    // read the same item again within the duplicate guard's 10 minutes, for example after the cache was cleared.
     await velixo([
         'command', 'run',
         '--batch', files.imageBatch,
         '--param', `InventoryID=${inventoryId}`,
         '--param', `ImageFile=${imageFile}`,
         '--download-dir', folder,
-        '--yes',
-        '--force',
     ]);
 
     return (await exists(cached)) ? cached : undefined;

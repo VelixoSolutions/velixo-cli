@@ -9,7 +9,7 @@ The checker is a small Node.js server with no dependencies and a web page. The s
 ## What you need
 
 - Node.js 20 or later.
-- The Velixo CLI, signed in: `velixo login`. See the [installation steps](../../README.md#installation). The server runs several CLI commands at the same time, which needs the first CLI release after 0.3.1.
+- The Velixo CLI, signed in: `velixo login`. See the [installation steps](../../README.md#installation). The checker needs the first CLI release after 0.3.1: it runs several CLI commands at the same time, and its image download relies on a batch that only reads running without `--yes`.
 - An Acumatica connection. Check it with `velixo connections list`.
 - A barcode scanner that types the code and presses Enter, as most USB and Bluetooth scanners do. Without one, type the code on a keyboard, or tap **Type a code instead** on a touch screen.
 
@@ -73,7 +73,7 @@ velixo query run --query velixo/warehouses.vql --param "Inventory ID=AACOMPUT01"
 velixo query run --query velixo/on-order.vql --param "Inventory ID=AACOMPUT01"
 velixo command run --batch velixo/item-image.batch.json \
   --param InventoryID=AACOMPUT01 --param ImageFile=AACOMPUT01.jpg \
-  --download-dir images --yes
+  --download-dir images
 ```
 
 ## How reserving works
@@ -135,7 +135,7 @@ Ideas to take it further:
 
 ## Two things to know about the CLI
 
-- **The image batch only reads, but the CLI counts it as a write**: a dry run reports `"wouldWrite": true`. So it needs `--yes`, and the CLI's duplicate guard would refuse the same read within 10 minutes. The server passes `--force` to it, and to the reserve transfer, where reserving the same quantity twice is meant to make two transfers.
+- **A batch that only reads runs like a query.** The image download sets the item's ID and downloads a file, with no save, so it needs no `--yes` and the CLI's duplicate guard leaves it alone. The reserve transfer writes: the server passes `--yes`, and `--force` too, because reserving the same quantity twice is meant to make two transfers.
 - **Run a saved query from its file in an app.** `velixo query run NAME` and `velixo query run --query FILE` print the result in two different shapes. A file also travels with the app.
 
 ## Files

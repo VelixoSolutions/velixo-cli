@@ -57,7 +57,7 @@ These are the developer's requests, in order, each with what Claude Code did wit
 These went back to the CLI as fixes or as proposals:
 
 1. **Parallel commands could end the session.** Fixed: the CLI now renews the token under a lock that other velixo processes wait on, and every change to its own files is made under a lock too.
-2. **A batch that only reads counts as a write.** The image download sets the item's ID and downloads a file, with no save, yet a dry run reports `"wouldWrite": true`. It therefore needs `--yes`, and the duplicate guard refuses the same read within 10 minutes.
+2. **A batch that only reads counted as a write.** The image download sets the item's ID and downloads a file, with no save, yet a dry run reported `"wouldWrite": true`, so it needed `--yes`, and the duplicate guard refused the same read within 10 minutes. Fixed (RD-14742): such a batch now runs as a read.
 3. **Two shapes for one query result.** `query run NAME` wraps the result in `{note, results: [...]}`, while `query run --query FILE` does not.
 4. **The builder's choice of parameter field changes what an unknown value does.** On a selector field, Acumatica fails the whole query for a value it does not know; on the code field, the query returns no rows. Nothing in the guide says which to choose.
 5. **The builder downloads attachments one file type at a time.** "Read the image files attached to" became 11 `DownloadAttachments` commands, one per extension, where one `*` does the job. A `{{Placeholder}}` also works as the pattern, which the guide does not say.

@@ -146,8 +146,8 @@ test('downloads an image once, then serves it from the cache', async () => {
     assert.deepEqual(download.slice(0, 2), ['command', 'run']);
     assert.ok(download.includes('InventoryID=AACOMPUT01'));
     assert.ok(download.includes('ImageFile=AACOMPUT01.jpg'));
-    assert.ok(download.includes('--yes'));
-    assert.ok(download.includes('--force'));
+    assert.ok(!download.includes('--yes'), 'a batch that only reads needs no confirmation');
+    assert.ok(!download.includes('--force'));
 
     const second = await fetch(url);
     assert.equal(second.status, 200);
