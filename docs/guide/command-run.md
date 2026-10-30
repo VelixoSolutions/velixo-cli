@@ -35,7 +35,7 @@ A batch that only reads runs without `--yes` and without the duplicate guard: th
 ## Values: --param, --param-null, --params, --rows
 
 - `--param NAME=VALUE` binds `{{NAME}}`, the token inside the braces. Names are case-sensitive. The value is everything after the first `=`.
-- `--param-null NAME` lets Acumatica set the field by default. It drops every command that writes that placeholder, so the fields that default from it follow (leave the employee unset on an expense claim, and Acumatica fills the claimant and the branch from the employee's record). This is how you say "use the default". The output lists what was dropped in `result.skippedFields`: read those fields back and tell the user what the ERP chose.
+- `--param-null NAME` lets Acumatica set the field by default. It drops every command that writes that placeholder, so the fields that default from it follow (leave the employee unset on an expense claim, and Acumatica fills the claimant and the branch from the employee's record). This is how you say "use the default" for a field the batch writes. When the build itself asked for a value, such as a branch or a project, the user's "use the defaults" goes to `command build --accept-defaults` instead. The output lists what was dropped in `result.skippedFields`: read those fields back and tell the user what the ERP chose.
 - **Null is not blank.** `--param NAME=` writes an empty string over the default and breaks the chain of defaults. Use it only when the user asked to clear the field.
 - **A missing name is not null.** A placeholder you bind with nothing exits 5 with `SCREEN_VARIABLE_MISSING`. Skipping a field must be something you asked for.
 - `--params FILE` reads a JSON object of names and values. `--param` and `--param-null` win over it.

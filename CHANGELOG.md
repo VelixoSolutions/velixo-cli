@@ -7,6 +7,12 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 ### Changed
 
 - A command batch that only reads runs without `--yes` and without the duplicate guard. Opening a record by its key and reading its fields or files is a read: a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, and of the actions that persist nothing (`First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh` and `RunReport`, the list the MCP server uses), with no other action, no file upload, no `commit` and no note. A report run is therefore a read. The CLI follows the build's `writes`, the server's answer, when the batch carries one, and still counts a batch as a write when it holds a command that can save, since a batch file can be edited after its build. On Business Central and Sage Intacct a `Set` or an action counts as a write unless the server says otherwise, and a run that attaches a file or leaves its record open is always a write. Before, only `Get` and `Clear` counted, so a read had to pass `--yes`, and `--force` to read the same record twice within 10 minutes.
+### Added
+
+- `velixo command build --accept-defaults` lets the ERP fill every field the request does not name, as the screen would. It adds "Leave every field this request does not name at its default." to the request, which is how the builder learns that the user accepts the defaults; without it, the builder stops to ask for a branch or a project. A refusal that offers to use the defaults now names the flag in its `nextStep`.
+### Changed
+
+- **Breaking:** `velixo query run` prints the same JSON for a plan of one query, run by its number, its name or `--plan`, as for the same query run with `--query`: `{ taskId, status, result }`, plus the plan's `note` when it has one. It printed `{ note, results: [{ purpose, result }] }` before, so `jq '.result.data.rows'` broke when a script switched from a file to a saved query. A script that read a one-query plan with `jq '.results[0].result'` now reads the document itself: replace `.results[0].result` with `.`. A plan of more than one query still prints `{ note, results }`, and table and CSV output do not change.
 
 ## [0.3.1] - 2026-10-29
 
