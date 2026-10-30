@@ -151,6 +151,20 @@ def test_asks_for_the_amount_in_the_base_currency_for_a_foreign_receipt(erp, tmp
     assert erp.created[0].description.endswith("(48.00 EUR)")
 
 
+def test_claims_the_total_without_asking_when_the_receipt_prints_no_currency_code(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(currency=None), tmp_path)
+
+    assert send(KNOWN_PHONE, photo=True).startswith("Created expense receipt 000123: 54.22 USD")
+
+
+def test_attaches_the_black_and_white_scan(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert erp.created[0].receipt.suffix == ".png"
+
+
 def test_uses_today_when_the_receipt_has_no_readable_date(erp, tmp_path):
     send, _ = talk(erp, FakeReader(date=None), tmp_path)
 

@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from expenses.phones import normalize_phone
-from expenses.scan import straighten_receipt
+from expenses.scan import black_and_white, straighten_receipt
 from tests.receipt_photo import receipt_photo
 
 
@@ -35,6 +35,22 @@ def test_crops_a_tilted_receipt_to_the_paper_and_stands_it_upright():
     assert height > width, "a receipt comes back portrait"
     assert 580 < height < 720 and 360 < width < 480, "the crop is the paper, not the table"
     assert result.mean() > 200, "the table around the receipt is cut away"
+
+
+def test_finds_a_receipt_on_a_light_table_by_its_edges():
+    result = decode(straighten_receipt(receipt_photo(angle_degrees=8, table=(200, 205, 210))))
+    height, width = result.shape[:2]
+
+    assert 580 < height < 720 and 360 < width < 480, "the crop is the paper, not the whole light table"
+
+
+def test_turns_the_receipt_into_a_black_and_white_scan():
+    scan = cv2.imdecode(np.frombuffer(black_and_white(straighten_receipt(receipt_photo())), np.uint8), cv2.IMREAD_UNCHANGED)
+
+    assert scan.ndim == 2, "one channel: no colour"
+    assert set(np.unique(scan)) <= {0, 255}, "only black and white"
+    assert (scan == 255).mean() > 0.8, "mostly white paper"
+    assert (scan == 0).sum() > 500, "the print is kept"
 
 
 def test_turns_a_receipt_photographed_sideways_upright():

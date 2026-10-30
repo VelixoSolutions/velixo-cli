@@ -25,7 +25,7 @@ LINES = [
 ]
 
 
-def receipt_photo(angle_degrees: float = 12) -> bytes:
+def receipt_photo(angle_degrees: float = 12, table: tuple[int, int, int] = (40, 55, 75)) -> bytes:
     paper = Image.new("RGB", (420, 640), "white")
     draw = ImageDraw.Draw(paper)
     font = ImageFont.load_default(size=22)
@@ -33,7 +33,7 @@ def receipt_photo(angle_degrees: float = 12) -> bytes:
         draw.text((24, 30 + index * 44), line, fill="black", font=font)
 
     receipt = cv2.cvtColor(np.array(paper), cv2.COLOR_RGB2BGR)
-    table = np.full((1100, 1100, 3), (40, 55, 75), np.uint8)
+    table = np.full((1100, 1100, 3), table, np.uint8)
 
     height, width = receipt.shape[:2]
     corners = np.float32([[0, 0], [width, 0], [width, height], [0, height]])

@@ -17,7 +17,7 @@ from typing import Callable
 
 from .erp import Choice, CreatedExpense, Erp, Expense
 from .reader import ReceiptNotRead, ReceiptReader, ReceiptReading
-from .scan import straighten_receipt
+from .scan import black_and_white, straighten_receipt
 from .velixo import VelixoError
 
 Reply = Callable[[str], None]
@@ -31,6 +31,7 @@ class Draft:
 
     receipt_path: str
     notes: str
+    scan_path: str | None = None
     employee_id: str | None = None
     reading: dict | None = None
     asking: str | None = None
@@ -70,11 +71,15 @@ class Store:
             data["phones"][phone] = employee_id
             self._save(data)
 
-    def save_receipt(self, jpeg: bytes) -> Path:
-        path = self.folder / "receipts" / f"receipt-{uuid.uuid4().hex[:12]}.jpg"
-        path.parent.mkdir(exist_ok=True)
-        path.write_bytes(jpeg)
-        return path
+    def save_receipt(self, receipt: bytes, scan: bytes) -> tuple[Path, Path]:
+        """Saves the straightened photo, which the reader reads, and its black and white scan, which the ERP keeps."""
+        folder = self.folder / "receipts"
+        folder.mkdir(exist_ok=True)
+        name = f"receipt-{uuid.uuid4().hex[:12]}"
+        photo, scanned = folder / f"{name}.jpg", folder / f"{name}.png"
+        photo.write_bytes(receipt)
+        scanned.write_bytes(scan)
+        return photo, scanned
 
     def _load(self) -> dict:
         if not self._file.exists():
@@ -113,10 +118,12 @@ class Conversation:
         if photos:
             try:
                 receipt = straighten_receipt(photos[0])
+                scan = black_and_white(receipt)
             except ValueError:
                 reply("I couldn't open that photo. Please send the receipt as a JPEG or PNG picture.")
                 return
-            draft = Draft(receipt_path=str(self.store.save_receipt(receipt)), notes=text)
+            photo, scanned = self.store.save_receipt(receipt, scan)
+            draft = Draft(receipt_path=str(photo), scan_path=str(scanned), notes=text)
             if len(photos) > 1:
                 reply("I'll take the first photo. Send each receipt in its own message.")
             self._advance(phone, draft, reply)
@@ -224,7 +231,7 @@ class Conversation:
                 expense_item=reading.expense_item,
                 description=reading.description,
                 project=reading.project,
-                receipt=Path(draft.receipt_path),
+                receipt=Path(draft.scan_path or draft.receipt_path),
                 project_task=next((p.task for p in self.erp.projects(employee) if p.id == reading.project), None),
             )
         )

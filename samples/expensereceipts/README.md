@@ -7,8 +7,8 @@ The app is a small Python server. Every ERP read and write goes through the Veli
 ## What it does with a receipt
 
 1. **Who:** the phone number is compared, digits only, with every phone of every active employee. When none matches, the app asks for an employee ID or work email and remembers the answer for that number.
-2. **The photo:** OpenCV finds the receipt, the largest light shape on the darker table, and straightens it into a portrait image.
-3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency, and chooses the expense item and the project from the ERP's own lists, using the employee's note.
+2. **The photo:** OpenCV finds the receipt, by its outline or as the largest light shape on a darker table, straightens it into a portrait image, and turns it into a black and white scan. The scan is what the ERP keeps.
+3. **Reading:** a vision model, through OpenRouter, reads the merchant, date, total and currency code (a receipt that shows only $ is claimed in the company's currency), and chooses the expense item and the project from the ERP's own lists, using the employee's note.
 4. **Creating:** the CLI runs the ERP's batch with the straightened photo attached, and the reply gives the new expense's number and link.
 
 | | Acumatica | Sage Intacct |

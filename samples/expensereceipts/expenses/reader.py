@@ -20,6 +20,10 @@ INSTRUCTIONS = """You read photos of receipts that employees text to their compa
 Return what the receipt shows: the merchant, the purchase date, the total actually paid (tip included) and its
 currency. Use null for anything you cannot read with confidence; never guess an amount or a date.
 
+Return the currency only as a three-letter code printed on the receipt, such as USD, CAD or EUR. When the receipt
+shows only a symbol, such as $, return null: a $ alone can be several currencies, and the company then claims the
+amount in its own currency.
+
 Choose the expense item from the list that fits the purchase. Use the merchant, what was bought and the
 employee's own words. Return null only when no item in the list could reasonably fit.
 
