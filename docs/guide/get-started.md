@@ -104,6 +104,7 @@ Never retry a write or a notification that failed: it may have gone through. Rea
 | `velixo guide files` | Files you attach or import, `files stage` and `files download` |
 | `velixo guide import` | `import scenarios`, `import run` |
 | `velixo guide notify` | Notifications to the portal, email, Teams or Slack |
+| `velixo guide apps` | Calling the CLI from an app: saved files, JSON answers, error codes, parallel calls |
 | `velixo guide setup` | `guide`, `config`, `tools`, `help`, `version` |
 
 For a server error code no page lists, `velixo tools guidance TOOL` prints the server's own rules for that tool. They are written for other clients: where names or flags differ, this guide is right.

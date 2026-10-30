@@ -133,6 +133,25 @@ For jobs that cannot sign in, set `VELIXO_TOKEN`. It holds a refresh token, whic
 - The server replaces a refresh token every time it is used, and refuses one that was already used: a second job that presents the same token ends the session for both. Give each job its own token, and never run two jobs on one token at once.
 - A refresh token ends with the 30-day session. After that, sign in again.
 
+## Running in a container
+
+Install a pinned version in the image, into a folder on the `PATH`:
+
+```sh
+curl -fsSL https://cli.velixo.com/install.sh | VELIXO_INSTALL_DIR=/usr/local/bin sh -s -- 0.3.1
+```
+
+Put the configuration folder on a volume with `VELIXO_CONFIG_DIR`, so the sign-in survives a restart and a new image. Then sign in once per deployment, from a one-off container on the same volume:
+
+```sh
+docker run -it --rm -e VELIXO_CONFIG_DIR=/data/velixo -v velixo-config:/data/velixo my-app velixo login --no-browser
+docker run -it --rm -e VELIXO_CONFIG_DIR=/data/velixo -v velixo-config:/data/velixo my-app velixo login --complete "<redirected URL>"
+```
+
+Give each deployment its own volume and its own sign-in. The server replaces the refresh token every time it is used, so two deployments that share one sign-in end each other's session. The same holds for `VELIXO_TOKEN`: see its limits under [Sign in](#sign-in).
+
+`velixo guide apps` says how an app calls the CLI.
+
 ## Usage
 
 Run `velixo` with no arguments in a terminal to see the welcome screen: the version, whether you are signed in, and every command, grouped, with a one-line summary. In a pipe, a script or an agent session the same bare `velixo` prints the help text instead. `NO_COLOR` or `--no-color` turns the colours off.
