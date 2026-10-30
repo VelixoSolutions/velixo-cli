@@ -66,6 +66,72 @@ public sealed class GatewayTokenProviderTests
         Assert.Equal(ErrorCodes.NotSignedIn, error.Code);
     }
 
+    [Fact]
+    public async Task A_refresh_another_process_finished_while_this_one_waited_is_reused_not_repeated()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        Assert.False(waiting.IsCompleted);
+
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-rotated", "access-rotated", expiresIn: TimeSpan.FromMinutes(30)));
+        otherProcess.Dispose();
+
+        Assert.Equal("access-rotated", await waiting);
+        Assert.Empty(test.Http.Requests);
+    }
+
+    [Fact]
+    public async Task A_refresh_after_another_process_rotated_the_token_presents_the_rotated_one()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-old", "access-old", expiresIn: TimeSpan.FromSeconds(-5)));
+        test.Http.ThenJson(GatewaySignInTests.TokenAnswer("dev@example.com", "org-42", "refresh-newest"));
+        IDisposable otherProcess = await test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+
+        Task<string> waiting = Provider(test, Settings()).GetAccessTokenAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        test.Services.Tokens.Save("nx-dev", Credentials("refresh-rotated", "access-rotated", expiresIn: TimeSpan.FromSeconds(-5)));
+        otherProcess.Dispose();
+        await waiting;
+
+        Assert.Equal("refresh-rotated", HttpUtility.ParseQueryString(test.Http.Requests.Single().Body!)["refresh_token"]);
+        Assert.Equal("refresh-newest", test.Services.Tokens.Get("nx-dev")!.RefreshToken);
+    }
+
+    [Fact]
+    public async Task The_refresh_lock_admits_one_holder_at_a_time()
+    {
+        using var test = new TestServices();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        TimeSpan promptly = TimeSpan.FromSeconds(5);
+
+        IDisposable first = await test.Services.Tokens.LockForRefreshAsync(cancellationToken).WaitAsync(promptly, cancellationToken);
+        Task<IDisposable> second = test.Services.Tokens.LockForRefreshAsync(cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        Assert.False(second.IsCompleted);
+
+        first.Dispose();
+        (await second.WaitAsync(promptly, cancellationToken)).Dispose();
+    }
+
+    private static StoredCredentials Credentials(string refreshToken, string accessToken, TimeSpan expiresIn) => new()
+    {
+        TokenEndpoint = "https://nx-dev.velixo.com/oauth/token",
+        ClientId = "dcr_test",
+        McpUrl = "https://nx-dev.velixo.com/mcp",
+        AccessToken = accessToken,
+        AccessTokenExpiresAt = DateTimeOffset.UtcNow + expiresIn,
+        RefreshToken = refreshToken,
+        SignedInAt = DateTimeOffset.UtcNow,
+    };
+
     private static ResolvedSettings Settings() => new()
     {
         ProfileName = "nx-dev",

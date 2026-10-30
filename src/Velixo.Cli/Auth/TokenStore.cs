@@ -11,34 +11,35 @@ namespace Velixo.Cli.Auth;
 /// </summary>
 public sealed class TokenStore(ConfigPaths paths) : ITokenStore
 {
+    // A refresh is one HTTP call, which the HTTP client gives up on after 100 seconds.
+    private static readonly TimeSpan _refreshLockWait = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan _updateLockWait = TimeSpan.FromSeconds(30);
+
     public StoredCredentials? Get(string profile) => Load().Profiles.GetValueOrDefault(profile);
 
-    public void Save(string profile, StoredCredentials credentials)
-    {
-        CredentialsFile file = Load();
-        file.Profiles[profile] = credentials;
-        Write(file);
-    }
+    public void Save(string profile, StoredCredentials credentials) =>
+        Update(file => file.Profiles[profile] = credentials);
 
-    public void Delete(string profile)
-    {
-        CredentialsFile file = Load();
-        if (file.Profiles.Remove(profile))
-        {
-            Write(file);
-        }
-    }
+    public void Delete(string profile) => Update(file => file.Profiles.Remove(profile));
 
     public IReadOnlyList<string> ListProfiles() => Load().Profiles.Keys.Order(StringComparer.Ordinal).ToList();
 
     public string? GetClientId(string issuer) => Load().Clients.GetValueOrDefault(issuer)?.ClientId;
 
-    public void SaveClientId(string issuer, string clientId, DateTimeOffset registeredAt)
+    public void SaveClientId(string issuer, string clientId, DateTimeOffset registeredAt) =>
+        Update(file => file.Clients[issuer] = new StoredClient { ClientId = clientId, RegisteredAt = registeredAt });
+
+    /// <summary>Changes the file under its lock, so that two processes saving different profiles both keep theirs.</summary>
+    private void Update(Action<CredentialsFile> change)
     {
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(paths.CredentialsFile), _updateLockWait);
         CredentialsFile file = Load();
-        file.Clients[issuer] = new StoredClient { ClientId = clientId, RegisteredAt = registeredAt };
+        change(file);
         Write(file);
     }
+
+    public Task<IDisposable> LockForRefreshAsync(CancellationToken cancellationToken) =>
+        FileLock.AcquireAsync(paths.TokenRefreshLockFile, _refreshLockWait, cancellationToken);
 
     private CredentialsFile Load()
     {

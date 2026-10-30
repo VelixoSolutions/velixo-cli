@@ -6,6 +6,8 @@ namespace Velixo.Cli.Config;
 
 public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
 {
+    private static readonly TimeSpan _updateLockWait = TimeSpan.FromSeconds(30);
+
     public ConfigPaths Paths { get; } = paths;
 
     public CliConfig LoadConfig()
@@ -38,8 +40,14 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
         }
     }
 
-    public void SaveState(string profile, ProfileState state) =>
+    public void UpdateState(string profile, Action<ProfileState> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StateFile(profile)), _updateLockWait);
+        ProfileState state = LoadState(profile);
+        change(state);
         JsonFile.Write(Paths.StateFile(profile), state, CliJsonContext.Default.ProfileState, ownerOnly: true);
+    }
 
     public StagedFilesFile LoadStagedFiles(string profile)
     {
@@ -53,8 +61,14 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
         }
     }
 
-    public void SaveStagedFiles(string profile, StagedFilesFile staged) =>
+    public void UpdateStagedFiles(string profile, Action<StagedFilesFile> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.StagedFilesFile(profile)), _updateLockWait);
+        StagedFilesFile staged = LoadStagedFiles(profile);
+        change(staged);
         JsonFile.Write(Paths.StagedFilesFile(profile), staged, CliJsonContext.Default.StagedFilesFile, ownerOnly: true);
+    }
 
     public LibraryFile LoadLibrary(string profile)
     {
@@ -73,8 +87,15 @@ public sealed class ProfileStore(ConfigPaths paths) : IProfileStore
         }
     }
 
-    public void SaveLibrary(string profile, LibraryFile library) =>
+    public T UpdateLibrary<T>(string profile, Func<LibraryFile, T> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        using IDisposable fileLock = FileLock.Acquire(ConfigPaths.UpdateLockFile(Paths.LibraryFile(profile)), _updateLockWait);
+        LibraryFile library = LoadLibrary(profile);
+        T result = change(library);
         JsonFile.Write(Paths.LibraryFile(profile), library, CliJsonContext.Default.LibraryFile, ownerOnly: true);
+        return result;
+    }
 
     public void DeleteState(string profile)
     {

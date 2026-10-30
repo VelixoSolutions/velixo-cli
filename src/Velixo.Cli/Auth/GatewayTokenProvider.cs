@@ -27,11 +27,9 @@ public sealed class GatewayTokenProvider(
     {
         StoredCredentials credentials = await LoadAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!string.IsNullOrEmpty(credentials.AccessToken)
-            && credentials.AccessTokenExpiresAt is { } expiresAt
-            && expiresAt - _expiryMargin > clock.GetUtcNow())
+        if (IsCurrent(credentials))
         {
-            return credentials.AccessToken;
+            return credentials.AccessToken!;
         }
 
         return await RefreshAsync(credentials, cancellationToken).ConfigureAwait(false);
@@ -49,6 +47,11 @@ public sealed class GatewayTokenProvider(
         StoredCredentials credentials = await LoadAsync(cancellationToken).ConfigureAwait(false);
         return credentials.RefreshToken ?? throw CliException.NotSignedIn(settings.ProfileName);
     }
+
+    private bool IsCurrent(StoredCredentials credentials) =>
+        !string.IsNullOrEmpty(credentials.AccessToken)
+        && credentials.AccessTokenExpiresAt is { } expiresAt
+        && expiresAt - _expiryMargin > clock.GetUtcNow();
 
     internal static string HashToken(string token) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
@@ -127,6 +130,23 @@ public sealed class GatewayTokenProvider(
 
     private async Task<string> RefreshAsync(StoredCredentials credentials, CancellationToken cancellationToken)
     {
+        using IDisposable refreshLock = await store.LockForRefreshAsync(cancellationToken).ConfigureAwait(false);
+
+        // The gateway rotates the refresh token on every use and ends the session when one is used twice. A
+        // process that refreshed while this one waited has spent the token this one holds, so continue from its.
+        if (store.Get(settings.ProfileName) is { } latest
+            && !string.IsNullOrEmpty(latest.RefreshToken)
+            && latest.RefreshToken != credentials.RefreshToken
+            && latest.EnvironmentTokenHash == credentials.EnvironmentTokenHash)
+        {
+            credentials = latest;
+            if (IsCurrent(latest))
+            {
+                _credentials = latest;
+                return latest.AccessToken!;
+            }
+        }
+
         if (string.IsNullOrEmpty(credentials.TokenEndpoint) || string.IsNullOrEmpty(credentials.ClientId) || string.IsNullOrEmpty(credentials.RefreshToken))
         {
             throw CliException.NotSignedIn(settings.ProfileName);

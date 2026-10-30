@@ -14,6 +14,12 @@ public sealed class ConfigPaths(string root)
 
     public string CredentialsFile => Path.Combine(Root, "credentials.json");
 
+    /// <summary>The lock a process holds while it refreshes a token: <c>token-refresh.lock</c>.</summary>
+    public string TokenRefreshLockFile => Path.Combine(Root, "token-refresh.lock");
+
+    /// <summary>The lock a process holds while it reads, changes and writes back <paramref name="file"/>.</summary>
+    public static string UpdateLockFile(string file) => file + ".lock";
+
     public string StateDirectory => Path.Combine(Root, "state");
 
     public string StateFile(string profile) => Path.Combine(StateDirectory, ProfileNames.Validate(profile) + ".json");

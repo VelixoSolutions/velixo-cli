@@ -90,8 +90,7 @@ public sealed class GatewaySignIn(
             .ConfigureAwait(false);
         DateTimeOffset expiresAt = clock.GetUtcNow().Add(PendingLifetime);
 
-        ProfileState profileState = profiles.LoadState(settings.ProfileName);
-        profileState.PendingLogin = new PendingLogin
+        profiles.UpdateState(settings.ProfileName, profileState => profileState.PendingLogin = new PendingLogin
         {
             Issuer = endpoints.Issuer,
             TokenEndpoint = endpoints.TokenEndpoint,
@@ -103,8 +102,7 @@ public sealed class GatewaySignIn(
             Resource = endpoints.Resource,
             McpUrl = settings.McpUrl.ToString(),
             ExpiresAt = expiresAt,
-        };
-        profiles.SaveState(settings.ProfileName, profileState);
+        });
 
         return new JsonObject
         {
@@ -329,11 +327,12 @@ public sealed class GatewaySignIn(
         profiles.SaveConfig(config);
 
         // The MCP session belonged to whoever was signed in before; the server refuses to hand it to anyone else.
-        ProfileState state = profiles.LoadState(settings.ProfileName);
-        state.PendingLogin = null;
-        state.McpSessionId = null;
-        state.LastContinuation = null;
-        profiles.SaveState(settings.ProfileName, state);
+        profiles.UpdateState(settings.ProfileName, state =>
+        {
+            state.PendingLogin = null;
+            state.McpSessionId = null;
+            state.LastContinuation = null;
+        });
 
         return SignInRecords.Describe(credentials, settings.ProfileName, settings.Target);
     }

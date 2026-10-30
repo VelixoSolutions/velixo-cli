@@ -2,6 +2,12 @@
 
 All notable changes to the Velixo CLI are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Several `velixo` commands can run at the same time on one profile. When the access token expires, one process renews it and the others wait for it and use the new token, instead of each presenting the same refresh token, which made the server end the session. Commands that run at the same time also keep every change to the profile's files: two builds no longer get the same library number, and two profiles signing in at once both keep their tokens.
+
 ## [0.3.1] - 2026-10-29
 
 ### Fixed

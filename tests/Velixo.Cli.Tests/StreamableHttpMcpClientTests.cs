@@ -184,5 +184,9 @@ public sealed class StreamableHttpMcpClientTests : IDisposable
         new(new HttpClient(_http), _endpoint, _tokens, _profiles, Profile, agent, "0.1.0-test");
 
     private void StoreSession(string sessionId) =>
-        _profiles.SaveState(Profile, new ProfileState { McpSessionId = sessionId, McpUrl = _endpoint.ToString() });
+        _profiles.UpdateState(Profile, state =>
+        {
+            state.McpSessionId = sessionId;
+            state.McpUrl = _endpoint.ToString();
+        });
 }
