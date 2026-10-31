@@ -570,7 +570,7 @@ body[data-state='result'] .warehouse-bar { animation: bar-grow 900ms var(--delay
 [data-layout='mobile'] .brand { font-size: 18px; gap: 10px; }
 [data-layout='mobile'] .brand-mark { width: 28px; height: 28px; }
 [data-layout='mobile'] .topbar-right { display: none; }
-[data-layout='mobile'] .home-button { margin-left: 12px; padding: 8px 16px 8px 10px; font-size: 15px; }
+[data-layout='mobile'] .home-button { margin-left: auto; margin-right: 0; padding: 8px 16px 8px 10px; font-size: 15px; }
 [data-layout='mobile'] .hint, [data-layout='mobile'] .reset-bar, [data-layout='mobile'] .grid-floor { display: none; }
 
 [data-layout='mobile'] .powered-by { top: calc(env(safe-area-inset-top) + 14px); bottom: auto; left: auto; right: 16px; transform: none; padding: 6px 10px 6px 12px; gap: 8px; font-size: 9px; }
