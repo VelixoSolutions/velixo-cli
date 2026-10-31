@@ -1,0 +1,7 @@
+.cache
+.env
+.env.*
+node_modules
+test
+docs
+*.md

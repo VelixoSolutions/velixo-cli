@@ -1,0 +1,53 @@
+{
+  "taskId": "ab0ece1534d946adb6dbd9dbc09937f0",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 2,
+      "columns": [
+        {
+          "objectName": "Site",
+          "fieldName": "SiteCD",
+          "caption": "Warehouse",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Site",
+          "fieldName": "Descr",
+          "caption": "Warehouse Name",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Stock",
+          "fieldName": "=SUM([Stock.QtyOnHand])",
+          "caption": "Qty. On Hand",
+          "type": "Decimal",
+          "precision": 2
+        },
+        {
+          "objectName": "Stock",
+          "fieldName": "=SUM([Stock.QtyAvail])",
+          "caption": "Qty. Available",
+          "type": "Decimal",
+          "precision": 2
+        }
+      ],
+      "rows": [
+        [
+          "RETAIL    ",
+          "Retail Warehouse",
+          435.000000,
+          433.000000
+        ],
+        [
+          "WHOLESALE ",
+          "Wholesale Warehouse",
+          208.000000,
+          218.000000
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "taskId": "48d1abd78a414170a00698cab23c6dc8",
+  "status": "done",
+  "result": {
+    "data": {
+      "totalCount": 0,
+      "columns": [
+        {
+          "objectName": "Line",
+          "fieldName": "OrderNbr",
+          "caption": "Order Nbr.",
+          "type": "String",
+          "precision": null
+        },
+        {
+          "objectName": "Line",
+          "fieldName": "PromisedDate",
+          "caption": "Promised Date",
+          "type": "DateTime",
+          "precision": null
+        },
+        {
+          "objectName": "Line",
+          "fieldName": "=[Line.BaseOrderQty]-[Line.BaseReceivedQty]",
+          "caption": "Quantity Still to Receive (Base)",
+          "type": "Decimal",
+          "precision": 6
+        },
+        {
+          "objectName": "Vendor",
+          "fieldName": "AcctName",
+          "caption": "Vendor Name",
+          "type": "String",
+          "precision": null
+        }
+      ],
+      "rows": []
+    }
+  }
+}

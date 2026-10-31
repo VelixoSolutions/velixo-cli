@@ -1,0 +1,7 @@
+{
+    "keyVaultUrl": "https://velixokeyvault.vault.azure.net/",
+    "certificateName": "VelixoEVCert",
+    "tenantId": "13432f41-f5f0-422d-96db-a8c6f7487bf4",
+    "clientId": "c6fc1438-ba1a-43f5-b417-cec7a74802b2",
+    "timestampUrl": "http://timestamp.digicert.com"
+}

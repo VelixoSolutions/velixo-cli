@@ -1,0 +1,6 @@
+DECLARE [EmployeeID] TYPE string AS 'Employee ID' REQUIRED
+FROM [projects/project-resource] AS Resource
+WHERE Resource.employee.id = [EmployeeID] AND Resource.project.status = 'active'
+GROUP BY Resource.project.id, Resource.project.name
+ORDER BY Resource.project.id
+SELECT Resource.project.id AS 'ID', Resource.project.name AS 'Description'
