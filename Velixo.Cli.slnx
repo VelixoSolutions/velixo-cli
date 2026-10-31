@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Velixo.Cli/Velixo.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Velixo.Cli.Tests/Velixo.Cli.Tests.csproj" />
+    <Project Path="tests/Velixo.Cli.IntegrationTests/Velixo.Cli.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

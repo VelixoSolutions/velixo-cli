@@ -1,0 +1,8 @@
+DECLARE [InventoryID] SCHEMA [PX.Objects.IN.InventoryItem].InventoryCD AS 'Inventory ID' REQUIRED
+FROM [PX.Objects.PO.POLine] As Line
+INNER JOIN [PX.Objects.PO.POOrder] As Ord ON Line.OrderType = Ord.OrderType AND Line.OrderNbr = Ord.OrderNbr
+INNER JOIN [PX.Objects.AP.Vendor] As Vendor ON Ord.VendorID = Vendor.BAccountID
+INNER JOIN [PX.Objects.IN.InventoryItem] As Item ON Line.InventoryID = Item.InventoryID
+WHERE Item.InventoryCD = [InventoryID] AND Item.StkItem = 1 AND Ord.Status = 'N' AND Line.Completed = 0 AND Line.Cancelled = 0 AND Line.BaseOrderQty > Line.BaseReceivedQty
+ORDER BY Line.PromisedDate ASC
+SELECT Line.OrderNbr AS 'Order Nbr.', Line.PromisedDate AS 'Promised Date', {=[Line.BaseOrderQty]-[Line.BaseReceivedQty]} SCHEMA [PX.Objects.PO.POLine].BaseOrderQty AS 'Quantity Still to Receive (Base)', Vendor.AcctName AS 'Vendor Name'

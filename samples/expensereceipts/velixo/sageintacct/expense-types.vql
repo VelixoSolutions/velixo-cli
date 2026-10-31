@@ -1,0 +1,4 @@
+FROM [expenses/employee-expense-type] AS ExpenseType
+WHERE ExpenseType.status = 'active'
+ORDER BY ExpenseType.id ASC
+SELECT ExpenseType.id AS 'ID', ExpenseType.description AS 'Description'

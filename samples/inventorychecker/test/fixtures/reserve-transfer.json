@@ -1,0 +1,24 @@
+{
+  "taskId": "fixture",
+  "status": "done",
+  "result": {
+    "feedback": {
+      "savedKey": {
+        "RefNbr": "002934"
+      },
+      "record": {
+        "transfer": {
+          "RefNbr": "002934",
+          "Status": "Released",
+          "TransferType": "1-Step",
+          "TranDate": "2026-10-29",
+          "FinPeriodID": "102026",
+          "SiteID": "RETAIL",
+          "ToSiteID": "RETAIL",
+          "TranDesc": "Inventory checker: reserve 1 AACOMPUT01",
+          "TotalQty": "1"
+        }
+      }
+    }
+  }
+}

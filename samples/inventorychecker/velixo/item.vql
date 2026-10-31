@@ -1,0 +1,6 @@
+DECLARE [InventoryID] SCHEMA [PX.Objects.IN.InventoryItem].InventoryCD AS 'Inventory ID' REQUIRED
+FROM [PX.Objects.IN.InventoryItem] As Item
+LEFT JOIN [PX.Objects.IN.INSiteStatus] As Status ON Item.InventoryID = Status.InventoryID
+WHERE Item.InventoryCD = [InventoryID] AND Item.StkItem = 1
+GROUP BY Item.InventoryCD
+SELECT Item.InventoryCD AS 'Inventory ID', Item.Descr AS 'Description', Item.BaseUnit AS 'Base Unit', Item.ImageUrl AS 'Image URL', {=IsNull(SUM([Status.QtyOnHand]),0)} SCHEMA [PX.Objects.IN.INSiteStatus].QtyOnHand AS 'Qty. On Hand', {=IsNull(SUM([Status.QtyAvail]),0)} SCHEMA [PX.Objects.IN.INSiteStatus].QtyAvail AS 'Qty. Available'

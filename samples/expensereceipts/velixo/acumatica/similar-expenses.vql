@@ -1,0 +1,9 @@
+DECLARE [EmployeeID] SCHEMA [PX.Objects.EP.EPEmployee].AcctCD AS 'Employee ID' REQUIRED
+DECLARE [Amount] SCHEMA [PX.Objects.EP.EPExpenseClaimDetails].CuryExtCost AS 'Amount' REQUIRED
+DECLARE [FromDate] SCHEMA [PX.Objects.EP.EPExpenseClaimDetails].ExpenseDate AS 'From Date' REQUIRED
+DECLARE [ToDate] SCHEMA [PX.Objects.EP.EPExpenseClaimDetails].ExpenseDate AS 'To Date' REQUIRED
+FROM [PX.Objects.EP.EPExpenseClaimDetails] AS Receipt
+INNER JOIN [PX.Objects.EP.EPEmployee] AS Emp ON Receipt.EmployeeID = Emp.BAccountID
+WHERE Emp.AcctCD = [EmployeeID] AND Receipt.CuryExtCost = [Amount] AND Receipt.ExpenseDate BETWEEN [FromDate] AND [ToDate]
+ORDER BY Receipt.ExpenseDate DESC, Receipt.ClaimDetailCD DESC
+SELECT Receipt.ClaimDetailCD AS 'ID', Receipt.ExpenseDate AS 'Date', Receipt.CuryExtCost AS 'Amount', Receipt.CuryID AS 'Currency', Receipt.TranDesc AS 'Description'

@@ -1,0 +1,4 @@
+FROM [PX.Objects.IN.InventoryItem] As Item
+WHERE Item.ItemType = 'E' AND Item.ItemStatus = 'AC'
+ORDER BY Item.InventoryCD ASC
+SELECT Item.InventoryCD AS 'ID', Item.Descr AS 'Description'

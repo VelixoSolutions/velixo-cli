@@ -1,0 +1,5 @@
+FROM [PX.Objects.PM.PMProject] As Project
+INNER JOIN [PX.Objects.PM.PMTask] As Task ON Task.ProjectID = Project.ContractID
+WHERE Project.BaseType = 'P' AND Project.Status = 'A' AND Project.NonProject = 0 AND Task.Status = 'A'
+ORDER BY Project.ContractCD ASC, Task.TaskCD ASC
+SELECT Project.ContractCD AS 'ID', Project.Description AS 'Description', Project.ExpireDate AS 'Expires', Task.TaskCD AS 'Task', Task.Description AS 'Task Description', Task.IsDefault AS 'Default Task'

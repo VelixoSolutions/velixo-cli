@@ -1,0 +1,21 @@
+{
+	admin off
+}
+
+:{$PORT}
+
+# Fly's proxy sends X-Forwarded-Ssl: on while Caddy sets X-Forwarded-Proto: http, and gunicorn answers 400 to
+# scheme headers that disagree. Dropping it here, before any route, covers every app behind Caddy.
+request_header -X-Forwarded-Ssl
+
+handle_path /acumatica/* {
+	reverse_proxy 127.0.0.1:8091
+}
+
+handle_path /sageintacct/* {
+	reverse_proxy 127.0.0.1:8092
+}
+
+handle {
+	reverse_proxy 127.0.0.1:8081
+}
