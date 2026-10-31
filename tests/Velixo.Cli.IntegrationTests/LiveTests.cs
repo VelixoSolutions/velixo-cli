@@ -239,7 +239,7 @@ public sealed class LiveTests
             Assert.Contains(listed.Json!.AsArray(), entry => (string?)entry?["number"]?.ToString() == number);
 
             // By its number: the entry carries the connection it was built on.
-            CliRun run = await LiveCli.RunAsync("command", "run", number, "--param", $"CustomerID={customerId}", "--yes", "--force");
+            CliRun run = await LiveCli.RunAsync("command", "run", number, "--param", $"CustomerID={customerId}", "--yes");
             Assert.True(run.ExitCode == ExitCodes.Success, run.ToString());
             Assert.Contains(customerId!, run.StdOut, StringComparison.Ordinal);
         }

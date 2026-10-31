@@ -12,7 +12,7 @@ namespace Velixo.Cli.Commands;
 
 /// <summary>
 /// <c>velixo command build|run</c>: <c>prepare_commands</c> and <c>execute_commands</c>, with the
-/// confirmation, the duplicate guard and the continuations of the spec, sections 8.4 and 9.
+/// confirmation and the continuations of the spec, sections 8.4 and 9.
 /// </summary>
 public static partial class ScreenCommands
 {
@@ -122,7 +122,6 @@ public static partial class ScreenCommands
         var finish = new Option<bool>("--finish") { Description = "Run the batch's finish commands on the open record." };
         var downloadDir = new Option<string?>("--download-dir") { Description = "Save every report and attachment the batch produced here.", HelpName = "dir" };
         var dryRun = new Option<bool>("--dry-run") { Description = "Send nothing: bind the variables, report what is missing, print the summary." };
-        var force = new Option<bool>("--force") { Description = "Run a batch the duplicate guard would refuse." };
 
         var command = new Command(
             "run",
@@ -144,7 +143,6 @@ public static partial class ScreenCommands
             finish,
             downloadDir,
             dryRun,
-            force,
         };
         command.SetAction((parse, cancellationToken) =>
         {
@@ -187,7 +185,6 @@ public static partial class ScreenCommands
                 Finish = parse.GetValue(finish),
                 DownloadDirectory = parse.GetValue(downloadDir),
                 DryRun = parse.GetValue(dryRun),
-                Force = parse.GetValue(force),
             },
             cancellationToken);
     }

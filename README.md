@@ -278,7 +278,7 @@ velixo command run create-order \
   --intent "Enter the Q4 order for Acme"
 ```
 
-Without a terminal and without `--yes`, the command exits with code 2 and does not run. The key of the saved record, including an ID the ERP assigned, is in `result.feedback.savedKey`. Running the same batch again within 10 minutes writes again, so the CLI refuses it with `DUPLICATE_RUN` unless you add `--force`.
+Without a terminal and without `--yes`, the command exits with code 2 and does not run. The key of the saved record, including an ID the ERP assigned, is in `result.feedback.savedKey`. Running the same batch again writes again: a second record, or the same change twice. After a failure, read the record before you run anything again.
 
 ### Upload a file and attach it
 
@@ -388,7 +388,7 @@ On a non-zero exit in JSON mode, stdout holds one error document:
 |---|---|---|
 | 0 | Success. A truncated query result or a warning is still a success: read `result.data.truncated` and `warnings`. | Continue. |
 | 1 | Unexpected failure: network, HTTP 5xx, a bug. | A read or a build: retry once, then report. A write (`command run`, `import run`, `notify`): never retry, it may have run; read the record, then report. |
-| 2 | Usage error: a bad flag, a confirmation required in non-interactive mode, or a duplicate write without `--force`. | Fix the command line, or ask the user. |
+| 2 | Usage error: a bad flag, or a confirmation required in non-interactive mode. | Fix the command line, or ask the user. |
 | 3 | The builder refused: the plan is an `ERROR:` text that asks for a decision or a value. | Put the question to the user in plain words and build again. |
 | 4 | Not signed in, the session ended, or Velixo denied access (no access to the AI tools, no credits, no account). | Run `velixo login`, or relay the reason. |
 | 5 | The server refused the call, with a code: `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*` or `BC_*`. | Read `error.code`. |
@@ -402,7 +402,6 @@ The codes you meet most often:
 |---|---|---|
 | `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal. Nothing ran. |
 | `CONFIRMATION_DECLINED` | 2 | The answer at the terminal prompt was no. Nothing ran. |
-| `DUPLICATE_RUN` | 2 | The same screen write ran in the last 10 minutes. |
 | `BUILDER_REFUSAL` | 3 | The builder asks a question. `message` holds it verbatim. |
 | `NOT_SIGNED_IN`, `SESSION_ENDED`, `ACCESS_DENIED` | 4 | Sign in again, or relay the reason. |
 | `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*`, `BC_*` | 5 | The server's code, whether the tool refused the call or the task failed with it. |

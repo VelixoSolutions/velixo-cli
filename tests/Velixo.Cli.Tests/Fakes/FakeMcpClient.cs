@@ -23,13 +23,6 @@ internal sealed class FakeMcpClient : IMcpClient
         return this;
     }
 
-    /// <summary>Answers with the text <paramref name="text"/> returns when the call comes, so a test can look at the state then.</summary>
-    public FakeMcpClient ThenText(Func<string> text)
-    {
-        _results.Enqueue(_ => Task.FromResult(McpToolResult.FromText(text())));
-        return this;
-    }
-
     public FakeMcpClient ThenHang()
     {
         _results.Enqueue(async cancellationToken =>

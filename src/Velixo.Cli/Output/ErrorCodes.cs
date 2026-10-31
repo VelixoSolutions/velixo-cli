@@ -10,7 +10,6 @@ public static class ErrorCodes
     public const string Usage = "USAGE";
     public const string ConfirmationRequired = "CONFIRMATION_REQUIRED";
     public const string ConfirmationDeclined = "CONFIRMATION_DECLINED";
-    public const string DuplicateRun = "DUPLICATE_RUN";
     public const string NoContinuation = "NO_CONTINUATION";
     public const string ConfigInvalid = "CONFIG_INVALID";
     public const string CredentialsInvalid = "CREDENTIALS_INVALID";

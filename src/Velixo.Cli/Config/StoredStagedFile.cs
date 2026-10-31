@@ -24,8 +24,7 @@ public sealed class StoredStagedFile
 
 /// <summary>
 /// <c>state/&lt;profile&gt;.staged.json</c>: the files <c>velixo files stage</c> staged on the profile, by
-/// token. It has a file of its own, so staging never rewrites the continuation and the duplicate guard's
-/// fingerprints that a run in parallel saves.
+/// token. It has a file of its own, so staging never rewrites the continuation that a run in parallel saves.
 /// </summary>
 public sealed class StagedFilesFile
 {

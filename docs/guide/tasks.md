@@ -32,7 +32,7 @@ The final output has the shape of the command that started the task: a plan, que
 
 ## Rules
 
-- **A write that timed out, was interrupted or ran with `--no-wait` is still running.** Never run the batch again to "retry" it: follow the task. If you lost the task id, read the record. The duplicate guard counts these runs, so the same batch is refused for 10 minutes.
+- **A write that timed out, was interrupted or ran with `--no-wait` is still running.** Never run the batch again to "retry" it: follow the task. If you lost the task id, read the record. Running it again would write a second time.
 - **Collecting a command run here skips what `velixo command run` does after the result.** It stores no continuation, so never use `--no-wait` with `--leave-open`. It downloads nothing: save the output and run `velixo files download --from FILE`. And an ERP refusal of an action ("The Release button is disabled.") comes back as `TASK_FAILED`: treat it as a refused state, as `velixo guide command run` says, and do not run the batch again.
 - **A finished task is not a finished process.** A screen result can carry `result.processStatus` of `stillRunning`: the task is done, the Acumatica process is not. Read the document's status with a read-only batch.
 - Tell the user a long task is still running, and what the progress line says.

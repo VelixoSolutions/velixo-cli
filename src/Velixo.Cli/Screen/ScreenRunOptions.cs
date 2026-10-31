@@ -35,8 +35,6 @@ internal sealed record ScreenRunOptions
     public string? DownloadDirectory { get; init; }
 
     public bool DryRun { get; init; }
-
-    public bool Force { get; init; }
 }
 
 /// <summary>

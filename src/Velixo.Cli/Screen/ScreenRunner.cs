@@ -80,11 +80,8 @@ internal static class ScreenRunner
             return ExitCodes.Success;
         }
 
-        string? fingerprint = null;
         if (plan.CanWrite)
         {
-            fingerprint = ScreenDuplicateGuard.Fingerprint(plan.Fingerprinted(connection));
-            ScreenDuplicateGuard.Check(state, fingerprint, services.Clock.GetUtcNow(), options.Force);
             Confirmation.Require(
                 services,
                 plan.Summary(connection),
@@ -99,15 +96,6 @@ internal static class ScreenRunner
             : null;
         JsonObject arguments = plan.ToArguments(intent, connection, staged);
 
-        // The check above read the state without the lock, to refuse early; this one holds it, so another
-        // process starting the same write now finds it recorded and is refused.
-        RecentWrite? reserved = null;
-        if (fingerprint is not null)
-        {
-            services.Profiles.UpdateState(profile, current =>
-                reserved = ScreenDuplicateGuard.Reserve(current, fingerprint, services.Clock.GetUtcNow(), options.Force));
-        }
-
         UnwrappedToolResult result;
         try
         {
@@ -117,16 +105,16 @@ internal static class ScreenRunner
         }
         catch (CliException error)
         {
-            AfterFailure(services, profile, reserved, MightHaveRun(error.ExitCode), EndsContinuation(error));
+            AfterFailure(services, profile, EndsContinuation(error));
             throw ScreenErrors.Refine(error);
         }
         catch (OperationCanceledException)
         {
-            AfterFailure(services, profile, reserved, mightHaveRun: true, endsContinuation: true);
+            AfterFailure(services, profile, endsContinuation: true);
             throw;
         }
 
-        AfterSuccess(services, profile, reserved, result);
+        AfterSuccess(services, profile, result);
 
         if (options.DownloadDirectory is { } downloads && result.Document["result"]?["attachments"] is JsonArray files)
         {
@@ -213,55 +201,28 @@ internal static class ScreenRunner
         services.Mcp.SessionId
         ?? (string.Equals(state.McpUrl, services.Settings.McpUrl.ToString(), StringComparison.Ordinal) ? state.McpSessionId : null);
 
-    /// <summary>A call that failed in one of these ways may have written, so the duplicate guard counts it.</summary>
-    private static bool MightHaveRun(int exitCode) =>
-        exitCode is ExitCodes.TaskFailed or ExitCodes.Timeout or ExitCodes.Interrupted or ExitCodes.Failure;
-
     private static bool EndsContinuation(CliException error) =>
         ScreenErrors.EndsContinuation(error) || error.ExitCode is ExitCodes.Timeout or ExitCodes.Interrupted;
 
-    /// <summary>Keeps the reserved write when the call may have written, at the time it ended, and drops it when not.</summary>
-    private static void AfterFailure(CliServices services, string profile, RecentWrite? reserved, bool mightHaveRun, bool endsContinuation)
+    /// <summary>Forgets the record left open when the failure ended it.</summary>
+    private static void AfterFailure(CliServices services, string profile, bool endsContinuation)
     {
-        if (reserved is null && !endsContinuation)
+        if (endsContinuation)
         {
-            return;
+            services.Profiles.UpdateState(profile, state => state.LastContinuation = null);
         }
-
-        services.Profiles.UpdateState(profile, state =>
-        {
-            if (reserved is not null)
-            {
-                ScreenDuplicateGuard.Release(state, reserved);
-                if (mightHaveRun)
-                {
-                    ScreenDuplicateGuard.Record(state, reserved.Fingerprint!, services.Clock.GetUtcNow());
-                }
-            }
-
-            if (endsContinuation)
-            {
-                state.LastContinuation = null;
-            }
-        });
     }
 
     /// <summary>
-    /// Records the write and keeps the record the call left open: a result with a <c>continuation</c>
+    /// Keeps the record the call left open: a result with a <c>continuation</c>
     /// replaces the stored one and gains <c>continuationExpiresAt</c>; any other result clears it, because
     /// every call on the screen session ends the record an earlier call left open.
     /// </summary>
-    private static void AfterSuccess(CliServices services, string profile, RecentWrite? reserved, UnwrappedToolResult result)
+    private static void AfterSuccess(CliServices services, string profile, UnwrappedToolResult result)
     {
         DateTimeOffset now = services.Clock.GetUtcNow();
         services.Profiles.UpdateState(profile, state =>
         {
-            if (reserved is not null)
-            {
-                ScreenDuplicateGuard.Release(state, reserved);
-                ScreenDuplicateGuard.Record(state, reserved.Fingerprint!, now);
-            }
-
             state.LastContinuation = null;
             if (!result.IsRunning && result.Document["result"] is JsonObject body)
             {

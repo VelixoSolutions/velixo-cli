@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Removed
+
+- The duplicate guard of `command run`, its `--force` flag and the `DUPLICATE_RUN` error. The CLI no longer refuses a batch that ran in the last 10 minutes: it kept its fingerprints on one machine and one profile only, so it missed other callers, and it refused real second writes, such as two receipts with the same amount. Running a batch again writes again; read the record first after a failure. A `--force` left on a command line is now an error. Old state files keep a `recentWrites` list, which the CLI ignores.
+
 ## [0.4.1] - 2026-10-30
 
 The first release of the changes below. The 0.4.0 tag exists, but its release was never published: GitHub cancelled its macOS Apple Silicon build.

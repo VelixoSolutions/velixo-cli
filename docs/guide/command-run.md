@@ -28,9 +28,9 @@ velixo command run 2 --yes --intent "Bill ABC Studios for the September retainer
 
 Without a terminal and without `--yes`, a write exits 2 with `CONFIRMATION_REQUIRED` and nothing runs.
 
-A batch that only reads runs without `--yes` and without the duplicate guard: the dry run shows `wouldWrite: false`. The server says whether a batch it built writes, in the build's `writes`, and the CLI follows it. The CLI also checks the commands, because a batch file can be edited after its build, and counts the batch as a write when either says so. A read is a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, and of the actions that persist nothing: `First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh` and `RunReport`. It has no other action such as `Save`, no `UploadAttachment`, no `commit` and no `Set` on a note, so the screen keeps none of it, and a report run is a read. On Business Central and Sage Intacct, which keep no record open, a `Set` or an action is a write unless the build's `writes` says otherwise. A run that attaches a file, leaves its record open or continues one is always a write. Any other batch is a write.
+A batch that only reads runs without `--yes`: the dry run shows `wouldWrite: false`. The server says whether a batch it built writes, in the build's `writes`, and the CLI follows it. The CLI also checks the commands, because a batch file can be edited after its build, and counts the batch as a write when either says so. A read is a batch of `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` and `Set` commands, and of the actions that persist nothing: `First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh` and `RunReport`. It has no other action such as `Save`, no `UploadAttachment`, no `commit` and no `Set` on a note, so the screen keeps none of it, and a report run is a read. On Business Central and Sage Intacct, which keep no record open, a `Set` or an action is a write unless the build's `writes` says otherwise. A run that attaches a file, leaves its record open or continues one is always a write. Any other batch is a write.
 
-**Every run is a new write.** Running the same batch again creates a second invoice, or makes the same change twice. "The same invoice for BCORP" is a second invoice and needs its own yes. The CLI refuses the same batch with the same values within 10 minutes (exit 2, `DUPLICATE_RUN`). After a failure, read the record before you run anything again. Add `--force` only when the user wants it written again.
+**Every run is a new write.** Running the same batch again creates a second invoice, or makes the same change twice. "The same invoice for BCORP" is a second invoice and needs its own yes. The CLI does not stop a second run, so after a failure, read the record before you run anything again, and run it again only when the user wants it written again.
 
 ## Values: --param, --param-null, --params, --rows
 
@@ -90,7 +90,7 @@ A report, or a file read off a record, arrives as a link in `result.attachments`
 
 - Pass `--download-dir DIR` to save each file under its name; the output adds its `path`. Tell the user where it is and which format it has. Or save the output and run `velixo files download --from FILE`.
 - Never summarise or reformat a report in place of delivering it, and never describe a file you only hold a link to.
-- A link expires in about an hour and is bound to this session. Do not repeat it into a later message. Run the batch again rather than send a stale link; within 10 minutes that needs `--force`.
+- A link expires in about an hour and is bound to this session. Do not repeat it into a later message. Run the batch again rather than send a stale link.
 - File reads write nothing. When one falls short, say which way: `ATTACHMENT_NO_MATCHES` with no files on the record means the record has none; with files on it, your filter matched none, so list again without one. A `refused` list names files over 32 MB: tell the user they are on the record in Acumatica. A note that more files were not delivered means the cap of 20 links was reached: never present that as the whole record.
 
 Report failures exit 5:
@@ -115,7 +115,7 @@ Each report error says what happened in the ERP. If the batch wrote, that write 
 
 | Code | Exit | What to do |
 |---|---|---|
-| `ATTACHMENT_RECORD_WRITTEN_FILE_NOT_ATTACHED` | 5 | The record is saved; only the files failed. **Do not run the batch again**: the duplicate guard does not catch this one. Build a batch that only loads that record by its saved key (no new record, no save), and run it with `--attach` for the files the error names. |
+| `ATTACHMENT_RECORD_WRITTEN_FILE_NOT_ATTACHED` | 5 | The record is saved; only the files failed. **Do not run the batch again**: it would create a second record. Build a batch that only loads that record by its saved key (no new record, no save), and run it with `--attach` for the files the error names. |
 | `ATTACHMENT_UPLOAD_FAILED` | 5 | Nothing was saved. The same command is safe to run again. |
 | `ATTACHMENT_TOKEN_INVALID`, `ATTACHMENT_INTEGRITY_MISMATCH` | 5 | The staged file was refused. With `--attach`, run again: it stages a fresh copy. With `--attach-token`, stage the file again with `velixo files stage` and pass the new token. |
 | `ATTACHMENT_TOKEN_ALREADY_USED` | 5 | The file is already on a record. Nothing needs undoing. Read the record; never retry. |

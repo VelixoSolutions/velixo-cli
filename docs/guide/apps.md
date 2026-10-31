@@ -30,7 +30,6 @@ Parse stdout whatever the exit code. A success holds `result`. A failure holds `
 | `NOT_SIGNED_IN`, `SESSION_ENDED`, `ACCESS_DENIED` | 4 | Nothing ran. The machine needs a new sign-in, or the account needs access. Tell an administrator; retrying does not help. |
 | `TASK_FAILED`, `ERP_ACTION_REFUSED` | 6 | The ERP refused the task. `error.message` says why, for example an inactive item. Show it; sending the same values again fails again. |
 | `SCREEN_*` | 5 | The batch and its values do not fit. Fix the app or the batch. |
-| `DUPLICATE_RUN` | 2 | The same write ran in the last 10 minutes. Pass `--force` only when the user really means a second record. |
 | Any other code, exit 1 | 1 | Unexpected: the network, the server. A read may be retried once. |
 | `TIMEOUT` | 124 | The task still runs on the server. |
 

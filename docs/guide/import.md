@@ -73,7 +73,7 @@ Every `IMPORT_*` code names what to change. None of them means the file was bad 
 ## Rules
 
 - Import only a file the user actually handed you.
-- Each `import run` uploads the file again, and a real run spends its own upload. Running the same file twice creates everything twice when the scenario inserts, and reapplies every row when it updates. The CLI has no duplicate guard for imports.
+- Each `import run` uploads the file again, and a real run spends its own upload. Running the same file twice creates everything twice when the scenario inserts, and reapplies every row when it updates.
 - Never run an import again because it is slow, timed out or failed part way. A long import takes minutes. Pass `--no-wait` to get a task ID, and follow it with `velixo task status TASKID --wait`. Relay the progress it prints.
 - Never report an import as done until the report shows it.
 

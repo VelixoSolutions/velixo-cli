@@ -22,9 +22,6 @@ public sealed class ProfileState
     [JsonPropertyName("lastContinuation")]
     public StoredContinuation? LastContinuation { get; set; }
 
-    [JsonPropertyName("recentWrites")]
-    public List<RecentWrite> RecentWrites { get; set; } = [];
-
     [JsonPropertyName("pendingLogin")]
     public PendingLogin? PendingLogin { get; set; }
 }

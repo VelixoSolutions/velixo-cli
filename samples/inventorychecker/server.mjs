@@ -167,8 +167,7 @@ async function warehouseLocations(inventoryId, warehouse) {
 
 /** Moves units of the item to the reserved location with a one-step transfer that the batch saves and releases. */
 async function reserveUnits(inventoryId, { quantity, fromLocation }) {
-    // --force skips the CLI's duplicate guard, which would refuse reserving the same quantity of the same item
-    // again within 10 minutes. The screen disables its button while a transfer runs, so one tap is one transfer.
+    // Every run is a new transfer. The screen disables its button while a transfer runs, so one tap is one transfer.
     const document = await velixo([
         'command', 'run',
         '--batch', files.reserveBatch,
@@ -179,7 +178,6 @@ async function reserveUnits(inventoryId, { quantity, fromLocation }) {
         '--param', `Quantity=${quantity}`,
         '--param', `Description=Inventory checker: reserve ${quantity} ${inventoryId}`,
         '--yes',
-        '--force',
     ], settings.reserveIntent);
 
     const { savedKey, record } = document.result?.feedback ?? {};
@@ -330,8 +328,8 @@ async function handle(request, response) {
                 return sendVelixoError(response, error);
             }
 
-            // A write that failed this way may still have run in the ERP, and the transfer runs with --force, so
-            // the screen must not invite a second tap.
+            // A write that failed this way may still have run in the ERP, and a second run is a second transfer,
+            // so the screen must not invite a second tap.
             console.error(`reserve outcome unknown: ${error.code ?? 'unknown'} ${error.message}`);
             return sendJson(response, 502, {
                 error: error.code ?? 'CLI_FAILED',

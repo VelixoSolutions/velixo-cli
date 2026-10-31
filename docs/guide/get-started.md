@@ -72,7 +72,6 @@ Never retry a write or a notification that failed: it may have gone through. Rea
 | 0 | Success. A truncated result or a warning is still a success. | Read `truncated` and `warnings`, then continue. |
 | 1 | Unexpected failure: network, HTTP 5xx, a bug. | A read or a build: retry once, then report. A write (`command run`, `import run`, `notify`): never retry, it may have run. Read the record, then report. |
 | 2 `CONFIRMATION_REQUIRED` | A write without `--yes`. Nothing ran. | Ask the user. Never add `--yes` without their yes. |
-| 2 `DUPLICATE_RUN` | The same batch ran in the last 10 minutes. | It already ran: read the record. `--force` only when the user wants a second one. |
 | 2 `USAGE` and others | A bad flag or value. | Fix the command line. |
 | 3 | The builder refused and asks for a decision or a value. | Ask the user in plain words, then build again. |
 | 4 | Not signed in, the session ended, or Velixo denied access (no access to the AI tools, no credits, no account). | `velixo login`, or tell the user the reason. |

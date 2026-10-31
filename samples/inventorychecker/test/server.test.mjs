@@ -147,7 +147,6 @@ test('downloads an image once, then serves it from the cache', async () => {
     assert.ok(download.includes('InventoryID=AACOMPUT01'));
     assert.ok(download.includes('ImageFile=AACOMPUT01.jpg'));
     assert.ok(!download.includes('--yes'), 'a batch that only reads needs no confirmation');
-    assert.ok(!download.includes('--force'));
 
     const second = await fetch(url);
     assert.equal(second.status, 200);
@@ -297,7 +296,6 @@ test('reserves units with a transfer from the chosen location to the reserved on
         assert.ok(transfer.includes(param), param);
     }
     assert.ok(transfer.includes('--yes'));
-    assert.ok(transfer.includes('--force'), 'reserving the same units twice is two transfers');
     assert.match(transfer[transfer.indexOf('--intent') + 1], /reserved location/);
 });
 

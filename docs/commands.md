@@ -242,7 +242,6 @@ Tool: `execute_commands`.
 | `--download-dir DIR` | Fetch every report and file in `result.attachments` into `DIR`, under its `fileName`, and add the full `"path"` to each entry. A file already in `DIR` is kept, as with `files download --dir`. |
 | `--dry-run` | Send nothing. Check the batch on your machine and print the summary document (below). Exit 0 when the checks pass. |
 | `--yes` | Confirm the write. |
-| `--force` | Run a batch that the duplicate guard refused. |
 
 **Command sets.** A first call sends the header `commands`, the `lineCommands` and `splitCommands` with your `--rows`, and the `finishCommands`. With `--leave-open` and no `--finish`, it leaves the finish set out, so the record stays open for more rows. `--param` binds the header and the finish set. Each row's `values` bind the detail set, and each sub-detail row's `values` bind the sub-detail set.
 
@@ -275,7 +274,7 @@ Tool: `execute_commands`.
 
 **Confirmation.** Before a batch that can write, the CLI prints a summary on stderr: the connection, the screen, the number of commands, the record it continues and the number of rows, every variable with its value, every attachment and the `keyNumbering` note. On a terminal it then asks `Run this batch? [y/N]`, and any answer other than `y` exits 2 with `CONFIRMATION_DECLINED`. Without a terminal, or with `--non-interactive`, it exits 2 with `error.code: "CONFIRMATION_REQUIRED"` unless `--yes` is present. A run is a read, with no confirmation and no duplicate guard, only when all of these hold. The build's `writes` is `false` or absent; any value other than `false` counts as a write. The run continues no record, does not pass `--leave-open`, and attaches no file. On an Acumatica screen, every command is a `Get`, `Clear`, `Key`, `ListAttachments`, `DownloadAttachments` or `Set`, or an action that persists nothing (`First`, `Previous`, `Next`, `Last`, `Cancel`, `PreviousPeriod`, `NextPeriod`, `Refresh`, `RunReport`), with no `commit` and no `Set` on a note field (`NoteText`, `NotePopupText`, `NoteFiles` or `NoteActivity`): the screen keeps a change only after an action such as Save or Release, and Acumatica saves a note on a locked record without a Save. On a Business Central or Sage Intacct target, which keeps no record open, every command is a `Get`, `Clear`, `Key`, `ListAttachments` or `DownloadAttachments`. Every other run is a write.
 
-**Duplicate guard.** The CLI keeps a SHA-256 fingerprint of the connection, the target, the command sets, the variables, the rows and the continued record for 10 minutes after each write it ran. A write that failed in the ERP, timed out or lost the network counts too, because part of it may have saved. It refuses the same fingerprint with exit 2 and `error.code: "DUPLICATE_RUN"` unless you add `--force`.
+**Every run writes.** The CLI does not remember earlier runs: running the same batch again writes again, even right after a run that failed in the ERP, timed out or lost the network, any of which may have saved part of it. Read the record before running a batch again.
 
 Output:
 
@@ -464,7 +463,6 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 | `USAGE` | 2 | A bad flag or argument, or an input file that is missing or not valid. |
 | `CONFIRMATION_REQUIRED` | 2 | A write without `--yes` and without a terminal to ask on. Nothing ran. |
 | `CONFIRMATION_DECLINED` | 2 | The person answered no at the terminal prompt. Nothing ran. |
-| `DUPLICATE_RUN` | 2 | The same screen write ran within the last 10 minutes. `--force` runs it again. |
 | `NO_CONTINUATION` | 2 | `command run --continue` with no record left open on this profile. |
 | `CONFIG_INVALID` | 2 | `config.json` or `.velixo.json` is not valid JSON. |
 | `BUILDER_REFUSAL` | 3 | A builder answered with an `ERROR:` question. `message` holds the question verbatim. |

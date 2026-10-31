@@ -31,22 +31,6 @@ public sealed class ParallelInvocationTests
     }
 
     [Fact]
-    public async Task State_changes_made_at_the_same_time_are_all_kept()
-    {
-        using var folder = new TempDirectory();
-        var paths = new ConfigPaths(folder.Path);
-
-        await Parallel.ForEachAsync(Enumerable.Range(0, Invocations), TestContext.Current.CancellationToken, (index, _) =>
-        {
-            new ProfileStore(paths).UpdateState("prod", state =>
-                state.RecentWrites.Add(new RecentWrite { Fingerprint = $"write {index}", ExecutedAt = DateTimeOffset.UtcNow }));
-            return ValueTask.CompletedTask;
-        });
-
-        Assert.Equal(Invocations, new ProfileStore(paths).LoadState("prod").RecentWrites.Count);
-    }
-
-    [Fact]
     public async Task Profiles_configured_at_the_same_time_are_all_kept()
     {
         using var folder = new TempDirectory();

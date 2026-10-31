@@ -170,7 +170,7 @@ Ideas to take it further:
 
 ## Two things to know about the CLI
 
-- **A batch that only reads runs like a query.** The image download sets the item's ID and downloads a file, with no save, so it needs no `--yes` and the CLI's duplicate guard leaves it alone. The reserve transfer writes: the server passes `--yes`, and `--force` too, because reserving the same quantity twice is meant to make two transfers.
+- **A batch that only reads runs like a query.** The image download sets the item's ID and downloads a file, with no save, so it needs no `--yes`. The reserve transfer writes, so the server passes `--yes`; reserving the same quantity twice makes two transfers.
 - **Run a saved query from its file in an app.** `velixo query run NAME` and `velixo query run --query FILE` print the result in two different shapes. A file also travels with the app.
 
 ## Files
