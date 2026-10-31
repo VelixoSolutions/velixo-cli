@@ -4,15 +4,15 @@ hands each message to the same conversation as a text message."""
 from __future__ import annotations
 
 import json
-import os
 import threading
 from pathlib import Path
 from typing import Callable
 
 import requests
 
+from .files import download_photo, write_json
+
 API = "https://api.telegram.org"
-MAX_PHOTO_BYTES = 10 * 1024 * 1024
 SHARE_BUTTON = "Share my phone number"
 
 Handle = Callable[..., None]
@@ -91,12 +91,7 @@ class TelegramBot:
         found = self.session.get(f"{API}/bot{self.token}/getFile", params={"file_id": file_id}, timeout=30)
         found.raise_for_status()
         path = found.json()["result"]["file_path"]
-        with self.session.get(f"{API}/file/bot{self.token}/{path}", timeout=60, stream=True) as response:
-            response.raise_for_status()
-            photo = response.raw.read(MAX_PHOTO_BYTES + 1, decode_content=True)
-        if len(photo) > MAX_PHOTO_BYTES:
-            raise ValueError("The photo is larger than 10 MB.")
-        return photo
+        return download_photo(self.session.get, f"{API}/file/bot{self.token}/{path}")
 
     def _phone(self, chat: int) -> str | None:
         with self._lock:
@@ -106,9 +101,7 @@ class TelegramBot:
         with self._lock:
             phones = self._load()
             phones[str(chat)] = phone if phone.startswith("+") else f"+{phone}"
-            temporary = self._phones_file.with_suffix(".tmp")
-            temporary.write_text(json.dumps(phones, indent=2))
-            os.replace(temporary, self._phones_file)
+            write_json(self._phones_file, phones)
 
     def _load(self) -> dict:
         return json.loads(self._phones_file.read_text()) if self._phones_file.exists() else {}

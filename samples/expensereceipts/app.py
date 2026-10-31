@@ -6,6 +6,7 @@ Run it with `python app.py`. POST /sms is the Twilio webhook; / is a simulator p
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import threading
 from pathlib import Path
@@ -15,13 +16,13 @@ from flask import Flask, Response, abort, jsonify, request, send_from_directory
 
 from expenses.conversation import Conversation, Store
 from expenses.erp import Acumatica, AcumaticaSettings, SageIntacct, SageIntacctSettings
+from expenses.files import MAX_PHOTO_BYTES, download_photo
 from expenses.reader import ReceiptReader
 from expenses.sms import SimulatorOutbox, TwilioSender
 from expenses.telegram import TelegramBot
 from expenses.velixo import Velixo
 
 HERE = Path(__file__).resolve().parent
-MAX_PHOTO_BYTES = 10 * 1024 * 1024
 
 
 def create_app() -> Flask:
@@ -47,7 +48,13 @@ def create_app() -> Flask:
     def in_background(phone: str, text: str, photos, send) -> None:
         """Handles the message on its own thread; `photos` returns the photo bytes, so downloads happen there too."""
         def handle():
-            conversation.handle(phone, text, photos(), lambda reply: send(phone, reply))
+            try:
+                downloaded = photos()
+            except (requests.RequestException, ValueError):
+                logging.exception("Could not download a photo")
+                send(phone, "I couldn't download that photo. Please send it again, under 10 MB.")
+                return
+            conversation.handle(phone, text, downloaded, lambda reply: send(phone, reply))
 
         threading.Thread(target=handle, daemon=True).start()
 
@@ -120,12 +127,7 @@ def _check_twilio_signature(auth_token: str) -> None:
 
 def _download(url: str, twilio: TwilioSender) -> bytes:
     """Twilio serves a message's photos only to the account that received it."""
-    with requests.get(url, auth=(twilio.account_sid, twilio.auth_token), timeout=60, stream=True) as response:
-        response.raise_for_status()
-        photo = response.raw.read(MAX_PHOTO_BYTES + 1, decode_content=True)
-    if len(photo) > MAX_PHOTO_BYTES:
-        raise ValueError("The photo is larger than 10 MB.")
-    return photo
+    return download_photo(requests.get, url, auth=(twilio.account_sid, twilio.auth_token))
 
 
 if __name__ == "__main__":
