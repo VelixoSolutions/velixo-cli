@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Commands;
 using Velixo.Cli.Mcp;
@@ -215,8 +216,24 @@ internal sealed class ScreenRunPlan
         return arguments;
     }
 
-    /// <summary>Returns what the duplicate guard fingerprints: the connection, the target, the sets, the values, the rows and the record continued.</summary>
-    public JsonObject Fingerprinted(string? connection) => Describe(connection, intent: null);
+    /// <summary>
+    /// Returns what the duplicate guard fingerprints: the connection, the target, the sets, the values, the rows,
+    /// the record continued, and each attachment's content and comment, so another file is another write.
+    /// </summary>
+    public JsonObject Fingerprinted(string? connection)
+    {
+        JsonObject call = Describe(connection, intent: null);
+        if (Attachments.Count > 0)
+        {
+            call["attachments"] = new JsonArray(Attachments.Select(file => (JsonNode)new JsonObject
+            {
+                ["content"] = file.FileToken ?? ContentHash(file.Path),
+                ["comment"] = file.Comment,
+            }).ToArray());
+        }
+
+        return call;
+    }
 
     public JsonObject DryRunDocument(string? connection)
     {
@@ -355,6 +372,12 @@ internal sealed class ScreenRunPlan
         Add(arguments, "finishCommands", Finish);
         Add(arguments, "continuation", Continuation?.Continuation);
         return arguments;
+    }
+
+    private static string ContentHash(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        return Convert.ToHexStringLower(SHA256.HashData(stream));
     }
 
     private static void Add(JsonObject arguments, string name, JsonNode? value)

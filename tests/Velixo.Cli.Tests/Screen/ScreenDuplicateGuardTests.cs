@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Config;
 using Velixo.Cli.Output;
@@ -52,6 +53,47 @@ public sealed class ScreenDuplicateGuardTests
 
         Assert.Equal(ExitCodes.Success, exit);
         Assert.Equal(2, test.Mcp.Calls.Count);
+    }
+
+    [Fact]
+    public async Task The_write_is_recorded_before_the_call_so_the_same_write_started_meanwhile_is_refused()
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
+        int? recordedDuringTheCall = null;
+        test.Mcp.ThenText(() =>
+        {
+            recordedDuringTheCall = test.State.RecentWrites.Count;
+            return ScreenHarness.Done();
+        });
+
+        Assert.Equal(ExitCodes.Success, await Run(test, batch));
+
+        Assert.Equal(1, recordedDuringTheCall);
+        RecentWrite write = Assert.Single(test.State.RecentWrites);
+        Assert.Equal(test.Clock.Now, write.ExecutedAt);
+    }
+
+    [Fact]
+    public async Task Another_attachment_is_another_write()
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
+        var first = test.Write("first.jpg", "first receipt");
+        var second = test.Write("second.jpg", "second receipt");
+        var again = test.Write("again.jpg", "first receipt");
+        test.Mcp
+            .ThenText("""{"fileToken":"ft_1","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/1"}""").ThenText(ScreenHarness.Done())
+            .ThenText("""{"fileToken":"ft_2","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/2"}""").ThenText(ScreenHarness.Done());
+        test.Http.ThenStatus(HttpStatusCode.OK).ThenStatus(HttpStatusCode.OK);
+
+        Assert.Equal(ExitCodes.Success, await Run(test, batch, "--attach", first));
+        test.Console.OutWriter.GetStringBuilder().Clear();
+        Assert.Equal(ExitCodes.Success, await Run(test, batch, "--attach", second));
+        test.Console.OutWriter.GetStringBuilder().Clear();
+
+        Assert.Equal(ExitCodes.Usage, await Run(test, batch, "--attach", again));
+        Assert.Equal(ErrorCodes.DuplicateRun, (string?)test.Error["code"]);
     }
 
     [Fact]

@@ -54,12 +54,34 @@ internal static class ScreenDuplicateGuard
     }
 
     /// <summary>Records a write that ran, and drops the ones older than the window.</summary>
-    public static void Record(ProfileState state, string fingerprint, DateTimeOffset now)
+    public static RecentWrite Record(ProfileState state, string fingerprint, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         state.RecentWrites.RemoveAll(write => now - write.ExecutedAt >= Window);
-        state.RecentWrites.Add(new RecentWrite { Fingerprint = fingerprint, ExecutedAt = now });
+        var write = new RecentWrite { Fingerprint = fingerprint, ExecutedAt = now };
+        state.RecentWrites.Add(write);
+        return write;
+    }
+
+    /// <summary>
+    /// Checks and records the write in one step, so that of two identical writes started at once, only the
+    /// first gets through. Call it inside <see cref="IProfileStore.UpdateState"/>, which holds the lock.
+    /// </summary>
+    /// <exception cref="CliException">As <see cref="Check"/>.</exception>
+    public static RecentWrite Reserve(ProfileState state, string fingerprint, DateTimeOffset now, bool force)
+    {
+        Check(state, fingerprint, now, force);
+        return Record(state, fingerprint, now);
+    }
+
+    /// <summary>Removes the write <see cref="Reserve"/> recorded, and only that one.</summary>
+    public static void Release(ProfileState state, RecentWrite reserved)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(reserved);
+
+        state.RecentWrites.RemoveAll(write => write.Fingerprint == reserved.Fingerprint && write.ExecutedAt == reserved.ExecutedAt);
     }
 
     private static void WriteCanonical(JsonNode? node, StringBuilder text)

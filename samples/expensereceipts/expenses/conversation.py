@@ -6,9 +6,9 @@ from __future__ import annotations
 import difflib
 import json
 import logging
-import os
 import re
 import threading
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable
 
 from .erp import Choice, CreatedExpense, Erp, Expense
+from .files import write_json
 from .reader import ReceiptNotRead, ReceiptReader, ReceiptReading
 from .scan import black_and_white, straighten_receipt
 from .velixo import VelixoError
@@ -26,6 +27,7 @@ Buttons = Callable[[str, list[tuple[str, str]]], None]
 
 MAX_OPTIONS = 9
 PAGE = 8
+KEEP_RECEIPT_SECONDS = 7 * 24 * 3600
 
 
 @dataclass
@@ -105,9 +107,11 @@ class Store:
             self._save(data)
 
     def save_receipt(self, receipt: bytes, scan: bytes) -> tuple[Path, Path]:
-        """Saves the straightened photo, which the reader reads, and its black and white scan, which the ERP keeps."""
+        """Saves the straightened photo, which the reader reads, and its black and white scan, which the ERP keeps.
+        Receipts older than a week go, unless a waiting draft still needs them."""
         folder = self.folder / "receipts"
         folder.mkdir(exist_ok=True)
+        self._remove_old_receipts(folder)
         name = f"receipt-{uuid.uuid4().hex[:12]}"
         photo, scanned = folder / f"{name}.jpg", folder / f"{name}.png"
         photo.write_bytes(receipt)
@@ -120,9 +124,16 @@ class Store:
         return json.loads(self._file.read_text())
 
     def _save(self, data: dict) -> None:
-        temporary = self._file.with_suffix(".tmp")
-        temporary.write_text(json.dumps(data, indent=2))
-        os.replace(temporary, self._file)
+        write_json(self._file, data)
+
+    def _remove_old_receipts(self, folder: Path) -> None:
+        with self._lock:
+            drafts = self._load()["drafts"].values()
+            waiting = {Path(path) for draft in drafts for path in (draft.get("receipt_path"), draft.get("scan_path")) if path}
+            cutoff = time.time() - KEEP_RECEIPT_SECONDS
+            for file in folder.iterdir():
+                if file not in waiting and file.stat().st_mtime < cutoff:
+                    file.unlink(missing_ok=True)
 
 
 class Conversation:
@@ -474,6 +485,8 @@ def _merchant_key(merchant: str) -> str:
 def _pick(text: str, options: list[str], choices: list[Choice]) -> str | None:
     """Reads an answer to a numbered question: the number, or the ID or description of one of the choices."""
     answer = text.strip()
+    if not answer:
+        return None
     if answer.isdigit() and 1 <= int(answer) <= len(options):
         return options[int(answer) - 1]
     lowered = answer.lower()
@@ -505,9 +518,14 @@ def _share(base: float, percent: float) -> float:
 
 
 def _amount(text: str) -> float | None:
-    """Reads an amount such as 42.50, 42,50 or 1,234.50; commas before three digits separate thousands."""
-    match = re.search(r"\d+(?:[.,]\d{1,2})?(?!\d)", re.sub(r",(?=\d{3}(?!\d))", "", text))
-    amount = float(match.group().replace(",", ".")) if match else None
+    """Reads an amount such as 42.50, 42,50, 1,234.50, 1.234,50 or 1 234,50. A comma, period or space before
+    three digits separates thousands; a comma or period before one or two digits starts the cents."""
+    match = re.search(r"\d{1,3}(?:[ .,]\d{3})+(?:[.,]\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)", text)
+    if not match:
+        return None
+    number = match.group()
+    whole, cents = re.fullmatch(r"(.*?)(?:[.,](\d{1,2}))?", number).groups()
+    amount = float(re.sub(r"[ .,]", "", whole) + (f".{cents}" if cents else ""))
     return amount if amount else None
 
 

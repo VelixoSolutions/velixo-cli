@@ -19,9 +19,13 @@ class TwilioSender:
         Client(self.account_sid, self.auth_token).messages.create(to=phone, from_=self.from_number, body=text)
 
 
+KEEP_MESSAGES = 50
+
+
 @dataclass
 class SimulatorOutbox:
-    """Keeps every message of every simulated phone, for the simulator page to show."""
+    """Keeps the last KEEP_MESSAGES messages of each simulated phone, for the simulator page to show. Each photo
+    is kept as a data URL, so keeping every message would grow without limit."""
 
     messages: dict[str, list[dict]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -38,4 +42,6 @@ class SimulatorOutbox:
 
     def _add(self, phone: str, message: dict) -> None:
         with self._lock:
-            self.messages.setdefault(phone, []).append({**message, "at": datetime.now().strftime("%H:%M")})
+            messages = self.messages.setdefault(phone, [])
+            messages.append({**message, "at": datetime.now().strftime("%H:%M")})
+            del messages[:-KEEP_MESSAGES]

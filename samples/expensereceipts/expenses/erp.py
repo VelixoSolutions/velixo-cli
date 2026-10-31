@@ -101,6 +101,8 @@ class Erp:
     def employee_by_answer(self, answer: str) -> Employee | None:
         """Finds the employee a reply names by ID, email or full name, ignoring case."""
         wanted = answer.strip().lower()
+        if not wanted:
+            return None
         for employee in self.employees():
             if wanted in {employee.id.strip().lower(), (employee.email or "").lower(), employee.name.lower()}:
                 return employee

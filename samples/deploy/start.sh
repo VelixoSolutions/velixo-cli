@@ -33,6 +33,7 @@ expenses sageintacct 8092 SAGEINTACCT "${SAGEINTACCT_CONNECTION:-skyline}"
 
 caddy run --config /app/deploy/Caddyfile --adapter caddyfile &
 
-wait -n
+# Under set -e, a sample's failing status would end the script here, before it says why.
+wait -n || true
 echo "A sample stopped; exiting so Fly restarts the machine." >&2
 exit 1

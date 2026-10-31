@@ -99,6 +99,15 @@ internal static class ScreenRunner
             : null;
         JsonObject arguments = plan.ToArguments(intent, connection, staged);
 
+        // The check above read the state without the lock, to refuse early; this one holds it, so another
+        // process starting the same write now finds it recorded and is refused.
+        RecentWrite? reserved = null;
+        if (fingerprint is not null)
+        {
+            services.Profiles.UpdateState(profile, current =>
+                reserved = ScreenDuplicateGuard.Reserve(current, fingerprint, services.Clock.GetUtcNow(), options.Force));
+        }
+
         UnwrappedToolResult result;
         try
         {
@@ -108,16 +117,16 @@ internal static class ScreenRunner
         }
         catch (CliException error)
         {
-            AfterFailure(services, profile, fingerprint, MightHaveRun(error.ExitCode), EndsContinuation(error));
+            AfterFailure(services, profile, reserved, MightHaveRun(error.ExitCode), EndsContinuation(error));
             throw ScreenErrors.Refine(error);
         }
         catch (OperationCanceledException)
         {
-            AfterFailure(services, profile, fingerprint, mightHaveRun: true, endsContinuation: true);
+            AfterFailure(services, profile, reserved, mightHaveRun: true, endsContinuation: true);
             throw;
         }
 
-        AfterSuccess(services, profile, fingerprint, result);
+        AfterSuccess(services, profile, reserved, result);
 
         if (options.DownloadDirectory is { } downloads && result.Document["result"]?["attachments"] is JsonArray files)
         {
@@ -211,19 +220,23 @@ internal static class ScreenRunner
     private static bool EndsContinuation(CliException error) =>
         ScreenErrors.EndsContinuation(error) || error.ExitCode is ExitCodes.Timeout or ExitCodes.Interrupted;
 
-    private static void AfterFailure(CliServices services, string profile, string? fingerprint, bool mightHaveRun, bool endsContinuation)
+    /// <summary>Keeps the reserved write when the call may have written, at the time it ended, and drops it when not.</summary>
+    private static void AfterFailure(CliServices services, string profile, RecentWrite? reserved, bool mightHaveRun, bool endsContinuation)
     {
-        var record = fingerprint is not null && mightHaveRun;
-        if (!record && !endsContinuation)
+        if (reserved is null && !endsContinuation)
         {
             return;
         }
 
         services.Profiles.UpdateState(profile, state =>
         {
-            if (record)
+            if (reserved is not null)
             {
-                ScreenDuplicateGuard.Record(state, fingerprint!, services.Clock.GetUtcNow());
+                ScreenDuplicateGuard.Release(state, reserved);
+                if (mightHaveRun)
+                {
+                    ScreenDuplicateGuard.Record(state, reserved.Fingerprint!, services.Clock.GetUtcNow());
+                }
             }
 
             if (endsContinuation)
@@ -238,14 +251,15 @@ internal static class ScreenRunner
     /// replaces the stored one and gains <c>continuationExpiresAt</c>; any other result clears it, because
     /// every call on the screen session ends the record an earlier call left open.
     /// </summary>
-    private static void AfterSuccess(CliServices services, string profile, string? fingerprint, UnwrappedToolResult result)
+    private static void AfterSuccess(CliServices services, string profile, RecentWrite? reserved, UnwrappedToolResult result)
     {
         DateTimeOffset now = services.Clock.GetUtcNow();
         services.Profiles.UpdateState(profile, state =>
         {
-            if (fingerprint is not null)
+            if (reserved is not null)
             {
-                ScreenDuplicateGuard.Record(state, fingerprint, now);
+                ScreenDuplicateGuard.Release(state, reserved);
+                ScreenDuplicateGuard.Record(state, reserved.Fingerprint!, now);
             }
 
             state.LastContinuation = null;

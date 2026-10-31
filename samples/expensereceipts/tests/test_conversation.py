@@ -1,3 +1,4 @@
+import os
 from datetime import date
 
 import pytest
@@ -126,6 +127,24 @@ def test_asks_who_an_unknown_number_is_then_remembers_it(erp, tmp_path):
     assert erp.created[1].employee.id == "EP00000003", "the second receipt needs no question"
 
 
+def test_does_not_take_an_empty_answer_for_an_employee_with_no_email(erp, tmp_path):
+    erp._read_employees = lambda: [Employee("EP00000009", "Sam Nomail", None, [])]
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(UNKNOWN_PHONE, photo=True)
+    assert "couldn't find" in send(UNKNOWN_PHONE, "")
+    assert Store(tmp_path).known_employee(UNKNOWN_PHONE) is None
+
+
+def test_does_not_take_an_empty_answer_for_a_choice_with_no_description(erp, tmp_path):
+    erp._read_expense_items = lambda: [Choice("MEALS", ""), Choice("TRAVEL", "")]
+    send, _ = talk(erp, FakeReader(expense_item=None), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+    assert send(KNOWN_PHONE, "") == "Please reply with one of the numbers."
+    assert not erp.created
+
+
 def test_asks_again_when_the_employee_answer_matches_nobody(erp, tmp_path):
     send, _ = talk(erp, FakeReader(), tmp_path)
 
@@ -224,7 +243,10 @@ def test_says_the_system_is_offline_when_the_cli_is_signed_out(erp, tmp_path):
     assert "offline" in send(KNOWN_PHONE, photo=True)
 
 
-@pytest.mark.parametrize("text, amount", [("52.10", 52.10), ("52,10", 52.10), ("1,234", 1234.0), ("1,234.50", 1234.50), ("$ 40", 40.0)])
+@pytest.mark.parametrize("text, amount", [
+    ("52.10", 52.10), ("52,10", 52.10), ("1,234", 1234.0), ("1,234.50", 1234.50), ("$ 40", 40.0),
+    ("1.234,50", 1234.50), ("1 234,50", 1234.50), ("12.000", 12000.0), ("1,234,567.89", 1234567.89),
+])
 def test_reads_the_amount_the_employee_types(erp, tmp_path, text, amount):
     send, _ = talk(erp, FakeReader(total=None), tmp_path)
 
@@ -467,3 +489,18 @@ def test_does_not_ask_about_a_tip_when_one_is_shown_or_none_is_usual(erp, tmp_pa
     send, _ = talk(erp, restaurant(**overrides), tmp_path)
 
     assert send(KNOWN_PHONE, photo=True).startswith("Created expense receipt 000123: 183.39 USD")
+
+
+def test_removes_old_receipts_but_keeps_the_ones_a_draft_waits_for(erp, tmp_path):
+    send, _ = talk(erp, FakeReader(total=None), tmp_path)
+    send(KNOWN_PHONE, photo=True)  # waits for the amount
+    waiting = set((tmp_path / "receipts").iterdir())
+    old = tmp_path / "receipts" / "receipt-old.jpg"
+    old.write_bytes(b"old")
+    for file in [old, *waiting]:
+        os.utime(file, (0, 0))
+
+    send(UNKNOWN_PHONE, photo=True)
+
+    assert not old.exists()
+    assert waiting <= set((tmp_path / "receipts").iterdir())
