@@ -113,7 +113,7 @@ velixo login
 
 The command opens your browser, you sign in with Microsoft, Google or an emailed code and choose your organization, and the CLI stores the tokens. It uses OAuth with PKCE on a loopback redirect (`http://127.0.0.1:<port>/callback`).
 
-When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. The command prints the sign-in URL. Open it on any device and sign in: the browser then lands on a page that does not load. At a terminal, the command waits for you to paste that page's address, and finishes the sign-in:
+When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. At a terminal, `velixo login` does this by itself where it finds no browser: in an SSH session, or on Linux without a graphical display or `xdg-open`. The command prints the sign-in URL. Open it on any device and sign in: the browser then lands on a page that does not load. At a terminal, the command waits for you to paste that page's address, and finishes the sign-in:
 
 ```sh
 velixo login --no-browser

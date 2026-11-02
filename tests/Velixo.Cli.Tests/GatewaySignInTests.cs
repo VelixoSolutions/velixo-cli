@@ -135,6 +135,61 @@ public sealed class GatewaySignInTests
     }
 
     [Fact]
+    public async Task A_sign_in_at_a_terminal_without_a_browser_goes_on_as_no_browser_does()
+    {
+        var browser = new UnavailableBrowser("this is an SSH session");
+        using var test = new TestServices(redirected: false, input: "the-code\n", browser: browser);
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .Then(_ => Redirect("/signin?request=pending-1"))
+            .ThenJson(TokenAnswer("dev@example.com", "org-42"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.False(browser.Opened);
+        Assert.Contains("No browser can be opened here: this is an SSH session.", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Paste the address your browser lands on: ", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Signed in as dev@example.com", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Equal("the-code", HttpUtility.ParseQueryString(test.Http.Requests[3].Body!)["code"]);
+    }
+
+    [Theory]
+    [InlineData(BrowserPlatform.Unix, "DISPLAY=:0", true, null)]
+    [InlineData(BrowserPlatform.Unix, "WAYLAND_DISPLAY=wayland-0", true, null)]
+    [InlineData(BrowserPlatform.Unix, "", true, "this machine has no graphical display")]
+    [InlineData(BrowserPlatform.Unix, "DISPLAY=:0", false, "xdg-open is not installed")]
+    [InlineData(BrowserPlatform.Unix, "SSH_CONNECTION=1 2 3 4", true, "this is an SSH session")]
+    [InlineData(BrowserPlatform.Unix, "SSH_CONNECTION=1 2 3 4;DISPLAY=localhost:10.0", true, null)]
+    [InlineData(BrowserPlatform.Unix, "BROWSER=/vscode/helper", false, null)]
+    [InlineData(BrowserPlatform.MacOS, "", false, null)]
+    [InlineData(BrowserPlatform.MacOS, "SSH_TTY=/dev/ttys001", false, "this is an SSH session")]
+    [InlineData(BrowserPlatform.Windows, "", false, null)]
+    [InlineData(BrowserPlatform.Windows, "SSH_CLIENT=1 2 3;DISPLAY=:0", false, "this is an SSH session")]
+    public void Browser_detection_reads_the_session(BrowserPlatform platform, string variables, bool xdgOpen, string? reason)
+    {
+        var values = variables
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .ToDictionary(pair => pair[0], pair => pair[1], StringComparer.Ordinal);
+
+        Assert.Equal(reason, BrowserDetection.UnavailableReason(values.GetValueOrDefault, platform, program => xdgOpen && program == "xdg-open"));
+    }
+
+    [Fact]
+    public void Browser_detection_finds_a_program_on_the_path()
+    {
+        using var directory = new TempDirectory();
+        File.WriteAllText(Path.Combine(directory.Path, "xdg-open"), string.Empty);
+        var path = string.Join(Path.PathSeparator, "/no/such/directory", directory.Path);
+
+        Assert.True(BrowserDetection.IsOnPath("xdg-open", path));
+        Assert.False(BrowserDetection.IsOnPath("xdg-open", "/no/such/directory"));
+        Assert.False(BrowserDetection.IsOnPath("xdg-open", null));
+    }
+
+    [Fact]
     public async Task A_server_that_knows_the_first_party_client_gets_it_and_the_browser_opens_its_redirect()
     {
         using var test = new TestServices();
@@ -293,5 +348,14 @@ public sealed class GatewaySignInTests
             ["refresh_token"] = refreshToken,
             ["scope"] = "Mcp.Access",
         }.ToJsonString();
+    }
+
+    private sealed class UnavailableBrowser(string reason) : IBrowserOpener
+    {
+        public bool Opened { get; private set; }
+
+        public string? UnavailableReason => reason;
+
+        public bool TryOpen(Uri url) => Opened = true;
     }
 }

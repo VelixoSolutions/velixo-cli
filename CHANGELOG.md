@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- `velixo login` signs in as `--no-browser` does when no browser the person would see can be opened: in an SSH session, on Linux without a graphical display, or without `xdg-open`. It says why on stderr. A `BROWSER` variable, as a remote editor sets to forward to your own machine, keeps the browser sign-in.
+
 ## [1.0.0] - 2026-10-30
 
 Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windows, published with NativeAOT. It uses the same API and the same tools as the Velixo MCP, through its own client, and exposes them as commands for people at a terminal, scripts and AI coding agents.

@@ -39,7 +39,7 @@ public static class LoginCommand
             {
                 document = await signIn.CompleteAsync(services.Settings, pasted, cancellationToken).ConfigureAwait(false);
             }
-            else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive)
+            else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive || NoBrowserHere(services))
             {
                 document = await signIn.BeginDeferredAsync(services.Settings, cancellationToken).ConfigureAwait(false);
                 if (PastedAddress(services, document) is { } address)
@@ -57,6 +57,18 @@ public static class LoginCommand
         });
 
         return command;
+    }
+
+    /// <summary>Tells, at a terminal, that no browser can open here and the sign-in goes on without one.</summary>
+    private static bool NoBrowserHere(CliServices services)
+    {
+        if (services.Browser.UnavailableReason is not { } reason)
+        {
+            return false;
+        }
+
+        services.Output.Progress($"No browser can be opened here: {reason}. Signing in without one, as --no-browser does.");
+        return true;
     }
 
     /// <summary>

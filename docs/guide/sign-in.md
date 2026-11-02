@@ -10,7 +10,7 @@ velixo login                    # prod, in the browser
 velixo login --env nx-staging   # another environment
 ```
 
-Without a browser (a server, a container), run `velixo login --no-browser` at a terminal. It prints the URL to open, then waits for the address the browser lands on: paste it, and the sign-in finishes. Where nothing can be pasted, sign in in two steps:
+Without a browser (a server, a container), run `velixo login --no-browser` at a terminal; `velixo login` alone does the same where it finds no browser, such as in an SSH session or on Linux without a display. It prints the URL to open, then waits for the address the browser lands on: paste it, and the sign-in finishes. Where nothing can be pasted, sign in in two steps:
 
 ```sh
 velixo login --no-browser                 # prints the URL to open

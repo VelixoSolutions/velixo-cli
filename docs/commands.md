@@ -36,7 +36,7 @@ A relative path in any flag or argument is read against the working directory. E
 | `velixo status` | `tools/list`, `list_connections` | `{ "server": { "url", "reachable", "version" }, "signedIn", "tools": 14, "connections": [...], "problems": [] }`. Exit 0 when everything works, 4 when you must sign in, 1 otherwise. |
 | `velixo auth token` | none | The refresh token of the current profile on stdout, nothing else. Use it as `VELIXO_TOKEN`. |
 
-`velixo login` opens your browser and waits for the loopback redirect. With `--no-browser` at a terminal, it prints the sign-in URL on stderr and waits for the address the browser lands on, then signs in. When nobody can answer (no terminal, an agent, `--output json`, `--non-interactive`), or the answer is empty, it prints this document and exits 0:
+`velixo login` opens your browser and waits for the loopback redirect. Where no browser can be opened (an SSH session, or Linux without `DISPLAY`, `WAYLAND_DISPLAY` or `xdg-open`, unless `BROWSER` is set), it goes on as `--no-browser` and says why on stderr. With `--no-browser` at a terminal, it prints the sign-in URL on stderr and waits for the address the browser lands on, then signs in. When nobody can answer (no terminal, an agent, `--output json`, `--non-interactive`), or the answer is empty, it prints this document and exits 0:
 
 ```json
 {

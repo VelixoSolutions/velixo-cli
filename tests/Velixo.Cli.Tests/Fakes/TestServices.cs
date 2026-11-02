@@ -8,7 +8,7 @@ internal sealed class TestServices : IDisposable
 {
     private readonly TempDirectory _directory = new();
 
-    public TestServices(Dictionary<string, string>? variables = null, bool redirected = true, string input = "")
+    public TestServices(Dictionary<string, string>? variables = null, bool redirected = true, string input = "", IBrowserOpener? browser = null)
     {
         Console = new TestConsole(redirected, input);
         Environment = new TestEnvironment(_directory.Path, variables);
@@ -22,7 +22,7 @@ internal sealed class TestServices : IDisposable
             new ProfileStore(Paths),
             new TokenStore(Paths),
             new HttpClient(Http),
-            new NoBrowser());
+            browser ?? new NoBrowser());
     }
 
     public TestConsole Console { get; }

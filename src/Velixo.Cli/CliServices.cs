@@ -101,7 +101,7 @@ public sealed class CliServices
             new ProfileStore(paths),
             new TokenStore(paths),
             CreateHttpClient(followRedirects: true),
-            new BrowserOpener(),
+            new BrowserOpener(environment),
             CreateHttpClient(followRedirects: false));
     }
 
