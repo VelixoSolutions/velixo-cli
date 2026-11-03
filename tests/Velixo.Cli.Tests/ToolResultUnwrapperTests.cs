@@ -102,6 +102,24 @@ public sealed class ToolResultUnwrapperTests
         Assert.Equal("ERROR: Which branch?", error.Message);
     }
 
+    [Theory]
+    [InlineData("""{"question":"AR balance per customer","queries":[{"purpose":"Balance","giql":"FROM A SELECT X"}]}""")]
+    [InlineData("""{"question":"   "}""")]
+    [InlineData("""{"result":{"question":"ERROR: echoed by a write"}}""")]
+    public void A_done_task_whose_question_is_not_an_error_text_keeps_its_data(string response)
+    {
+        var envelope = new JsonObject
+        {
+            ["taskId"] = "t_5g",
+            ["status"] = "done",
+            ["result"] = new JsonObject { ["textualResponse"] = response },
+        }.ToJsonString();
+
+        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+
+        Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+    }
+
     [Fact]
     public void A_failed_task_whose_error_is_a_builder_question_is_exit_3_with_the_text_verbatim()
     {

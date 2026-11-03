@@ -177,16 +177,15 @@ public static partial class ToolResultUnwrapper
         var unwrapped = new JsonObject();
         if (envelope["result"] is JsonObject result)
         {
+            if (TryGetRefusal(result["textualResponse"]) is { } refusal)
+            {
+                throw BuilderRefusal(refusal, taskId);
+            }
+
             if (result["textualResponse"] is JsonValue textual && textual.TryGetValue(out string? response))
             {
-                if (IsBuilderRefusal(response))
-                {
-                    throw BuilderRefusal(response, taskId);
-                }
-
                 if (TryParse(response) is { } data)
                 {
-                    ThrowIfQuestion(data, taskId);
                     unwrapped["data"] = data;
                 }
                 else
@@ -196,7 +195,6 @@ public static partial class ToolResultUnwrapper
             }
             else if (result.ContainsKey("textualResponse"))
             {
-                ThrowIfQuestion(result["textualResponse"], taskId);
                 unwrapped["data"] = result["textualResponse"]?.DeepClone();
             }
 
@@ -248,18 +246,29 @@ public static partial class ToolResultUnwrapper
     private static bool IsBuilderRefusal(string text) => text.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal);
 
     /// <summary>
-    /// Since RD-14621 the server finishes a build the builder declines as done, with a textualResponse of
-    /// <c>{"question": "ERROR: …"}</c>. That answer is a builder refusal, exit 3, like the older shapes.
+    /// Returns the builder's question when a done task's textualResponse is a refusal, or null. A refusal is
+    /// an <c>ERROR:</c> text, or, since RD-14621, an object whose <c>question</c> is an <c>ERROR:</c> text:
+    /// <c>{"question": "ERROR: …"}</c>, sent as JSON text or as the object itself.
     /// </summary>
-    private static void ThrowIfQuestion(JsonNode? data, string? taskId)
+    private static string? TryGetRefusal(JsonNode? textualResponse)
     {
-        if (data is JsonObject answer
-            && answer["question"] is JsonValue value
-            && value.TryGetValue(out string? question)
-            && !string.IsNullOrWhiteSpace(question))
+        JsonNode? answer = textualResponse;
+        if (textualResponse is JsonValue textual && textual.TryGetValue(out string? response))
         {
-            throw BuilderRefusal(question, taskId);
+            if (IsBuilderRefusal(response))
+            {
+                return response;
+            }
+
+            answer = TryParse(response);
         }
+
+        return answer is JsonObject candidate
+            && candidate["question"] is JsonValue value
+            && value.TryGetValue(out string? question)
+            && IsBuilderRefusal(question)
+            ? question
+            : null;
     }
 
     private static CliException BuilderRefusal(string text, string? taskId) =>
