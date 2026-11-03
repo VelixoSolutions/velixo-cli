@@ -14,7 +14,7 @@ public static class ExitCodes
     /// <summary>A bad command line, or a confirmation the CLI could not ask for.</summary>
     public const int Usage = 2;
 
-    /// <summary>A builder answered with an <c>ERROR:</c> text that needs a decision or a value from the user.</summary>
+    /// <summary>A builder answered with a question, usually an <c>ERROR:</c> text, that needs a decision or a value from the user.</summary>
     public const int BuilderRefusal = 3;
 
     /// <summary>Not signed in, the session ended, or the Velixo access gate refused the caller.</summary>

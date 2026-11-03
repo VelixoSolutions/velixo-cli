@@ -102,8 +102,64 @@ public sealed class ToolResultUnwrapperTests
         Assert.Equal("ERROR: Which branch?", error.Message);
     }
 
+    [Fact]
+    public void A_done_build_whose_only_key_is_a_question_is_exit_3_even_without_the_error_prefix()
+    {
+        const string envelope = """{"taskId":"t_5h","status":"done","result":{"textualResponse":"{\"question\": \"Which branch do you mean: HQ or EAST?\"}"}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal(ErrorCodes.BuilderRefusal, error.Code);
+        Assert.Equal("Which branch do you mean: HQ or EAST?", error.Message);
+    }
+
+    [Fact]
+    public void A_done_task_of_another_tool_whose_only_key_is_a_question_keeps_its_data()
+    {
+        const string envelope = """{"taskId":"t_5i","status":"done","result":{"textualResponse":"{\"question\": \"Is this the right customer?\"}"}}""";
+
+        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+
+        Assert.Equal("Is this the right customer?", (string?)unwrapped.Document["result"]!["data"]!["question"]);
+    }
+
+    [Theory]
+    [InlineData("""{"question":"Which branch do you mean?","options":["HQ","EAST"]}""", false, "Which branch do you mean?")]
+    [InlineData("""{"question":"Which branch do you mean?"}""", false, "Which branch do you mean?")]
+    [InlineData("""{"question":"ERROR: Which branch?"}""", true, "ERROR: Which branch?")]
+    [InlineData("""{}""", true, "The builder declined the request and gave no question.")]
+    public void A_done_task_marked_refused_is_exit_3_whatever_the_question_looks_like(string response, bool isBuild, string message)
+    {
+        var envelope = new JsonObject
+        {
+            ["taskId"] = "t_5j",
+            ["status"] = "done",
+            ["result"] = new JsonObject { ["textualResponse"] = response, ["refused"] = true },
+        }.ToJsonString();
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal(ErrorCodes.BuilderRefusal, error.Code);
+        Assert.Equal(message, error.Message);
+        Assert.Equal("t_5j", error.TaskId);
+    }
+
+    [Fact]
+    public void A_done_task_marked_not_refused_keeps_its_plan()
+    {
+        const string envelope = """{"taskId":"t_5k","status":"done","result":{"textualResponse":"{\"queries\":[]}","refused":false}}""";
+
+        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true);
+
+        Assert.NotNull(unwrapped.Document["result"]!["data"]!["queries"]);
+    }
+
     [Theory]
     [InlineData("""{"question":"AR balance per customer","queries":[{"purpose":"Balance","giql":"FROM A SELECT X"}]}""")]
+    [InlineData("""{"question":"Create the order","target":"SO301000","commands":[]}""")]
+    [InlineData("""{"question":"Which branch?","note":"an informational field beside it"}""")]
     [InlineData("""{"question":"   "}""")]
     [InlineData("""{"result":{"question":"ERROR: echoed by a write"}}""")]
     public void A_done_task_whose_question_is_not_an_error_text_keeps_its_data(string response)
@@ -115,9 +171,12 @@ public sealed class ToolResultUnwrapperTests
             ["result"] = new JsonObject { ["textualResponse"] = response },
         }.ToJsonString();
 
-        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+        foreach (var isBuild in new[] { true, false })
+        {
+            UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild);
 
-        Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+            Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+        }
     }
 
     [Fact]
