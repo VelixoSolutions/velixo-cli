@@ -102,8 +102,22 @@ public sealed class ToolResultUnwrapperTests
         Assert.Equal("ERROR: Which branch?", error.Message);
     }
 
+    [Fact]
+    public void A_done_build_whose_only_key_is_a_question_is_exit_3_even_without_the_error_prefix()
+    {
+        const string envelope = """{"taskId":"t_5h","status":"done","result":{"textualResponse":"{\"question\": \"Which branch do you mean: HQ or EAST?\"}"}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal(ErrorCodes.BuilderRefusal, error.Code);
+        Assert.Equal("Which branch do you mean: HQ or EAST?", error.Message);
+    }
+
     [Theory]
     [InlineData("""{"question":"AR balance per customer","queries":[{"purpose":"Balance","giql":"FROM A SELECT X"}]}""")]
+    [InlineData("""{"question":"Create the order","target":"SO301000","commands":[]}""")]
+    [InlineData("""{"question":"Which branch?","note":"an informational field beside it"}""")]
     [InlineData("""{"question":"   "}""")]
     [InlineData("""{"result":{"question":"ERROR: echoed by a write"}}""")]
     public void A_done_task_whose_question_is_not_an_error_text_keeps_its_data(string response)

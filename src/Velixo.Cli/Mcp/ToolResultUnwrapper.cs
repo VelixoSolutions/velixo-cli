@@ -247,8 +247,12 @@ public static partial class ToolResultUnwrapper
 
     /// <summary>
     /// Returns the builder's question when a done task's textualResponse is a refusal, or null. A refusal is
-    /// an <c>ERROR:</c> text, or, since RD-14621, an object whose <c>question</c> is an <c>ERROR:</c> text:
-    /// <c>{"question": "ERROR: …"}</c>, sent as JSON text or as the object itself.
+    /// an <c>ERROR:</c> text, or, since RD-14621, a <c>{"question": "ERROR: …"}</c> object, sent as JSON text or
+    /// as the object itself. The tool guidance promises the shape ("{ question } in place of the plan"), and the
+    /// server sets the text only from an <c>ERROR:</c> refusal, so either signal is enough: a <c>question</c>
+    /// that is an <c>ERROR:</c> text, or a non-blank <c>question</c> that is the object's only key. This
+    /// survives a rewording of the prefix, and never takes a plan, a batch or a write's result that merely
+    /// carries a <c>question</c> field for a refusal, since done tasks of every tool come through here.
     /// </summary>
     private static string? TryGetRefusal(JsonNode? textualResponse)
     {
@@ -266,7 +270,8 @@ public static partial class ToolResultUnwrapper
         return answer is JsonObject candidate
             && candidate["question"] is JsonValue value
             && value.TryGetValue(out string? question)
-            && IsBuilderRefusal(question)
+            && !string.IsNullOrWhiteSpace(question)
+            && (IsBuilderRefusal(question) || candidate.Count == 1)
             ? question
             : null;
     }
