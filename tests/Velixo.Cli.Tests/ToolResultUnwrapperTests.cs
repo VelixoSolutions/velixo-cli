@@ -171,9 +171,12 @@ public sealed class ToolResultUnwrapperTests
             ["result"] = new JsonObject { ["textualResponse"] = response },
         }.ToJsonString();
 
-        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true);
+        foreach (var isBuild in new[] { true, false })
+        {
+            UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild);
 
-        Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+            Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+        }
     }
 
     [Fact]

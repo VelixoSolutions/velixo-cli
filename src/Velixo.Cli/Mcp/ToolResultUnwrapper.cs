@@ -197,7 +197,7 @@ public static partial class ToolResultUnwrapper
             {
                 unwrapped["text"] = response;
             }
-            else if (response is not null || result.ContainsKey("textualResponse"))
+            else if (result.ContainsKey("textualResponse"))
             {
                 unwrapped["data"] = data;
             }
