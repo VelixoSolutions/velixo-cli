@@ -186,6 +186,7 @@ public static partial class ToolResultUnwrapper
 
                 if (TryParse(response) is { } data)
                 {
+                    ThrowIfQuestion(data, taskId);
                     unwrapped["data"] = data;
                 }
                 else
@@ -195,6 +196,7 @@ public static partial class ToolResultUnwrapper
             }
             else if (result.ContainsKey("textualResponse"))
             {
+                ThrowIfQuestion(result["textualResponse"], taskId);
                 unwrapped["data"] = result["textualResponse"]?.DeepClone();
             }
 
@@ -244,6 +246,21 @@ public static partial class ToolResultUnwrapper
     }
 
     private static bool IsBuilderRefusal(string text) => text.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Since RD-14621 the server finishes a build the builder declines as done, with a textualResponse of
+    /// <c>{"question": "ERROR: …"}</c>. That answer is a builder refusal, exit 3, like the older shapes.
+    /// </summary>
+    private static void ThrowIfQuestion(JsonNode? data, string? taskId)
+    {
+        if (data is JsonObject answer
+            && answer["question"] is JsonValue value
+            && value.TryGetValue(out string? question)
+            && !string.IsNullOrWhiteSpace(question))
+        {
+            throw BuilderRefusal(question, taskId);
+        }
+    }
 
     private static CliException BuilderRefusal(string text, string? taskId) =>
         new(ExitCodes.BuilderRefusal, ErrorCodes.BuilderRefusal, text.Trim(), BuilderRefusalNextStep) { TaskId = taskId };

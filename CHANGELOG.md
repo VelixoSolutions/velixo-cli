@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- `query build` and `command build` exit 3 with `BUILDER_REFUSAL` when the server finishes the build with a `{"question": "ERROR: …"}` answer, the shape it uses since RD-14621. The question is in `error.message`, `command build` shows the `--accept-defaults` hint when the question offers the defaults, and `--save` writes nothing. Before, the CLI exited 0 and saved the refusal as a plan or a batch. (RD-14834)
+
 ## [1.0.0] - 2026-10-30
 
 Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windows, published with NativeAOT. It uses the same API and the same tools as the Velixo MCP, through its own client, and exposes them as commands for people at a terminal, scripts and AI coding agents.
