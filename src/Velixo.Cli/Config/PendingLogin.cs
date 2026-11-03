@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace Velixo.Cli.Config;
 
 /// <summary>
-/// A sign-in started by <c>velixo login --no-browser</c>, kept so that <c>velixo login --complete</c>
-/// in a later process can redeem the code with the same PKCE verifier and check the same state.
+/// A device code sign-in started by <c>velixo login --no-browser</c>, kept so that
+/// <c>velixo login --complete</c> in a later process can wait for the same sign-in to finish.
 /// </summary>
 public sealed class PendingLogin
 {
@@ -20,14 +20,21 @@ public sealed class PendingLogin
     [JsonPropertyName("clientId")]
     public string? ClientId { get; set; }
 
-    [JsonPropertyName("redirectUri")]
-    public string? RedirectUri { get; set; }
+    [JsonPropertyName("deviceCode")]
+    public string? DeviceCode { get; set; }
 
-    [JsonPropertyName("codeVerifier")]
-    public string? CodeVerifier { get; set; }
+    [JsonPropertyName("userCode")]
+    public string? UserCode { get; set; }
 
-    [JsonPropertyName("state")]
-    public string? State { get; set; }
+    [JsonPropertyName("verificationUri")]
+    public string? VerificationUri { get; set; }
+
+    [JsonPropertyName("verificationUriComplete")]
+    public string? VerificationUriComplete { get; set; }
+
+    /// <summary>Gets or sets the seconds to wait between two polls, as the server last asked.</summary>
+    [JsonPropertyName("intervalSeconds")]
+    public long IntervalSeconds { get; set; }
 
     [JsonPropertyName("resource")]
     public string? Resource { get; set; }

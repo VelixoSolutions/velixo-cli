@@ -6,6 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Changed
 
+- **Breaking:** `velixo login --no-browser` signs in with an OAuth device code (RFC 8628). It prints a URL and a short code; the person enters the code in a browser on any device, and nothing is pasted back. At a terminal the command waits for the sign-in. Without one, it prints `authorization_required` with `verificationUri`, `verificationUriComplete` and `userCode` in place of `browserUrl`, and `velixo login --complete`, which no longer takes a value, waits for the sign-in. It needs a server that publishes a `device_authorization_endpoint`.
 - `velixo login` signs in as `--no-browser` does when no browser the person would see can be opened: in an SSH session, on Linux without a graphical display, or without `xdg-open`. It says why on stderr. A `BROWSER` variable, as a remote editor sets to forward to your own machine, keeps the browser sign-in.
 
 ## [1.0.0] - 2026-10-30

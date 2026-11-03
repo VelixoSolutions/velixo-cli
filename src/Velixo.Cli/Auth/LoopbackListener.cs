@@ -37,7 +37,7 @@ public sealed class LoopbackListener : IDisposable
     }
 
     /// <summary>A port nothing listens on now. Another process could take it before it is used, which the caller accepts.</summary>
-    public static int FreeLoopbackPort()
+    private static int FreeLoopbackPort()
     {
         var probe = new TcpListener(IPAddress.Loopback, 0);
         probe.Start();

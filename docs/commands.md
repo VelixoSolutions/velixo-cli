@@ -30,26 +30,28 @@ A relative path in any flag or argument is read against the working directory. E
 
 | Command | Tool | Output |
 |---|---|---|
-| `velixo login [--env E] [--profile P] [--no-browser] [--complete CODE-OR-URL]` | OAuth gateway | `{ "user": { "email" }, "organization": { "id", "name" }, "environment", "profile", "sessionExpiresAt" }`, or the `authorization_required` document below. |
+| `velixo login [--env E] [--profile P] [--no-browser] [--complete]` | OAuth gateway | `{ "user": { "email" }, "organization": { "id", "name" }, "environment", "profile", "sessionExpiresAt" }`, or the `authorization_required` document below. |
 | `velixo logout [--all]` | `sign_out` | `{ "signedOut": true, "profile" }` |
 | `velixo whoami` | none (stored claims) | `{ "user", "organization", "environment", "profile", "sessionExpiresAt", "mcpSessionId" }` |
 | `velixo status` | `tools/list`, `list_connections` | `{ "server": { "url", "reachable", "version" }, "signedIn", "tools": 14, "connections": [...], "problems": [] }`. Exit 0 when everything works, 4 when you must sign in, 1 otherwise. |
 | `velixo auth token` | none | The refresh token of the current profile on stdout, nothing else. Use it as `VELIXO_TOKEN`. |
 
-`velixo login` opens your browser and waits for the loopback redirect. Where no browser can be opened (an SSH session, or Linux without `DISPLAY`, `WAYLAND_DISPLAY` or `xdg-open`, unless `BROWSER` is set), it goes on as `--no-browser` and says why on stderr. With `--no-browser` at a terminal, it prints the sign-in URL on stderr and waits for the address the browser lands on, then signs in. When nobody can answer (no terminal, an agent, `--output json`, `--non-interactive`), or the answer is empty, it prints this document and exits 0:
+`velixo login` opens your browser and waits for the loopback redirect. Where no browser can be opened (an SSH session, or Linux without `DISPLAY`, `WAYLAND_DISPLAY` or `xdg-open`, unless `BROWSER` is set), it goes on as `--no-browser` and says why on stderr. With `--no-browser`, it signs in with an OAuth device code (RFC 8628): a person opens a URL in a browser on any device, enters a short code and signs in. At a terminal, the command prints the URL and the code on stderr and waits for the sign-in. When nobody is at a terminal (an agent, `--output json`, `--non-interactive`), it prints this document and exits 0:
 
 ```json
 {
   "status": "authorization_required",
-  "browserUrl": "https://...",
+  "verificationUri": "https://app.velixo.com/device",
+  "verificationUriComplete": "https://app.velixo.com/device?code=WXYZ-1234",
+  "userCode": "WXYZ-1234",
   "expiresAt": "2026-10-28T15:22:00Z",
   "profile": "prod",
   "environment": "prod",
-  "nextStep": "velixo login --profile prod --complete <paste the URL the browser lands on>"
+  "nextStep": "velixo login --profile prod --complete"
 }
 ```
 
-Open the URL on any device and sign in. The browser ends on a page that does not load: copy that page's address and run the `nextStep` command with it.
+Give the person `verificationUriComplete`, which carries the code, or `verificationUri` and `userCode` when the server sends no complete URL. Then run the `nextStep` command: it waits until the person has signed in, and exits 4 when they decline or the code expires.
 
 The CLI signs in as the client `velixo-cli`, which the sign-in page names Velixo CLI, and on a server that does not know that client yet it registers a client of its own once and reuses it; `VELIXO_CLIENT_ID` overrides both.
 

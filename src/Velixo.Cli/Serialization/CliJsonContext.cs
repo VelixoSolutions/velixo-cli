@@ -27,6 +27,7 @@ namespace Velixo.Cli.Serialization;
 [JsonSerializable(typeof(ClientRegistrationRequest))]
 [JsonSerializable(typeof(ClientRegistrationResponse))]
 [JsonSerializable(typeof(TokenResponse))]
+[JsonSerializable(typeof(DeviceAuthorizationResponse))]
 [JsonSerializable(typeof(OAuthErrorResponse))]
 [JsonSerializable(typeof(GitHubRelease))]
 [JsonSerializable(typeof(JsonNode))]

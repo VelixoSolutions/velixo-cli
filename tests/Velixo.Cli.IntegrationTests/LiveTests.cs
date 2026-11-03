@@ -93,17 +93,16 @@ public sealed class LiveTests
 
     [LiveFact]
     [Covers("login")]
-    public async Task Login_without_a_browser_opens_the_gateway_page_and_refuses_a_bad_code()
+    public async Task Login_without_a_browser_gets_a_device_code_from_the_gateway()
     {
         var config = LiveCli.NewConfigDirectory();
 
         CliRun start = await LiveCli.RunInAsync(config, "login", "--no-browser");
         Assert.True(start.ExitCode == ExitCodes.Success, start.ToString());
         Assert.Equal("authorization_required", (string?)start.Json!["status"]);
-        Assert.StartsWith("https://", (string?)start.Json!["browserUrl"], StringComparison.Ordinal);
-
-        CliRun complete = await LiveCli.RunInAsync(config, "login", "--complete", "http://127.0.0.1:1/callback?code=not-a-code&state=not-the-state");
-        Assert.True(complete.ExitCode != ExitCodes.Success, complete.ToString());
+        Assert.StartsWith("https://", (string?)start.Json!["verificationUri"], StringComparison.Ordinal);
+        Assert.False(string.IsNullOrEmpty((string?)start.Json!["userCode"]), start.ToString());
+        Assert.EndsWith("--complete", (string?)start.Json!["nextStep"], StringComparison.Ordinal);
     }
 
     [LiveFact]

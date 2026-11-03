@@ -45,7 +45,7 @@ The app `velixo-cli-samples` already exists, in Toronto (`yyz`). Create its volu
    velixo login --env nx-dev --no-browser
    ```
 
-   Open the URL it prints and sign in. The browser then lands on a page that does not load: copy its address and paste it at the prompt. Open a shell first, as above: `fly ssh console -C "..."` may run the command without a terminal, and it then prints the URL and exits instead of waiting. In that case, finish with `velixo login --complete "<the address>"` in the same shell.
+   Open the URL it prints in a browser on any device, enter the code it prints and sign in. The command waits and finishes by itself. Open a shell first, as above: `fly ssh console -C "..."` may run the command without a terminal, and it then prints the URL and the code and exits instead of waiting. In that case, sign in in the browser and run `velixo login --profile nx-dev --complete` in the same shell.
 
    The account must reach every connection the samples use. Sign in from nowhere else with the same files: two copies of one sign-in end each other's session.
 

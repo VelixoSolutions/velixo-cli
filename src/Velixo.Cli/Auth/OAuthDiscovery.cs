@@ -51,6 +51,7 @@ public sealed class OAuthDiscovery(HttpClient http)
             TokenEndpoint = metadata.TokenEndpoint,
             RegistrationEndpoint = metadata.RegistrationEndpoint,
             RevocationEndpoint = metadata.RevocationEndpoint,
+            DeviceAuthorizationEndpoint = metadata.DeviceAuthorizationEndpoint,
             Resource = resource?.Resource ?? mcpUrl.ToString(),
         };
     }
