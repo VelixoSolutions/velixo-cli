@@ -303,6 +303,20 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_question_object_from_a_done_build_is_exit_3_and_saves_nothing()
+    {
+        _mcp.ThenText(Done("""{"question": "ERROR: specify the grouping axis for the revenue change."}"""));
+
+        var exit = await Run("query", "build", "Analyze the change in revenue between {{Period1}} and {{Period2}}", "--save", "rev.plan.json");
+
+        Assert.Equal(ExitCodes.BuilderRefusal, exit);
+        JsonNode error = Output()["error"]!;
+        Assert.Equal(ErrorCodes.BuilderRefusal, (string?)error["code"]);
+        Assert.Equal("ERROR: specify the grouping axis for the revenue change.", (string?)error["message"]);
+        Assert.False(File.Exists(Path.Combine(_test.Directory, "rev.plan.json")));
+    }
+
+    [Fact]
     public async Task Build_with_no_wait_prints_the_running_envelope()
     {
         _mcp.ThenText(Running);

@@ -179,6 +179,23 @@ public sealed class ScreenBuildTests
     }
 
     [Fact]
+    public async Task A_build_that_answers_with_a_question_object_exits_3_offers_the_defaults_and_saves_nothing()
+    {
+        using var test = new ScreenHarness();
+        test.Mcp.ThenText(ScreenHarness.Done(new JsonObject { ["question"] = DefaultsRefusal }.ToJsonString()));
+
+        var exit = await test.RunAsync(
+            "command", "build", "Create a sales order of type SO for customer {{CustomerID}}", "--save", "so.batch.json", "--intent", ScreenHarness.Intent);
+
+        Assert.Equal(ExitCodes.BuilderRefusal, exit);
+        Assert.Equal(ErrorCodes.BuilderRefusal, (string?)test.Error["code"]);
+        Assert.Equal(DefaultsRefusal, (string?)test.Error["message"]);
+        Assert.Contains("--accept-defaults", (string?)test.Error["nextStep"], StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(test.Directory, "so.batch.json")));
+        Assert.Empty(test.Profiles.LoadLibrary("prod").Screens);
+    }
+
+    [Fact]
     public async Task A_build_task_that_failed_with_a_question_exits_3()
     {
         using var test = new ScreenHarness();

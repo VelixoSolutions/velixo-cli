@@ -78,6 +78,49 @@ public sealed class ToolResultUnwrapperTests
     }
 
     [Fact]
+    public void A_done_build_whose_response_is_a_question_object_is_exit_3_with_the_question()
+    {
+        const string envelope = """{"taskId":"t_5e","status":"done","result":{"textualResponse":"{\"question\": \"ERROR: specify the grouping axis.\"}"}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal(ErrorCodes.BuilderRefusal, error.Code);
+        Assert.Equal("ERROR: specify the grouping axis.", error.Message);
+        Assert.StartsWith("Put the builder's question to the user in plain words", error.NextStep, StringComparison.Ordinal);
+        Assert.Equal("t_5e", error.TaskId);
+    }
+
+    [Fact]
+    public void A_done_build_whose_response_is_a_question_object_not_a_string_is_exit_3()
+    {
+        const string envelope = """{"taskId":"t_5f","status":"done","result":{"textualResponse":{"question":"ERROR: Which branch?"}}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal("ERROR: Which branch?", error.Message);
+    }
+
+    [Theory]
+    [InlineData("""{"question":"AR balance per customer","queries":[{"purpose":"Balance","giql":"FROM A SELECT X"}]}""")]
+    [InlineData("""{"question":"   "}""")]
+    [InlineData("""{"result":{"question":"ERROR: echoed by a write"}}""")]
+    public void A_done_task_whose_question_is_not_an_error_text_keeps_its_data(string response)
+    {
+        var envelope = new JsonObject
+        {
+            ["taskId"] = "t_5g",
+            ["status"] = "done",
+            ["result"] = new JsonObject { ["textualResponse"] = response },
+        }.ToJsonString();
+
+        UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+
+        Assert.Equal(JsonNode.Parse(response)!.ToJsonString(), unwrapped.Document["result"]!["data"]!.ToJsonString());
+    }
+
+    [Fact]
     public void A_failed_task_whose_error_is_a_builder_question_is_exit_3_with_the_text_verbatim()
     {
         const string envelope = """{"taskId":"t_5d","status":"failed","error":"  ERROR: Which screen do you mean: Sales Orders or Quotes?\n"}""";
