@@ -14,6 +14,8 @@ public static partial class ToolResultUnwrapper
 {
     private const string BuilderRefusalPrefix = "ERROR:";
 
+    private const string RefusedWithoutQuestion = "The builder declined the request and gave no question.";
+
     private const string BuilderRefusalNextStep =
         "Put the builder's question to the user in plain words, then build again with their answer.";
 
@@ -46,7 +48,12 @@ public static partial class ToolResultUnwrapper
         "mcpserverenabled",
     ];
 
-    public static UnwrappedToolResult Unwrap(McpToolResult result)
+    /// <summary>
+    /// Unwraps <paramref name="result"/>. Pass <paramref name="isBuild"/> for a <c>prepare_query</c> or
+    /// <c>prepare_commands</c> task, so that a done answer that is nothing but a <c>question</c> counts as a builder
+    /// refusal; for every other tool such an answer is data.
+    /// </summary>
+    public static UnwrappedToolResult Unwrap(McpToolResult result, bool isBuild = false)
     {
         ArgumentNullException.ThrowIfNull(result);
 
@@ -56,7 +63,7 @@ public static partial class ToolResultUnwrapper
 
         if (parsed is JsonObject envelope && (string?)envelope["status"] is { } status && envelope.ContainsKey("taskId"))
         {
-            return UnwrapTask(envelope, status, result.IsError);
+            return UnwrapTask(envelope, status, result.IsError, isBuild);
         }
 
         if (result.IsError)
@@ -124,7 +131,7 @@ public static partial class ToolResultUnwrapper
     /// <summary>Returns whether <paramref name="text"/> starts with one of the server's error codes, such as <c>ATTACHMENT_TOKEN_INVALID</c>.</summary>
     public static bool IsCodedError(string text) => CodedError().IsMatch(text.Trim());
 
-    private static UnwrappedToolResult UnwrapTask(JsonObject envelope, string status, bool isError)
+    private static UnwrappedToolResult UnwrapTask(JsonObject envelope, string status, bool isError, bool isBuild)
     {
         var taskId = (string?)envelope["taskId"];
 
@@ -146,7 +153,7 @@ public static partial class ToolResultUnwrapper
             case TaskStatuses.Done:
                 return new UnwrappedToolResult
                 {
-                    Document = UnwrapDone(envelope, taskId),
+                    Document = UnwrapDone(envelope, taskId, isBuild),
                     TaskId = taskId,
                     Status = status,
                 };
@@ -166,7 +173,7 @@ public static partial class ToolResultUnwrapper
         }
     }
 
-    private static JsonObject UnwrapDone(JsonObject envelope, string? taskId)
+    private static JsonObject UnwrapDone(JsonObject envelope, string? taskId, bool isBuild)
     {
         var document = new JsonObject
         {
@@ -177,25 +184,22 @@ public static partial class ToolResultUnwrapper
         var unwrapped = new JsonObject();
         if (envelope["result"] is JsonObject result)
         {
-            if (TryGetRefusal(result["textualResponse"]) is { } refusal)
+            // Parsed once: a query result can be megabytes of rows, and the refusal check reads the same node.
+            string? response = result["textualResponse"] is JsonValue textual && textual.TryGetValue(out string? text) ? text : null;
+            JsonNode? data = response is null ? result["textualResponse"]?.DeepClone() : TryParse(response);
+
+            if (TryGetRefusal(result, response, data, isBuild) is { } refusal)
             {
                 throw BuilderRefusal(refusal, taskId);
             }
 
-            if (result["textualResponse"] is JsonValue textual && textual.TryGetValue(out string? response))
+            if (response is not null && data is null)
             {
-                if (TryParse(response) is { } data)
-                {
-                    unwrapped["data"] = data;
-                }
-                else
-                {
-                    unwrapped["text"] = response;
-                }
+                unwrapped["text"] = response;
             }
-            else if (result.ContainsKey("textualResponse"))
+            else if (response is not null || result.ContainsKey("textualResponse"))
             {
-                unwrapped["data"] = result["textualResponse"]?.DeepClone();
+                unwrapped["data"] = data;
             }
 
             foreach ((var key, JsonNode? value) in result)
@@ -246,34 +250,42 @@ public static partial class ToolResultUnwrapper
     private static bool IsBuilderRefusal(string text) => text.TrimStart().StartsWith(BuilderRefusalPrefix, StringComparison.Ordinal);
 
     /// <summary>
-    /// Returns the builder's question when a done task's textualResponse is a refusal, or null. A refusal is
-    /// an <c>ERROR:</c> text, or, since RD-14621, a <c>{"question": "ERROR: …"}</c> object, sent as JSON text or
-    /// as the object itself. The tool guidance promises the shape ("{ question } in place of the plan"), and the
-    /// server sets the text only from an <c>ERROR:</c> refusal, so either signal is enough: a <c>question</c>
-    /// that is an <c>ERROR:</c> text, or a non-blank <c>question</c> that is the object's only key. This
-    /// survives a rewording of the prefix, and never takes a plan, a batch or a write's result that merely
-    /// carries a <c>question</c> field for a refusal, since done tasks of every tool come through here.
+    /// Returns the builder's question when a done task is a builder refusal, or null. The signals, strongest first:
+    /// <list type="number">
+    /// <item><c>result.refused: true</c>, the server's own marker since RD-14934.</item>
+    /// <item>A textualResponse that is an <c>ERROR:</c> text, the shape before RD-14621.</item>
+    /// <item>A textualResponse <c>{"question": "ERROR: …"}</c>, the shape since RD-14621.</item>
+    /// <item>For a build only, an answer that is nothing but a non-blank <c>question</c>, which the tool guidance
+    /// promises ("{ question } in place of the plan") whatever the text says. A write, an import or a query
+    /// finishes through here too, and a result of theirs shaped that way is data.</item>
+    /// </list>
     /// </summary>
-    private static string? TryGetRefusal(JsonNode? textualResponse)
+    private static string? TryGetRefusal(JsonObject result, string? response, JsonNode? answer, bool isBuild)
     {
-        JsonNode? answer = textualResponse;
-        if (textualResponse is JsonValue textual && textual.TryGetValue(out string? response))
-        {
-            if (IsBuilderRefusal(response))
-            {
-                return response;
-            }
+        var question = answer is JsonObject candidate
+            && candidate["question"] is JsonValue value
+            && value.TryGetValue(out string? text)
+            && !string.IsNullOrWhiteSpace(text)
+                ? text
+                : null;
 
-            answer = TryParse(response);
+        if (result["refused"] is JsonValue marker && marker.TryGetValue(out bool refused) && refused)
+        {
+            // Without a question, a plain text answer is the builder's words; JSON without one says nothing to relay.
+            return question ?? (answer is null && !string.IsNullOrWhiteSpace(response) ? response : RefusedWithoutQuestion);
         }
 
-        return answer is JsonObject candidate
-            && candidate["question"] is JsonValue value
-            && value.TryGetValue(out string? question)
-            && !string.IsNullOrWhiteSpace(question)
-            && (IsBuilderRefusal(question) || candidate.Count == 1)
-            ? question
-            : null;
+        if (response is not null && IsBuilderRefusal(response))
+        {
+            return response;
+        }
+
+        if (question is null)
+        {
+            return null;
+        }
+
+        return IsBuilderRefusal(question) || (isBuild && answer is JsonObject { Count: 1 }) ? question : null;
     }
 
     private static CliException BuilderRefusal(string text, string? taskId) =>

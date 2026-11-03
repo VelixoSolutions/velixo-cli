@@ -339,7 +339,7 @@ public static partial class ScreenCommands
         try
         {
             result = await services.Tasks
-                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), services.FollowOptions(), cancellationToken)
+                .RunAsync(token => services.Mcp.CallToolAsync(McpToolNames.PrepareCommands, arguments, token), services.FollowOptions() with { IsBuild = true }, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (CliException refusal) when (refusal.Code == ErrorCodes.BuilderRefusal && !acceptDefaults && OffersDefaults(refusal.Message))

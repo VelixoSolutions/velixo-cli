@@ -66,7 +66,7 @@ When the user asked for the query itself, show it as built, unedited, and say wh
 
 | Exit | `error.code` | What to do |
 |---|---|---|
-| 3 | `BUILDER_REFUSAL` | The builder needs something. `error.message` holds its `ERROR:` text. See below. |
+| 3 | `BUILDER_REFUSAL` | The builder needs something. `error.message` holds its question, usually an `ERROR:` text. See below. |
 | 5 | `TOOL_ERROR` | The server refused the call. When several connections fit, run `velixo connections list`, ask the user, and pass `--connection`. |
 | 4 | `NOT_SIGNED_IN` and others | Sign in again, or relay the reason. |
 | 124 | `TIMEOUT` | The build still runs. Collect it with `velixo task status TASKID --wait`. |

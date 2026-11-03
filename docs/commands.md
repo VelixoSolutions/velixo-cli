@@ -112,7 +112,7 @@ Tool: `prepare_query`. The request is a natural-language data question. Write ev
 
 The query is VQL, the Velixo Query Language. VQL is one language for Acumatica, Sage Intacct and Business Central, and a plain GIQL query runs unchanged. Query files use the `.vql` extension. The server still names an item's query text `giql`; the CLI prints it as `query`, so the shape does not change when the server renames it, and `query run` reads either. A plan item can hold `inquiry: { name, parameters }` instead of `query` when the request named a saved inquiry. With `--output table` the items print as a table of purpose and query, with the note under it.
 
-When the builder refuses, the command exits 3 with `error.code: "BUILDER_REFUSAL"` and the `ERROR:` text in `error.message`. The server reports a refusal as a failed build task, or as a finished one whose answer is `{"question": "ERROR: …"}`; the CLI gives both exit 3, with the question in `error.message`, and `--save` writes nothing. Put the question to the user in plain words, then build again.
+When the builder refuses, the command exits 3 with `error.code: "BUILDER_REFUSAL"` and the builder's question in `error.message`, usually an `ERROR:` text. The server reports a refusal as a failed build task, or as a finished one whose answer is `{"question": …}`, which a server with RD-14934 also marks `refused: true`. The CLI gives both exit 3, and `--save` writes nothing. Put the question to the user in plain words, then build again.
 
 Save a plan with `--save FILE`, which writes the same document whatever the output mode (a `.vql` file gets the query text alone, for `query run --query`, when the plan has one query), or with a redirect: `velixo query build "..." > ar-balance.plan.json`. At a terminal the plan prints to read: each item's purpose and whole query, the parameters a run takes, the note, and the `query run` command that runs it, with the `--connection` the build named.
 
@@ -217,7 +217,7 @@ Tool: `prepare_commands`. Describe the operation in the user's words with `{{Pla
 }
 ```
 
-Save it with `--save FILE`, or with a redirect: `velixo command build "..." > create-order.batch.json`. At a terminal the batch prints to read: the screen, whether it writes, the values and detail rows a run takes, how the record gets its key, and the `command run` commands that check and run it, with the `--connection` the build named. When the builder stops with an `ERROR:` question, such as a choice between candidate screens, the command exits 3 with `BUILDER_REFUSAL`, whether the build finished or failed with the question.
+Save it with `--save FILE`, or with a redirect: `velixo command build "..." > create-order.batch.json`. At a terminal the batch prints to read: the screen, whether it writes, the values and detail rows a run takes, how the record gets its key, and the `command run` commands that check and run it, with the `--connection` the build named. When the builder stops with a question, such as a choice between candidate screens, the command exits 3 with `BUILDER_REFUSAL`, whether the build finished or failed with the question.
 
 `--accept-defaults` adds one sentence to the request: "Leave every field this request does not name at its default." The builder then lets the ERP fill those fields, as the screen would, instead of asking for them. A branch or a project is otherwise one of the values it asks for, because it identifies a business entity. Pass it only when the user said to use the defaults. The library keeps the request as typed, without the sentence. When a `command build` refusal offers to use the defaults, its `nextStep` names the flag, along with `--target` when the refusal gives one.
 
@@ -465,7 +465,7 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 | `CONFIRMATION_DECLINED` | 2 | The person answered no at the terminal prompt. Nothing ran. |
 | `NO_CONTINUATION` | 2 | `command run --continue` with no record left open on this profile. |
 | `CONFIG_INVALID` | 2 | `config.json` or `.velixo.json` is not valid JSON. |
-| `BUILDER_REFUSAL` | 3 | A builder answered with an `ERROR:` question. `message` holds the question verbatim. |
+| `BUILDER_REFUSAL` | 3 | A builder answered with a question instead of a plan or a batch. `message` holds the question verbatim, usually an `ERROR:` text. |
 | `NOT_SIGNED_IN` | 4 | No sign-in on the profile, or the server does not know the caller. |
 | `SESSION_ENDED` | 4 | The 30-day session ended, or the server refused the token even after a refresh. |
 | `ACCESS_DENIED` | 4 | Velixo refused the caller: no access to the AI tools, no credits or no account. |

@@ -7,4 +7,10 @@ public sealed record TaskFollowOptions
 
     /// <summary>Gets how long this wait may last: what is left of the command's <c>--timeout</c>, or null for no limit.</summary>
     public TimeSpan? Timeout { get; init; }
+
+    /// <summary>
+    /// Gets whether the task is a build (<c>prepare_query</c> or <c>prepare_commands</c>). Only then does an answer
+    /// that is nothing but a <c>question</c> count as a builder refusal; see <see cref="ToolResultUnwrapper.Unwrap"/>.
+    /// </summary>
+    public bool IsBuild { get; init; }
 }

@@ -6,7 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Fixed
 
-- `query build` and `command build` exit 3 with `BUILDER_REFUSAL` when the server finishes the build with a `{"question": "ERROR: …"}` answer, the shape it uses since RD-14621. The question is in `error.message`, `command build` shows the `--accept-defaults` hint when the question offers the defaults, and `--save` writes nothing. Before, the CLI exited 0 and saved the refusal as a plan or a batch. (RD-14834)
+- `query build` and `command build` exit 3 with `BUILDER_REFUSAL` when the server finishes the build with a `{"question": "ERROR: …"}` answer, the shape it uses since RD-14621. The question is in `error.message`, `command build` shows the `--accept-defaults` hint when the question offers the defaults, and `--save` writes nothing. Before, the CLI exited 0 and saved the refusal as a plan or a batch. A build answer that holds nothing but a `question` counts too, whatever its text, and so does any result the server marks `refused: true` (RD-14934). (RD-14834)
 
 ## [1.0.0] - 2026-10-30
 

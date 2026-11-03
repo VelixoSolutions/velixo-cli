@@ -84,7 +84,7 @@ public static class QueryCommands
 
             UnwrappedToolResult result = await services.Tasks.RunAsync(
                 token => services.Mcp.CallToolAsync(McpToolNames.PrepareQuery, arguments, token),
-                services.FollowOptions(),
+                services.FollowOptions() with { IsBuild = true },
                 cancellationToken).ConfigureAwait(false);
 
             var document = (JsonObject)result.Document.DeepClone();
