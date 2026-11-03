@@ -30,6 +30,9 @@ public sealed class GatewaySignIn(
     /// <summary>The RFC 8628 poll interval, in seconds, when the server names none, and what each slow_down adds to it.</summary>
     private const long DefaultPollSeconds = 5;
 
+    /// <summary>The shortest poll interval, in seconds, so a server that answers an interval of 0 is not polled without pause.</summary>
+    private const long MinimumPollSeconds = 1;
+
     /// <summary>The client id the gateway registers for the CLI itself, with the loopback redirect on any port.</summary>
     public const string FirstPartyClientId = "velixo-cli";
 
@@ -112,7 +115,7 @@ public sealed class GatewaySignIn(
             UserCode = device.UserCode,
             VerificationUri = device.VerificationUri,
             VerificationUriComplete = device.VerificationUriComplete,
-            IntervalSeconds = device.Interval is >= 0 and var interval ? interval : DefaultPollSeconds,
+            IntervalSeconds = Math.Max(device.Interval ?? DefaultPollSeconds, MinimumPollSeconds),
             Resource = endpoints.Resource,
             McpUrl = settings.McpUrl.ToString(),
             ExpiresAt = expiresAt,
@@ -140,13 +143,10 @@ public sealed class GatewaySignIn(
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        PendingLogin pending = profiles.LoadState(settings.ProfileName).PendingLogin is { DeviceCode.Length: > 0 } started
-            ? started
-            : throw CliException.Usage(
-                $"No sign-in without a browser was started for the profile '{settings.ProfileName}'.",
-                $"velixo login --profile {settings.ProfileName} --no-browser");
+        (var profileName, PendingLogin pending) = FindPending(settings.ProfileName);
+        settings = settings with { ProfileName = profileName };
 
-        TimeSpan interval = TimeSpan.FromSeconds(pending.IntervalSeconds);
+        TimeSpan interval = TimeSpan.FromSeconds(Math.Max(pending.IntervalSeconds, MinimumPollSeconds));
         while (true)
         {
             if (pending.ExpiresAt <= clock.GetUtcNow())
@@ -154,9 +154,23 @@ public sealed class GatewaySignIn(
                 throw Expired(settings.ProfileName);
             }
 
-            (TokenResponse? tokens, var error, var description) = await _tokenClient
-                .PollDeviceCodeAsync(pending.TokenEndpoint!, pending.ClientId!, pending.DeviceCode!, pending.Resource, cancellationToken)
-                .ConfigureAwait(false);
+            TokenResponse? tokens;
+            string? error;
+            string? description;
+            try
+            {
+                (tokens, error, description) = await _tokenClient
+                    .PollDeviceCodeAsync(pending.TokenEndpoint!, pending.ClientId!, pending.DeviceCode!, pending.Resource, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (CliException transient) when (transient.Code is ErrorCodes.Network or ErrorCodes.Http)
+            {
+                // The person may still be signing in, and the device code stays good until it expires, so a network
+                // failure or a 5xx answer (a gateway restarting) only costs one poll.
+                output.Progress($"Could not reach the sign-in server ({transient.Message}); trying again.");
+                await Task.Delay(interval, clock, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
 
             if (tokens is not null)
             {
@@ -182,8 +196,17 @@ public sealed class GatewaySignIn(
                 case "authorization_pending":
                     break;
                 case "slow_down":
-                    // RFC 8628 §3.5: every slow_down adds five seconds to the interval, for the rest of this sign-in.
+                    // RFC 8628 §3.5: every slow_down adds five seconds to the interval, for the rest of this sign-in,
+                    // so a later --complete keeps it too.
                     interval += TimeSpan.FromSeconds(DefaultPollSeconds);
+                    var seconds = (long)interval.TotalSeconds;
+                    profiles.UpdateState(settings.ProfileName, state =>
+                    {
+                        if (state.PendingLogin is { } stored && stored.DeviceCode == pending.DeviceCode)
+                        {
+                            stored.IntervalSeconds = seconds;
+                        }
+                    });
                     break;
                 case "access_denied":
                     ClearPending(settings.ProfileName);
@@ -201,6 +224,45 @@ public sealed class GatewaySignIn(
 
             await Task.Delay(interval, clock, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Returns the device code sign-in to wait for: the profile's own, or, when it has none, the one sign-in
+    /// started under another profile, as after <c>velixo login --env nx-dev --no-browser</c> without <c>--profile</c>.
+    /// </summary>
+    private (string Profile, PendingLogin Pending) FindPending(string profile)
+    {
+        if (profiles.LoadState(profile).PendingLogin is { DeviceCode.Length: > 0 } own)
+        {
+            return (profile, own);
+        }
+
+        List<string> others = [];
+        if (Directory.Exists(profiles.Paths.StateDirectory))
+        {
+            foreach (var file in Directory.EnumerateFiles(profiles.Paths.StateDirectory, "*.json"))
+            {
+                var candidate = Path.GetFileNameWithoutExtension(file);
+                if (candidate != profile
+                    && ProfileNames.IsValid(candidate)
+                    && profiles.LoadState(candidate).PendingLogin is { DeviceCode.Length: > 0 } other
+                    && other.ExpiresAt > clock.GetUtcNow())
+                {
+                    others.Add(candidate);
+                }
+            }
+        }
+
+        return others switch
+        {
+            [var only] => (only, profiles.LoadState(only).PendingLogin!),
+            [] => throw CliException.Usage(
+                $"No sign-in without a browser was started for the profile '{profile}'.",
+                $"velixo login --profile {profile} --no-browser"),
+            _ => throw CliException.Usage(
+                $"The profile '{profile}' started no sign-in without a browser, and {others.Count} other profiles did: {string.Join(", ", others.Order(StringComparer.Ordinal))}.",
+                $"velixo login --profile {others.Order(StringComparer.Ordinal).First()} --complete"),
+        };
     }
 
     private CliException Expired(string profile)

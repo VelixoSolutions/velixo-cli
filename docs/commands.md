@@ -36,7 +36,7 @@ A relative path in any flag or argument is read against the working directory. E
 | `velixo status` | `tools/list`, `list_connections` | `{ "server": { "url", "reachable", "version" }, "signedIn", "tools": 14, "connections": [...], "problems": [] }`. Exit 0 when everything works, 4 when you must sign in, 1 otherwise. |
 | `velixo auth token` | none | The refresh token of the current profile on stdout, nothing else. Use it as `VELIXO_TOKEN`. |
 
-`velixo login` opens your browser and waits for the loopback redirect. Where no browser can be opened (an SSH session, or Linux without `DISPLAY`, `WAYLAND_DISPLAY` or `xdg-open`, unless `BROWSER` is set), it goes on as `--no-browser` and says why on stderr. With `--no-browser`, it signs in with an OAuth device code (RFC 8628): a person opens a URL in a browser on any device, enters a short code and signs in. At a terminal, the command prints the URL and the code on stderr and waits for the sign-in. When nobody is at a terminal (an agent, `--output json`, `--non-interactive`), it prints this document and exits 0:
+`velixo login` opens your browser and waits for the loopback redirect. Where no browser can be opened (an SSH session, or Linux without `DISPLAY`, `WAYLAND_DISPLAY` or `xdg-open`, unless `BROWSER` is set), it goes on as `--no-browser` and says why on stderr. With `--no-browser`, it signs in with an OAuth device code (RFC 8628): a person opens a URL in a browser on any device, enters a short code and signs in. At a terminal, the command prints the URL and the code on stderr and waits for the sign-in. When stdout alone is redirected, it still waits, and prints the signed-in document as JSON. When nobody is at a terminal (a script, an agent, `--non-interactive`), it prints this document and exits 0:
 
 ```json
 {
@@ -51,7 +51,7 @@ A relative path in any flag or argument is read against the working directory. E
 }
 ```
 
-Give the person `verificationUriComplete`, which carries the code, or `verificationUri` and `userCode` when the server sends no complete URL. Then run the `nextStep` command: it waits until the person has signed in, and exits 4 when they decline or the code expires.
+Give the person `verificationUriComplete`, which carries the code, or `verificationUri` and `userCode` when the server sends no complete URL. Then run the `nextStep` command: it waits until the person has signed in, through network failures and server errors, and exits 4 when they decline or the code expires. Without `--profile`, it waits for the one sign-in any profile started.
 
 The CLI signs in as the client `velixo-cli`, which the sign-in page names Velixo CLI, and on a server that does not know that client yet it registers a client of its own once and reuses it; `VELIXO_CLIENT_ID` overrides both.
 

@@ -1,6 +1,6 @@
 namespace Velixo.Cli.Tests.Fakes;
 
-internal sealed class TestConsole(bool redirected = true, string input = "") : ICliConsole
+internal sealed class TestConsole(bool redirected = true, string input = "", bool? outputRedirected = null) : ICliConsole
 {
     public StringWriter OutWriter { get; } = new() { NewLine = "\n" };
 
@@ -12,7 +12,7 @@ internal sealed class TestConsole(bool redirected = true, string input = "") : I
 
     public TextReader In { get; } = new StringReader(input);
 
-    public bool IsOutputRedirected => redirected;
+    public bool IsOutputRedirected => outputRedirected ?? redirected;
 
     public bool IsErrorRedirected => redirected;
 

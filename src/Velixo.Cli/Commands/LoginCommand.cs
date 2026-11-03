@@ -72,11 +72,11 @@ public static class LoginCommand
     }
 
     /// <summary>
-    /// Tells whether this command can show the code to a person and wait for them: not in a script, a pipe, an
-    /// agent or with JSON output, which get the <c>authorization_required</c> document and the command that waits.
+    /// Tells whether this command can show the code to a person and wait for them: stdin and stderr are a terminal
+    /// and no agent runs it. Stdout may be redirected, which only turns the final document into JSON. A script or an
+    /// agent gets the <c>authorization_required</c> document and the command that waits instead.
     /// </summary>
-    private static bool CanWaitHere(CliServices services) =>
-        ValuePrompt.CanAsk(services) && services.Output.Format != OutputFormat.Json;
+    private static bool CanWaitHere(CliServices services) => ValuePrompt.CanAsk(services);
 
     private static void ShowCode(TextWriter prompt, JsonObject started)
     {

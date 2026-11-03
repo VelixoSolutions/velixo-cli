@@ -8,9 +8,16 @@ internal sealed class TestServices : IDisposable
 {
     private readonly TempDirectory _directory = new();
 
-    public TestServices(Dictionary<string, string>? variables = null, bool redirected = true, string input = "", IBrowserOpener? browser = null)
+    /// <param name="browser">Builds the browser from the HTTP fake, so it can read what the CLI sent; no browser opens without it.</param>
+    /// <param name="outputRedirected">Whether stdout alone is redirected; it follows <paramref name="redirected"/> when null.</param>
+    public TestServices(
+        Dictionary<string, string>? variables = null,
+        bool redirected = true,
+        string input = "",
+        Func<FakeHttpHandler, IBrowserOpener>? browser = null,
+        bool? outputRedirected = null)
     {
-        Console = new TestConsole(redirected, input);
+        Console = new TestConsole(redirected, input, outputRedirected);
         Environment = new TestEnvironment(_directory.Path, variables);
         Environment.Variables[EnvironmentVariables.ConfigDirectory] = System.IO.Path.Combine(_directory.Path, "config");
         Paths = ConfigPaths.Resolve(Environment);
@@ -22,7 +29,7 @@ internal sealed class TestServices : IDisposable
             new ProfileStore(Paths),
             new TokenStore(Paths),
             new HttpClient(Http),
-            browser ?? new NoBrowser());
+            browser?.Invoke(Http) ?? new NoBrowser());
     }
 
     public TestConsole Console { get; }

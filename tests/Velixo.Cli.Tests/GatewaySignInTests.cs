@@ -5,6 +5,7 @@ using System.Web;
 using Velixo.Cli.Auth;
 using Velixo.Cli.Config;
 using Velixo.Cli.Output;
+using Velixo.Cli.Serialization;
 using Velixo.Cli.Tests.Fakes;
 
 namespace Velixo.Cli.Tests;
@@ -84,6 +85,146 @@ public sealed class GatewaySignInTests
     }
 
     [Fact]
+    public async Task The_complete_command_finds_the_sign_in_another_profile_started()
+    {
+        using var test = new TestServices();
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson(DeviceAnswer());
+        await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+        test.Console.OutWriter.GetStringBuilder().Clear();
+        test.Http.ThenJson(TokenAnswer("dev@example.com", "org-42"));
+
+        var exit = await test.RunAsync("login", "--complete");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("nx-dev", (string?)JsonNode.Parse(test.Console.StdOut)!["profile"]);
+        Assert.Equal("refresh-1", test.Services.Tokens.Get("nx-dev")!.RefreshToken);
+        Assert.Null(test.Services.Tokens.Get("prod"));
+    }
+
+    [Fact]
+    public async Task The_complete_command_names_the_profiles_when_several_started_a_sign_in()
+    {
+        using var test = new TestServices();
+        foreach (var profile in new[] { "nx-dev", "nx-staging" })
+        {
+            test.Services.Profiles.UpdateState(profile, state => state.PendingLogin = new PendingLogin
+            {
+                DeviceCode = "device-" + profile,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+            });
+        }
+
+        var exit = await test.RunAsync("login", "--complete");
+
+        Assert.Equal(ExitCodes.Usage, exit);
+        Assert.Contains("nx-dev, nx-staging", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Empty(test.Http.Requests);
+    }
+
+    [Fact]
+    public async Task The_wait_goes_on_through_a_network_failure_and_a_server_error()
+    {
+        using var test = new TestServices();
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson(DeviceAnswer());
+        await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+        test.Console.OutWriter.GetStringBuilder().Clear();
+        test.Http
+            .Then(_ => throw new HttpRequestException("Connection reset"))
+            .ThenJson("""{"error":"temporarily_unavailable"}""", HttpStatusCode.BadGateway)
+            .ThenJson(TokenAnswer("dev@example.com", "org-42"));
+
+        var exit = await test.RunAsync("login", "--profile", "nx-dev", "--complete");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal("refresh-1", test.Services.Tokens.Get("nx-dev")!.RefreshToken);
+        Assert.Contains("trying again", test.Console.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_slow_down_is_kept_for_a_later_complete_command()
+    {
+        using var test = new TestServices();
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson(DeviceAnswer());
+        await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+        Assert.Equal(1, test.Services.Profiles.LoadState("nx-dev").PendingLogin!.IntervalSeconds);
+        long? keptInterval = null;
+        test.Http
+            .ThenStatus(HttpStatusCode.TooManyRequests)
+            .Then(_ =>
+            {
+                keptInterval = test.Services.Profiles.LoadState("nx-dev").PendingLogin?.IntervalSeconds;
+                return FakeHttpHandler.Json(PollError("access_denied"), HttpStatusCode.BadRequest);
+            });
+
+        var exit = await test.RunAsync("login", "--profile", "nx-dev", "--complete");
+
+        Assert.Equal(ExitCodes.AuthenticationRequired, exit);
+        Assert.Equal(6, keptInterval);
+    }
+
+    [Fact]
+    public async Task A_rate_limited_poll_counts_as_slow_down()
+    {
+        var handler = new FakeHttpHandler().ThenStatus(HttpStatusCode.TooManyRequests);
+        using var http = new HttpClient(handler);
+
+        (TokenResponse? tokens, var error, _) = await new OAuthTokenClient(http)
+            .PollDeviceCodeAsync("https://nx-dev.velixo.com/oauth/token", "velixo-cli", "device-1", null, TestContext.Current.CancellationToken);
+
+        Assert.Null(tokens);
+        Assert.Equal("slow_down", error);
+    }
+
+    [Fact]
+    public async Task A_no_browser_sign_in_with_only_stdout_redirected_still_waits_at_the_terminal()
+    {
+        using var test = new TestServices(redirected: false, outputRedirected: true);
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson(DeviceAnswer())
+            .ThenJson(TokenAnswer("dev@example.com", "org-42"));
+
+        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("Check that the page shows the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Equal("dev@example.com", (string?)JsonNode.Parse(test.Console.StdOut)!["user"]!["email"]);
+    }
+
+    [Theory]
+    [InlineData("helper", new[] { "helper", "URL" })]
+    [InlineData("code --openExternal", new[] { "code", "--openExternal", "URL" })]
+    [InlineData("firefox -new-tab %s", new[] { "firefox", "-new-tab", "URL" })]
+    public void The_browser_variable_names_the_command_that_opens_the_page(string browser, string[] expected)
+    {
+        var url = new Uri("https://nx-dev.velixo.com/oauth/authorize?a=1");
+
+        System.Diagnostics.ProcessStartInfo start = Assert.Single(BrowserOpener.ChosenBrowserCommands(browser, url));
+
+        Assert.Equal(expected.Select(word => word == "URL" ? url.AbsoluteUri : word), [start.FileName, .. start.ArgumentList]);
+    }
+
+    [Fact]
+    public void A_browser_variable_lists_its_commands_in_order_and_an_empty_one_names_none()
+    {
+        var url = new Uri("https://nx-dev.velixo.com/");
+
+        Assert.Equal(["first", "second"], BrowserOpener.ChosenBrowserCommands($"first{Path.PathSeparator}second", url).Select(start => start.FileName));
+        Assert.Empty(BrowserOpener.ChosenBrowserCommands(null, url));
+        Assert.Empty(BrowserOpener.ChosenBrowserCommands(" ", url));
+    }
+
+    [Fact]
     public async Task A_no_browser_sign_in_at_a_terminal_shows_the_code_and_waits()
     {
         using var test = new TestServices(redirected: false);
@@ -142,7 +283,7 @@ public sealed class GatewaySignInTests
     public async Task A_sign_in_at_a_terminal_without_a_browser_uses_the_device_code()
     {
         var browser = new UnavailableBrowser("this is an SSH session");
-        using var test = new TestServices(redirected: false, browser: browser);
+        using var test = new TestServices(redirected: false, browser: _ => browser);
         test.Http
             .ThenJson(ProtectedResource)
             .ThenJson(AuthorizationServer)
@@ -418,17 +559,9 @@ public sealed class GatewaySignInTests
     private static TestServices BrowserSignIn(out SigningInBrowser browser, Dictionary<string, string>? variables = null)
     {
         SigningInBrowser? created = null;
-        var test = new TestServices(variables, redirected: false, browser: new DeferredBrowser(() => created!));
-        created = new SigningInBrowser(test.Http);
-        browser = created;
+        var test = new TestServices(variables, redirected: false, browser: http => created = new SigningInBrowser(http));
+        browser = created!;
         return test;
-    }
-
-    private sealed class DeferredBrowser(Func<IBrowserOpener> browser) : IBrowserOpener
-    {
-        public string? UnavailableReason => browser().UnavailableReason;
-
-        public bool TryOpen(Uri url) => browser().TryOpen(url);
     }
 
     [Fact]

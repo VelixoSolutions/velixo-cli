@@ -108,7 +108,14 @@ public sealed class OAuthTokenClient(HttpClient http)
             ],
             cancellationToken).ConfigureAwait(false);
 
-        return (tokens, tokens is null ? error?.Error ?? $"http_{(int)status}" : null, tokens is null ? Describe(status, error) : null);
+        if (tokens is not null)
+        {
+            return (tokens, null, null);
+        }
+
+        // A 429 asks the client to poll less often, which is what slow_down asks too.
+        var code = status == HttpStatusCode.TooManyRequests ? "slow_down" : error?.Error ?? $"http_{(int)status}";
+        return (null, code, Describe(status, error));
     }
 
     /// <summary>Revokes <paramref name="token"/>. Best effort: RFC 7009 answers 200 whether or not the token was live.</summary>
