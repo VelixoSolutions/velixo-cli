@@ -33,7 +33,7 @@ public sealed class GatewaySignInTests
         Assert.Equal("authorization_required", (string?)begun["status"]);
         Assert.Equal("WXYZ-1234", (string?)begun["userCode"]);
         Assert.Equal("https://nx-dev.velixo.com/device", (string?)begun["verificationUri"]);
-        Assert.Equal("https://nx-dev.velixo.com/device?code=WXYZ-1234", (string?)begun["verificationUriComplete"]);
+        Assert.Null(begun["verificationUriComplete"]);
         Assert.Equal("velixo login --profile nx-dev --complete", (string?)begun["nextStep"]);
 
         RecordedRequest start = test.Http.Requests[2];
@@ -197,7 +197,7 @@ public sealed class GatewaySignInTests
         var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
 
         Assert.Equal(ExitCodes.Success, exit);
-        Assert.Contains("Check that the page shows the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Enter the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
         Assert.Equal("dev@example.com", (string?)JsonNode.Parse(test.Console.StdOut)!["user"]!["email"]);
     }
 
@@ -238,27 +238,11 @@ public sealed class GatewaySignInTests
         var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
 
         Assert.Equal(ExitCodes.Success, exit);
-        Assert.Contains("https://nx-dev.velixo.com/device?code=WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
-        Assert.Contains("Check that the page shows the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("  https://nx-dev.velixo.com/device\n", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("device?code=", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Enter the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
         Assert.Contains("Signed in as dev@example.com", test.Console.StdOut, StringComparison.Ordinal);
         Assert.Null(test.Services.Profiles.LoadState("nx-dev").PendingLogin);
-    }
-
-    [Fact]
-    public async Task A_server_without_the_complete_verification_uri_gets_the_code_typed_in()
-    {
-        using var test = new TestServices(redirected: false);
-        test.Http
-            .ThenJson(ProtectedResource)
-            .ThenJson(AuthorizationServer)
-            .ThenJson(DeviceAnswer(complete: null))
-            .ThenJson(TokenAnswer("dev@example.com", "org-42"));
-
-        var exit = await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
-
-        Assert.Equal(ExitCodes.Success, exit);
-        Assert.Contains("  https://nx-dev.velixo.com/device\n", test.Console.StdErr, StringComparison.Ordinal);
-        Assert.Contains("Enter the code WXYZ-1234, and sign in.", test.Console.StdErr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -275,7 +259,7 @@ public sealed class GatewaySignInTests
         Assert.Equal(ExitCodes.Success, exit);
         Assert.DoesNotContain("Waiting for the sign-in", test.Console.StdErr, StringComparison.Ordinal);
         Assert.Contains("velixo login --profile nx-dev --complete", test.Console.StdOut, StringComparison.Ordinal);
-        Assert.Contains("Check that the page shows the code WXYZ-1234", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("Enter the code WXYZ-1234", test.Console.StdOut, StringComparison.Ordinal);
         Assert.Equal(3, test.Http.Requests.Count);
     }
 
@@ -295,7 +279,7 @@ public sealed class GatewaySignInTests
         Assert.Equal(ExitCodes.Success, exit);
         Assert.False(browser.Opened);
         Assert.Contains("No browser can be opened here: this is an SSH session.", test.Console.StdErr, StringComparison.Ordinal);
-        Assert.Contains("Check that the page shows the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
+        Assert.Contains("Enter the code WXYZ-1234", test.Console.StdErr, StringComparison.Ordinal);
         Assert.Contains("Signed in as dev@example.com", test.Console.StdOut, StringComparison.Ordinal);
     }
 
@@ -600,13 +584,13 @@ public sealed class GatewaySignInTests
         return response;
     }
 
-    private static string DeviceAnswer(string? complete = "https://nx-dev.velixo.com/device?code=WXYZ-1234") =>
+    private static string DeviceAnswer() =>
         new JsonObject
         {
             ["device_code"] = "device-1",
             ["user_code"] = "WXYZ-1234",
             ["verification_uri"] = "https://nx-dev.velixo.com/device",
-            ["verification_uri_complete"] = complete,
+            ["verification_uri_complete"] = "https://nx-dev.velixo.com/device?code=WXYZ-1234",
             ["expires_in"] = 600,
             ["interval"] = 0,
         }.ToJsonString();

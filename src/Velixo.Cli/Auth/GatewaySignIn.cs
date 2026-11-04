@@ -114,7 +114,6 @@ public sealed class GatewaySignIn(
             DeviceCode = device.DeviceCode,
             UserCode = device.UserCode,
             VerificationUri = device.VerificationUri,
-            VerificationUriComplete = device.VerificationUriComplete,
             IntervalSeconds = Math.Max(device.Interval ?? DefaultPollSeconds, MinimumPollSeconds),
             Resource = endpoints.Resource,
             McpUrl = settings.McpUrl.ToString(),
@@ -126,7 +125,6 @@ public sealed class GatewaySignIn(
         {
             ["status"] = "authorization_required",
             ["verificationUri"] = pending.VerificationUri,
-            ["verificationUriComplete"] = pending.VerificationUriComplete,
             ["userCode"] = pending.UserCode,
             ["expiresAt"] = expiresAt,
             ["profile"] = settings.ProfileName,

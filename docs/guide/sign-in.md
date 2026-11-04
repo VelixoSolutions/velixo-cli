@@ -17,7 +17,7 @@ velixo login --no-browser   # prints the URL and the code
 velixo login --complete     # waits until the sign-in is finished in the browser
 ```
 
-Without a terminal, `velixo login` does this by itself. It prints `{ status: "authorization_required", verificationUri, verificationUriComplete, userCode, expiresAt, profile, environment, nextStep }`. Give the user `verificationUriComplete`, which already carries the code, or `verificationUri` and `userCode`. Nothing needs to come back to you. Then run the `nextStep` command; it names the profile and waits until the user has signed in. The code expires at `expiresAt`, 10 minutes after it is issued.
+Without a terminal, `velixo login` does this by itself. It prints `{ status: "authorization_required", verificationUri, userCode, expiresAt, profile, environment, nextStep }`. Give the user `verificationUri` and `userCode`: they open the URL and type the code. Nothing needs to come back to you. Then run the `nextStep` command; it names the profile and waits until the user has signed in. The code expires at `expiresAt`, 10 minutes after it is issued.
 
 ## Check the setup
 

@@ -4,9 +4,11 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-04
+
 ### Changed
 
-- **Breaking:** `velixo login --no-browser` signs in with an OAuth device code (RFC 8628). It prints a URL and a short code; the person enters the code in a browser on any device, and nothing is pasted back. At a terminal the command waits for the sign-in. Without one, it prints `authorization_required` with `verificationUri`, `verificationUriComplete` and `userCode` in place of `browserUrl`, and `velixo login --complete`, which no longer takes a value, waits for the sign-in. It needs a server that publishes a `device_authorization_endpoint`.
+- **Breaking:** `velixo login --no-browser` signs in with an OAuth device code (RFC 8628). It prints a URL and a short code; the person enters the code in a browser on any device, and nothing is pasted back. At a terminal the command waits for the sign-in. Without one, it prints `authorization_required` with `verificationUri` and `userCode` in place of `browserUrl`, and `velixo login --complete`, which no longer takes a value, waits for the sign-in. It shows the short verification URL, and the person types the code there. It needs a server that publishes a `device_authorization_endpoint`.
 - `velixo login` signs in as `--no-browser` does when no browser the person would see can be opened: in an SSH session, on Linux without a graphical display, or without `xdg-open`. It says why on stderr. A `BROWSER` variable, as a remote editor sets to forward to your own machine, keeps the browser sign-in, and the CLI now opens the page with the command it names.
 
 ### Fixed
@@ -38,4 +40,5 @@ Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windo
 - Agent detection from environment variables, which turns on non-interactive mode and goes to the server for its telemetry. The CLI sends no telemetry of its own.
 - Binaries for `win-x64`, `win-arm64`, `osx-x64`, `osx-arm64`, `linux-x64`, `linux-arm64` and `linux-musl-x64`, the install scripts `install.sh` and `install.ps1`, and `checksums.txt` on every GitHub Release. The release workflow signs the Windows binaries with the Velixo EV certificate and signs and notarizes the macOS binaries once their keys are set up.
 
+[1.0.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.1
 [1.0.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.0

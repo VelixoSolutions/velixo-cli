@@ -29,9 +29,6 @@ public sealed class PendingLogin
     [JsonPropertyName("verificationUri")]
     public string? VerificationUri { get; set; }
 
-    [JsonPropertyName("verificationUriComplete")]
-    public string? VerificationUriComplete { get; set; }
-
     /// <summary>Gets or sets the seconds to wait between two polls, as the server last asked.</summary>
     [JsonPropertyName("intervalSeconds")]
     public long IntervalSeconds { get; set; }
