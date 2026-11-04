@@ -13,6 +13,9 @@ public sealed record OAuthServerEndpoints
 
     public string? RevocationEndpoint { get; init; }
 
+    /// <summary>Gets the RFC 8628 device authorization endpoint, where a sign-in without a browser on this machine starts.</summary>
+    public string? DeviceAuthorizationEndpoint { get; init; }
+
     /// <summary>Gets the RFC 8707 resource to ask tokens for: the protected-resource metadata's <c>resource</c>.</summary>
     required public string Resource { get; init; }
 }

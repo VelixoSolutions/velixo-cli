@@ -113,19 +113,19 @@ velixo login
 
 The command opens your browser, you sign in with Microsoft, Google or an emailed code and choose your organization, and the CLI stores the tokens. It uses OAuth with PKCE on a loopback redirect (`http://127.0.0.1:<port>/callback`).
 
-When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. The command prints the sign-in URL. Open it on any device and sign in: the browser then lands on a page that does not load. At a terminal, the command waits for you to paste that page's address, and finishes the sign-in:
+When the CLI cannot open a browser (an SSH session, a sandbox, an agent), use `--no-browser`. At a terminal, `velixo login` does this by itself where it finds no browser: in an SSH session, or on Linux without a graphical display or `xdg-open`. The command prints a URL and a short code. Open the URL in a browser on any device, enter the code if the page asks for it, and sign in. The command waits at the terminal and finishes the sign-in by itself:
 
 ```sh
 velixo login --no-browser
 ```
 
-Without a terminal, such as in a script, through an agent, or when you press Enter without pasting, the command prints the URL and exits instead. Finish the sign-in with:
+Without a terminal, such as in a script or through an agent, the command prints the URL and the code, and exits. Once the person has the URL and the code, run the command that waits for the sign-in:
 
 ```sh
-velixo login --complete "<code-or-redirected-url>"
+velixo login --complete
 ```
 
-`--complete` accepts the code, or the full URL that the browser was redirected to. A sign-in with a device code, where you type a short code on another device, is coming. Until it ships, `--complete` takes the redirected URL.
+The code expires 10 minutes after the command prints it.
 
 Choose another environment with `--env`:
 
@@ -152,7 +152,7 @@ Put the configuration folder on a volume with `VELIXO_CONFIG_DIR`, so the sign-i
 docker run -it --rm -e VELIXO_CONFIG_DIR=/data/velixo -v velixo-config:/data/velixo my-app velixo login --no-browser
 ```
 
-Open the URL it prints, sign in, and paste the address the browser lands on. `-it` gives the command a terminal to wait in.
+Open the URL it prints on any device, enter the code and sign in. `-it` gives the command a terminal to wait in.
 
 Give each deployment its own volume and its own sign-in. The server replaces the refresh token every time it is used, so two deployments that share one sign-in end each other's session. The same holds for `VELIXO_TOKEN`: see its limits under [Sign in](#sign-in).
 

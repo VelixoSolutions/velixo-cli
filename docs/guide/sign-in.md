@@ -10,14 +10,14 @@ velixo login                    # prod, in the browser
 velixo login --env nx-staging   # another environment
 ```
 
-Without a browser (a server, a container), run `velixo login --no-browser` at a terminal. It prints the URL to open, then waits for the address the browser lands on: paste it, and the sign-in finishes. Where nothing can be pasted, sign in in two steps:
+Without a browser (a server, a container), run `velixo login --no-browser` at a terminal; `velixo login` alone does the same where it finds no browser, such as in an SSH session or on Linux without a display. It prints a URL and a short code: open the URL in a browser on any device, enter the code and sign in, and the command finishes by itself. Where nobody waits at a terminal, sign in in two steps:
 
 ```sh
-velixo login --no-browser                 # prints the URL to open
-velixo login --complete "<code-or-url>"   # the code, or the URL the browser landed on
+velixo login --no-browser   # prints the URL and the code
+velixo login --complete     # waits until the sign-in is finished in the browser
 ```
 
-Without a terminal, `velixo login` does this by itself. It prints `{ status: "authorization_required", browserUrl, expiresAt, profile, environment, nextStep }`. Give the user `browserUrl`, and tell them the browser will end on a page that does not load: that is expected, and they copy that page's address and paste it back to you. Then run the `nextStep` command with what they pasted; it names the profile. The sign-in expires at `expiresAt`, 10 minutes after it starts.
+Without a terminal, `velixo login` does this by itself. It prints `{ status: "authorization_required", verificationUri, verificationUriComplete, userCode, expiresAt, profile, environment, nextStep }`. Give the user `verificationUriComplete`, which already carries the code, or `verificationUri` and `userCode`. Nothing needs to come back to you. Then run the `nextStep` command; it names the profile and waits until the user has signed in. The code expires at `expiresAt`, 10 minutes after it is issued.
 
 ## Check the setup
 

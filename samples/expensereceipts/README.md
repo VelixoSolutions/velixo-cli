@@ -92,7 +92,7 @@ A tap removes the buttons, so an old question cannot be answered twice. Text mes
 docker build -f Dockerfile.sageintacct -t expense-receipts-sageintacct .
 docker build -f Dockerfile.acumatica -t expense-receipts-acumatica .
 
-# Sign each one in once: open the URL it prints, then paste the address the browser lands on.
+# Sign each one in once: open the URL it prints on any device, and enter the code it prints.
 docker run -it --rm -v velixo-sageintacct:/data/velixo expense-receipts-sageintacct velixo login --env nx-dev --no-browser
 
 docker run -d --name receipts-sage --env-file .env.sageintacct \

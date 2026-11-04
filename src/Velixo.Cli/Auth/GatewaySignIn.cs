@@ -10,9 +10,9 @@ namespace Velixo.Cli.Auth;
 /// <summary>
 /// Signs a profile in through the Velixo OAuth gateway: authorization code with PKCE, a loopback
 /// redirect, and the first-party client <see cref="FirstPartyClientId"/>, or a dynamically registered
-/// public client on a server that does not know it. Without a browser the sign-in is split in two: the
-/// first call prints the URL and keeps the PKCE verifier in the profile state, and
-/// <see cref="CompleteAsync"/> redeems the code from the URL the browser landed on.
+/// public client on a server that does not know it. Without a browser on this machine it uses the RFC 8628
+/// device code grant instead: the person enters a short code in a browser anywhere, and the CLI polls the
+/// token endpoint until they have signed in.
 /// </summary>
 /// <param name="httpWithoutRedirects">A client that hands back a redirect instead of following it.</param>
 public sealed class GatewaySignIn(
@@ -26,6 +26,12 @@ public sealed class GatewaySignIn(
 {
     /// <summary>How long the gateway holds a started authorization at its sign-in page.</summary>
     public static readonly TimeSpan PendingLifetime = TimeSpan.FromMinutes(10);
+
+    /// <summary>The RFC 8628 poll interval, in seconds, when the server names none, and what each slow_down adds to it.</summary>
+    private const long DefaultPollSeconds = 5;
+
+    /// <summary>The shortest poll interval, in seconds, so a server that answers an interval of 0 is not polled without pause.</summary>
+    private const long MinimumPollSeconds = 1;
 
     /// <summary>The client id the gateway registers for the CLI itself, with the loopback redirect on any port.</summary>
     public const string FirstPartyClientId = "velixo-cli";
@@ -75,92 +81,201 @@ public sealed class GatewaySignIn(
     }
 
     /// <summary>
-    /// Starts a sign-in that a person finishes in a browser anywhere, and returns the
-    /// <c>authorization_required</c> document with the URL and the command that completes it.
+    /// Starts an RFC 8628 device code sign-in, which a person finishes by entering a short code in a browser on
+    /// any device. Keeps the device code in the profile state, so <see cref="WaitForDeviceSignInAsync"/> in this
+    /// process or a later one can finish it, and returns the <c>authorization_required</c> document.
     /// </summary>
-    public async Task<JsonObject> BeginDeferredAsync(ResolvedSettings settings, CancellationToken cancellationToken)
+    public async Task<JsonObject> BeginDeviceSignInAsync(ResolvedSettings settings, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         OAuthServerEndpoints endpoints = await _discovery.DiscoverAsync(settings.McpUrl, cancellationToken).ConfigureAwait(false);
-        var verifier = Pkce.CreateVerifier();
-        var state = Pkce.CreateState();
-        var redirectUri = new Uri($"http://127.0.0.1:{LoopbackListener.FreeLoopbackPort()}/callback");
-        (var clientId, Uri browserUrl) = await ChooseClientAsync(settings, endpoints, redirectUri, verifier, state, cancellationToken)
-            .ConfigureAwait(false);
-        DateTimeOffset expiresAt = clock.GetUtcNow().Add(PendingLifetime);
+        if (string.IsNullOrEmpty(endpoints.DeviceAuthorizationEndpoint))
+        {
+            throw new CliException(
+                ExitCodes.Failure,
+                ErrorCodes.SignInFailed,
+                $"{endpoints.Issuer} offers no sign-in without a browser on this machine (no device_authorization_endpoint).",
+                "Run 'velixo login' on a machine with a browser, then pass its 'velixo auth token' as VELIXO_TOKEN here.");
+        }
 
-        profiles.UpdateState(settings.ProfileName, profileState => profileState.PendingLogin = new PendingLogin
+        var clientId = settings.EnvironmentClientId ?? FirstPartyClientId;
+        DeviceAuthorizationResponse device = await _tokenClient
+            .RequestDeviceCodeAsync(endpoints.DeviceAuthorizationEndpoint, clientId, DynamicClientRegistration.Scope, endpoints.Resource, cancellationToken)
+            .ConfigureAwait(false);
+
+        DateTimeOffset expiresAt = clock.GetUtcNow().Add(device.ExpiresIn is > 0 and var seconds ? TimeSpan.FromSeconds(seconds) : PendingLifetime);
+        var pending = new PendingLogin
         {
             Issuer = endpoints.Issuer,
             TokenEndpoint = endpoints.TokenEndpoint,
             RevocationEndpoint = endpoints.RevocationEndpoint,
             ClientId = clientId,
-            RedirectUri = redirectUri.ToString(),
-            CodeVerifier = verifier,
-            State = state,
+            DeviceCode = device.DeviceCode,
+            UserCode = device.UserCode,
+            VerificationUri = device.VerificationUri,
+            VerificationUriComplete = device.VerificationUriComplete,
+            IntervalSeconds = Math.Max(device.Interval ?? DefaultPollSeconds, MinimumPollSeconds),
             Resource = endpoints.Resource,
             McpUrl = settings.McpUrl.ToString(),
             ExpiresAt = expiresAt,
-        });
+        };
+        profiles.UpdateState(settings.ProfileName, profileState => profileState.PendingLogin = pending);
 
         return new JsonObject
         {
             ["status"] = "authorization_required",
-            ["browserUrl"] = browserUrl.ToString(),
+            ["verificationUri"] = pending.VerificationUri,
+            ["verificationUriComplete"] = pending.VerificationUriComplete,
+            ["userCode"] = pending.UserCode,
             ["expiresAt"] = expiresAt,
             ["profile"] = settings.ProfileName,
             ["environment"] = settings.Target,
-            ["nextStep"] = $"velixo login --profile {settings.ProfileName} --complete <paste the URL the browser lands on>",
+            ["nextStep"] = $"velixo login --profile {settings.ProfileName} --complete",
         };
     }
 
     /// <summary>
-    /// Finishes a sign-in begun by <see cref="BeginDeferredAsync"/> from the URL the browser landed on,
-    /// or from the bare code in it.
+    /// Waits for the person to finish the device code sign-in started by <see cref="BeginDeviceSignInAsync"/>,
+    /// polling at the interval the server asks for, and returns the signed-in document.
     /// </summary>
-    public async Task<JsonObject> CompleteAsync(ResolvedSettings settings, string urlOrCode, CancellationToken cancellationToken)
+    public async Task<JsonObject> WaitForDeviceSignInAsync(ResolvedSettings settings, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentException.ThrowIfNullOrWhiteSpace(urlOrCode);
 
-        var pasted = urlOrCode.Trim();
-        Uri? callback = Uri.TryCreate(pasted, UriKind.Absolute, out Uri? parsed) && parsed.Query.Length > 0 ? parsed : null;
-        var callbackState = callback is null ? null : HttpUtility.ParseQueryString(callback.Query)["state"];
+        (var profileName, PendingLogin pending) = FindPending(settings.ProfileName);
+        settings = settings with { ProfileName = profileName };
 
-        (var profileName, PendingLogin pending) = FindPending(settings.ProfileName, callbackState);
-        if (pending.ExpiresAt <= clock.GetUtcNow())
+        TimeSpan interval = TimeSpan.FromSeconds(Math.Max(pending.IntervalSeconds, MinimumPollSeconds));
+        while (true)
         {
-            throw new CliException(
-                ExitCodes.AuthenticationRequired,
-                ErrorCodes.SignInFailed,
-                "The sign-in started for this profile has expired.",
-                $"velixo login --profile {profileName} --no-browser");
+            if (pending.ExpiresAt <= clock.GetUtcNow())
+            {
+                throw Expired(settings.ProfileName);
+            }
+
+            TokenResponse? tokens;
+            string? error;
+            string? description;
+            try
+            {
+                (tokens, error, description) = await _tokenClient
+                    .PollDeviceCodeAsync(pending.TokenEndpoint!, pending.ClientId!, pending.DeviceCode!, pending.Resource, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (CliException transient) when (transient.Code is ErrorCodes.Network or ErrorCodes.Http)
+            {
+                // The person may still be signing in, and the device code stays good until it expires, so a network
+                // failure or a 5xx answer (a gateway restarting) only costs one poll.
+                output.Progress($"Could not reach the sign-in server ({transient.Message}); trying again.");
+                await Task.Delay(interval, clock, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (tokens is not null)
+            {
+                var endpoints = new OAuthServerEndpoints
+                {
+                    Issuer = pending.Issuer!,
+                    AuthorizationEndpoint = string.Empty,
+                    TokenEndpoint = pending.TokenEndpoint!,
+                    RevocationEndpoint = pending.RevocationEndpoint,
+                    Resource = pending.Resource!,
+                };
+                ResolvedSettings target = settings with
+                {
+                    McpUrl = new Uri(pending.McpUrl!),
+                    EnvironmentName = Environments.NameOf(new Uri(pending.McpUrl!)),
+                };
+
+                return await StoreAsync(target, endpoints, pending.ClientId!, tokens, cancellationToken).ConfigureAwait(false);
+            }
+
+            switch (error)
+            {
+                case "authorization_pending":
+                    break;
+                case "slow_down":
+                    // RFC 8628 §3.5: every slow_down adds five seconds to the interval, for the rest of this sign-in,
+                    // so a later --complete keeps it too.
+                    interval += TimeSpan.FromSeconds(DefaultPollSeconds);
+                    var seconds = (long)interval.TotalSeconds;
+                    profiles.UpdateState(settings.ProfileName, state =>
+                    {
+                        if (state.PendingLogin is { } stored && stored.DeviceCode == pending.DeviceCode)
+                        {
+                            stored.IntervalSeconds = seconds;
+                        }
+                    });
+                    break;
+                case "access_denied":
+                    ClearPending(settings.ProfileName);
+                    throw new CliException(ExitCodes.AuthenticationRequired, ErrorCodes.SignInFailed, "The sign-in was declined in the browser.", "velixo login");
+                case "expired_token":
+                    throw Expired(settings.ProfileName);
+                default:
+                    ClearPending(settings.ProfileName);
+                    throw new CliException(
+                        ExitCodes.AuthenticationRequired,
+                        ErrorCodes.SignInFailed,
+                        $"The sign-in could not be completed: {description}",
+                        $"velixo login --profile {settings.ProfileName} --no-browser");
+            }
+
+            await Task.Delay(interval, clock, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Returns the device code sign-in to wait for: the profile's own, or, when it has none, the one sign-in
+    /// started under another profile, as after <c>velixo login --env nx-dev --no-browser</c> without <c>--profile</c>.
+    /// </summary>
+    private (string Profile, PendingLogin Pending) FindPending(string profile)
+    {
+        if (profiles.LoadState(profile).PendingLogin is { DeviceCode.Length: > 0 } own)
+        {
+            return (profile, own);
         }
 
-        var code = callback is null ? pasted : ReadCode(callback, pending.State!);
-        var endpoints = new OAuthServerEndpoints
+        List<string> others = [];
+        if (Directory.Exists(profiles.Paths.StateDirectory))
         {
-            Issuer = pending.Issuer!,
-            AuthorizationEndpoint = string.Empty,
-            TokenEndpoint = pending.TokenEndpoint!,
-            RevocationEndpoint = pending.RevocationEndpoint,
-            Resource = pending.Resource!,
-        };
+            foreach (var file in Directory.EnumerateFiles(profiles.Paths.StateDirectory, "*.json"))
+            {
+                var candidate = Path.GetFileNameWithoutExtension(file);
+                if (candidate != profile
+                    && ProfileNames.IsValid(candidate)
+                    && profiles.LoadState(candidate).PendingLogin is { DeviceCode.Length: > 0 } other
+                    && other.ExpiresAt > clock.GetUtcNow())
+                {
+                    others.Add(candidate);
+                }
+            }
+        }
 
-        TokenResponse answer = await _tokenClient
-            .RedeemCodeAsync(endpoints.TokenEndpoint, pending.ClientId!, code, pending.RedirectUri!, pending.CodeVerifier!, pending.Resource, cancellationToken)
-            .ConfigureAwait(false);
-
-        ResolvedSettings target = settings with
+        return others switch
         {
-            ProfileName = profileName,
-            McpUrl = new Uri(pending.McpUrl!),
-            EnvironmentName = Environments.NameOf(new Uri(pending.McpUrl!)),
+            [var only] => (only, profiles.LoadState(only).PendingLogin!),
+            [] => throw CliException.Usage(
+                $"No sign-in without a browser was started for the profile '{profile}'.",
+                $"velixo login --profile {profile} --no-browser"),
+            _ => throw CliException.Usage(
+                $"The profile '{profile}' started no sign-in without a browser, and {others.Count} other profiles did: {string.Join(", ", others.Order(StringComparer.Ordinal))}.",
+                $"velixo login --profile {others.Order(StringComparer.Ordinal).First()} --complete"),
         };
-
-        return await StoreAsync(target, endpoints, pending.ClientId!, answer, cancellationToken).ConfigureAwait(false);
     }
+
+    private CliException Expired(string profile)
+    {
+        ClearPending(profile);
+        return new CliException(
+            ExitCodes.AuthenticationRequired,
+            ErrorCodes.SignInFailed,
+            "The code expired before the sign-in was finished in the browser.",
+            $"velixo login --profile {profile} --no-browser");
+    }
+
+    private void ClearPending(string profile) => profiles.UpdateState(profile, state => state.PendingLogin = null);
 
     private static Uri BuildAuthorizeUrl(OAuthServerEndpoints endpoints, string clientId, Uri redirectUri, string verifier, string state)
     {
@@ -205,31 +320,6 @@ public sealed class GatewaySignIn(
         return query["code"] is { Length: > 0 } code
             ? code
             : throw new CliException(ExitCodes.AuthenticationRequired, ErrorCodes.SignInFailed, "The sign-in answer carries no code.", "velixo login");
-    }
-
-    private (string Profile, PendingLogin Pending) FindPending(string profile, string? callbackState)
-    {
-        PendingLogin? own = profiles.LoadState(profile).PendingLogin;
-        if (own is not null && (callbackState is null || own.State == callbackState))
-        {
-            return (profile, own);
-        }
-
-        if (callbackState is not null && Directory.Exists(profiles.Paths.StateDirectory))
-        {
-            foreach (var file in Directory.EnumerateFiles(profiles.Paths.StateDirectory, "*.json"))
-            {
-                var candidate = Path.GetFileNameWithoutExtension(file);
-                if (ProfileNames.IsValid(candidate) && profiles.LoadState(candidate).PendingLogin is { } other && other.State == callbackState)
-                {
-                    return (candidate, other);
-                }
-            }
-        }
-
-        throw CliException.Usage(
-            $"No sign-in was started for the profile '{profile}' that this answer belongs to.",
-            $"velixo login --profile {profile} --no-browser");
     }
 
     /// <summary>

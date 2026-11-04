@@ -1,9 +1,8 @@
 # The expense receipts sample for one ERP, with the Velixo CLI from cli.velixo.com.
 #   docker build -f Dockerfile.sageintacct -t expense-receipts-sageintacct .
 # Pin a CLI version with --build-arg VELIXO_VERSION=1.0.0; the default is the latest release.
-# Sign the CLI in once; the sign-in lives on the velixo volume:
+# Sign the CLI in once: open the URL it prints on any device and enter the code. The sign-in lives on the velixo volume:
 #   docker run -it --rm -v velixo-sageintacct:/data/velixo expense-receipts-sageintacct velixo login --env nx-dev --no-browser
-#   docker run -it --rm -v velixo-sageintacct:/data/velixo expense-receipts-sageintacct velixo login --complete "<redirected URL>"
 # Run:
 #   docker run -d --env-file .env.sageintacct -v velixo-sageintacct:/data/velixo -v state-sageintacct:/data/state -p 8090:8090 expense-receipts-sageintacct
 FROM python:3.13-slim

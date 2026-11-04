@@ -14,12 +14,11 @@ public static class LoginCommand
 
         var noBrowser = new Option<bool>("--no-browser")
         {
-            Description = "Do not open a browser: print the sign-in URL. At a terminal, wait for the address the browser lands on; otherwise print the command that completes the sign-in.",
+            Description = "Do not open a browser here: print a URL and a code to enter in a browser on any device. At a terminal, wait for the sign-in; otherwise print the command that waits for it.",
         };
-        var complete = new Option<string?>("--complete")
+        var complete = new Option<bool>("--complete")
         {
-            Description = "Finish a sign-in started with --no-browser, from the URL the browser landed on or the code in it.",
-            HelpName = "url-or-code",
+            Description = "Wait for the sign-in that --no-browser started to be finished in the browser.",
         };
 
         var command = new Command(
@@ -35,16 +34,17 @@ public static class LoginCommand
             var signIn = new GatewaySignIn(services.Http, services.HttpWithoutRedirects, services.Tokens, services.Profiles, services.Browser, services.Clock, services.Output);
 
             JsonObject document;
-            if (parse.GetValue(complete) is { } pasted)
+            if (parse.GetValue(complete))
             {
-                document = await signIn.CompleteAsync(services.Settings, pasted, cancellationToken).ConfigureAwait(false);
+                document = await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
             }
-            else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive)
+            else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive || NoBrowserHere(services))
             {
-                document = await signIn.BeginDeferredAsync(services.Settings, cancellationToken).ConfigureAwait(false);
-                if (PastedAddress(services, document) is { } address)
+                document = await signIn.BeginDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
+                if (CanWaitHere(services))
                 {
-                    document = await signIn.CompleteAsync(services.Settings, address, cancellationToken).ConfigureAwait(false);
+                    ShowCode(services.Console.Error, document);
+                    document = await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
                 }
             }
             else
@@ -59,33 +59,41 @@ public static class LoginCommand
         return command;
     }
 
-    /// <summary>
-    /// Shows the sign-in URL and reads the address the browser lands on, so one command signs in on a machine
-    /// without a browser. Returns null without asking when nobody can answer, a script, a pipe, an agent or JSON
-    /// output, and when the person enters nothing: the URL and the <c>--complete</c> command are then printed.
-    /// </summary>
-    private static string? PastedAddress(CliServices services, JsonObject started)
+    /// <summary>Tells, at a terminal, that no browser can open here and the sign-in goes on without one.</summary>
+    private static bool NoBrowserHere(CliServices services)
     {
-        if (!ValuePrompt.CanAsk(services) || services.Output.Format == OutputFormat.Json)
+        if (services.Browser.UnavailableReason is not { } reason)
         {
-            return null;
+            return false;
         }
 
-        TextWriter prompt = services.Console.Error;
-        prompt.Write(
-            $"Open this URL in a browser and sign in:\n\n  {CommandText.String(started["browserUrl"])}\n\n"
-            + "The browser then lands on a page that does not load. Copy its address.\n\n"
-            + "Paste the address your browser lands on: ");
+        services.Output.Progress($"No browser can be opened here: {reason}. Signing in without one, as --no-browser does.");
+        return true;
+    }
+
+    /// <summary>
+    /// Tells whether this command can show the code to a person and wait for them: stdin and stderr are a terminal
+    /// and no agent runs it. Stdout may be redirected, which only turns the final document into JSON. A script or an
+    /// agent gets the <c>authorization_required</c> document and the command that waits instead.
+    /// </summary>
+    private static bool CanWaitHere(CliServices services) => ValuePrompt.CanAsk(services);
+
+    private static void ShowCode(TextWriter prompt, JsonObject started)
+    {
+        prompt.Write($"{Instructions(started)} Waiting for the sign-in...\n");
         prompt.Flush();
+    }
 
-        var answer = services.Console.In.ReadLine()?.Trim();
-        if (string.IsNullOrEmpty(answer))
-        {
-            prompt.WriteLine();
-            return null;
-        }
-
-        return answer;
+    /// <summary>
+    /// Tells the person where to sign in. A URL that already carries the code needs no typing, so the person only
+    /// checks that the page shows the same code, which stops them approving a sign-in someone else started.
+    /// </summary>
+    private static string Instructions(JsonObject started)
+    {
+        var code = CommandText.String(started["userCode"]);
+        return CommandText.String(started["verificationUriComplete"]) is { } complete
+            ? $"Open this URL in a browser on any device:\n\n  {complete}\n\nCheck that the page shows the code {code}, and sign in."
+            : $"Open this URL in a browser on any device:\n\n  {CommandText.String(started["verificationUri"])}\n\nEnter the code {code}, and sign in.";
     }
 
     private static void Write(OutputWriter output, JsonObject document)
@@ -99,8 +107,7 @@ public static class LoginCommand
         if (CommandText.String(document["status"]) == "authorization_required")
         {
             output.WriteText(
-                $"Open this URL in a browser and sign in:\n\n  {CommandText.String(document["browserUrl"])}\n\n"
-                + "The browser then lands on a page that does not load. Copy its address and run:\n\n"
+                $"{Instructions(document)} Then run this command, which waits for the sign-in:\n\n"
                 + $"  {CommandText.String(document["nextStep"])}\n");
             return;
         }

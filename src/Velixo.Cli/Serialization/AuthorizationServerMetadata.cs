@@ -19,4 +19,8 @@ public sealed class AuthorizationServerMetadata
 
     [JsonPropertyName("revocation_endpoint")]
     public string? RevocationEndpoint { get; set; }
+
+    /// <summary>Gets or sets the RFC 8628 device authorization endpoint.</summary>
+    [JsonPropertyName("device_authorization_endpoint")]
+    public string? DeviceAuthorizationEndpoint { get; set; }
 }
