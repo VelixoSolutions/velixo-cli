@@ -42,7 +42,6 @@ A relative path in any flag or argument is read against the working directory. E
 {
   "status": "authorization_required",
   "verificationUri": "https://app.velixo.com/device",
-  "verificationUriComplete": "https://app.velixo.com/device?code=WXYZ-1234",
   "userCode": "WXYZ-1234",
   "expiresAt": "2026-10-28T15:22:00Z",
   "profile": "prod",
@@ -51,7 +50,7 @@ A relative path in any flag or argument is read against the working directory. E
 }
 ```
 
-Give the person `verificationUriComplete`, which carries the code, or `verificationUri` and `userCode` when the server sends no complete URL. Then run the `nextStep` command: it waits until the person has signed in, through network failures and server errors, and exits 4 when they decline or the code expires. Without `--profile`, it waits for the one sign-in any profile started.
+Give the person `verificationUri` and `userCode`: they open the URL and type the code. Then run the `nextStep` command: it waits until the person has signed in, through network failures and server errors, and exits 4 when they decline or the code expires. Without `--profile`, it waits for the one sign-in any profile started.
 
 The CLI signs in as the client `velixo-cli`, which the sign-in page names Velixo CLI, and on a server that does not know that client yet it registers a client of its own once and reuses it; `VELIXO_CLIENT_ID` overrides both.
 

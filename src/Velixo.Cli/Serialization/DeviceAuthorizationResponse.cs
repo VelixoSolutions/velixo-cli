@@ -14,10 +14,6 @@ public sealed class DeviceAuthorizationResponse
     [JsonPropertyName("verification_uri")]
     public string? VerificationUri { get; set; }
 
-    /// <summary>Gets or sets the verification URI with the user code already in it, when the server offers one.</summary>
-    [JsonPropertyName("verification_uri_complete")]
-    public string? VerificationUriComplete { get; set; }
-
     /// <summary>Gets or sets how long the codes stay valid, in seconds.</summary>
     [JsonPropertyName("expires_in")]
     public long? ExpiresIn { get; set; }

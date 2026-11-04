@@ -85,16 +85,12 @@ public static class LoginCommand
     }
 
     /// <summary>
-    /// Tells the person where to sign in. A URL that already carries the code needs no typing, so the person only
-    /// checks that the page shows the same code, which stops them approving a sign-in someone else started.
+    /// Tells the person where to sign in: the short verification URL, and the code to type there. We intentionally
+    /// do not show the URL that carries the code, because a short address is easy to type on another device.
     /// </summary>
-    private static string Instructions(JsonObject started)
-    {
-        var code = CommandText.String(started["userCode"]);
-        return CommandText.String(started["verificationUriComplete"]) is { } complete
-            ? $"Open this URL in a browser on any device:\n\n  {complete}\n\nCheck that the page shows the code {code}, and sign in."
-            : $"Open this URL in a browser on any device:\n\n  {CommandText.String(started["verificationUri"])}\n\nEnter the code {code}, and sign in.";
-    }
+    private static string Instructions(JsonObject started) =>
+        $"Open this URL in a browser on any device:\n\n  {CommandText.String(started["verificationUri"])}\n\n"
+        + $"Enter the code {CommandText.String(started["userCode"])}, and sign in.";
 
     private static void Write(OutputWriter output, JsonObject document)
     {
