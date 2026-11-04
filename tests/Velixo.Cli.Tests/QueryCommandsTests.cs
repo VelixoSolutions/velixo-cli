@@ -303,6 +303,32 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_question_object_from_a_done_build_is_exit_3_and_saves_nothing()
+    {
+        _mcp.ThenText(Done("""{"question": "ERROR: specify the grouping axis for the revenue change."}"""));
+
+        var exit = await Run("query", "build", "Analyze the change in revenue between {{Period1}} and {{Period2}}", "--save", "rev.plan.json");
+
+        Assert.Equal(ExitCodes.BuilderRefusal, exit);
+        JsonNode error = Output()["error"]!;
+        Assert.Equal(ErrorCodes.BuilderRefusal, (string?)error["code"]);
+        Assert.Equal("ERROR: specify the grouping axis for the revenue change.", (string?)error["message"]);
+        Assert.False(File.Exists(Path.Combine(_test.Directory, "rev.plan.json")));
+    }
+
+    [Fact]
+    public async Task A_build_whose_answer_is_only_a_question_without_the_error_prefix_is_exit_3()
+    {
+        _mcp.ThenText(Done("""{"question": "Which fiscal period do you mean?"}"""));
+
+        var exit = await Run("query", "build", "GL balance", "--save", "gl.plan.json");
+
+        Assert.Equal(ExitCodes.BuilderRefusal, exit);
+        Assert.Equal("Which fiscal period do you mean?", (string?)Output()["error"]!["message"]);
+        Assert.False(File.Exists(Path.Combine(_test.Directory, "gl.plan.json")));
+    }
+
+    [Fact]
     public async Task Build_with_no_wait_prints_the_running_envelope()
     {
         _mcp.ThenText(Running);

@@ -389,7 +389,7 @@ On a non-zero exit in JSON mode, stdout holds one error document:
 | 0 | Success. A truncated query result or a warning is still a success: read `result.data.truncated` and `warnings`. | Continue. |
 | 1 | Unexpected failure: network, HTTP 5xx, a bug. | A read or a build: retry once, then report. A write (`command run`, `import run`, `notify`): never retry, it may have run; read the record, then report. |
 | 2 | Usage error: a bad flag, or a confirmation required in non-interactive mode. | Fix the command line, or ask the user. |
-| 3 | The builder refused: the plan is an `ERROR:` text that asks for a decision or a value. | Put the question to the user in plain words and build again. |
+| 3 | The builder refused: instead of a plan or a batch, it asks for a decision or a value. | Put the question to the user in plain words and build again. |
 | 4 | Not signed in, the session ended, or Velixo denied access (no access to the AI tools, no credits, no account). | Run `velixo login`, or relay the reason. |
 | 5 | The server refused the call, with a code: `ATTACHMENT_*`, `SCREEN_*`, `IMPORT_*`, `REPORT_*` or `BC_*`. | Read `error.code`. |
 | 6 | The task failed in the ERP: `status: "failed"`, or an HTTP 400 from the ERP on a query. | Read `error.detail`. For a query error, build the query again and quote the error. |

@@ -32,7 +32,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
         UnwrappedToolResult first;
         try
         {
-            first = ToolResultUnwrapper.Unwrap(await start(linked.Token).ConfigureAwait(false));
+            first = ToolResultUnwrapper.Unwrap(await start(linked.Token).ConfigureAwait(false), options.IsBuild);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -111,7 +111,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
                 McpToolResult polled = await mcp
                     .CallToolAsync(McpToolNames.GetStatus, new JsonObject { ["taskId"] = current.TaskId }, linkedToken)
                     .ConfigureAwait(false);
-                current = ToolResultUnwrapper.Unwrap(polled);
+                current = ToolResultUnwrapper.Unwrap(polled, options.IsBuild);
             }
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !callerToken.IsCancellationRequested)
