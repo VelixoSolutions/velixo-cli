@@ -6,7 +6,7 @@ namespace Velixo.Cli.Mcp;
 /// <summary>
 /// Waits for a task the way the server intends: <c>get_status</c> long-polls, so each call holds
 /// until the task finishes or a short hold elapses, and the follower calls it again at once. Progress
-/// goes to stderr; the finished result is returned unwrapped.
+/// goes to stderr, as a spinner at a terminal; the finished result is returned unwrapped.
 /// </summary>
 public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvider clock)
 {
@@ -28,6 +28,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
 
         using CancellationTokenSource deadline = CreateDeadline(options.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        using Activity activity = output.BeginActivity(ActivityMcpClient.Label);
 
         UnwrappedToolResult first;
         try
@@ -39,7 +40,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
             throw TimedOut(taskId: null);
         }
 
-        return await FollowCoreAsync(first, options, deadline, linked.Token, cancellationToken).ConfigureAwait(false);
+        return await FollowCoreAsync(first, options, activity, deadline, linked.Token, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Follows a task whose envelope the caller already holds, such as <c>velixo task status</c>.</summary>
@@ -53,8 +54,9 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
 
         using CancellationTokenSource deadline = CreateDeadline(options.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        using Activity activity = output.BeginActivity(ActivityMcpClient.Label);
 
-        return await FollowCoreAsync(started, options, deadline, linked.Token, cancellationToken).ConfigureAwait(false);
+        return await FollowCoreAsync(started, options, activity, deadline, linked.Token, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The progress line for one <c>get_status</c> answer, such as <c>Release on SO301000, 2m14s, no change for 48s</c>.</summary>
@@ -93,6 +95,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
     private async Task<UnwrappedToolResult> FollowCoreAsync(
         UnwrappedToolResult current,
         TaskFollowOptions options,
+        Activity activity,
         CancellationTokenSource deadline,
         CancellationToken linkedToken,
         CancellationToken callerToken)
@@ -106,7 +109,7 @@ public sealed class TaskFollower(IMcpClient mcp, OutputWriter output, TimeProvid
         {
             while (current.IsRunning)
             {
-                output.Progress(DescribeProgress(current.TaskId, current.Progress));
+                activity.Update(DescribeProgress(current.TaskId, current.Progress));
 
                 McpToolResult polled = await mcp
                     .CallToolAsync(McpToolNames.GetStatus, new JsonObject { ["taskId"] = current.TaskId }, linkedToken)

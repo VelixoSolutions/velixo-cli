@@ -62,6 +62,9 @@ internal static class QueryPager
 
         var viewer = new Viewer(services, first["result"]!["data"]!["columns"] as JsonArray, view.Columns, skip, top, total.Value, title, fetch);
         viewer.Add(skip, view.Rows);
+
+        // The viewer owns the screen and draws its own loading line, so no spinner may draw over it.
+        using IDisposable held = services.Output.HoldActivities();
         await viewer.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 
