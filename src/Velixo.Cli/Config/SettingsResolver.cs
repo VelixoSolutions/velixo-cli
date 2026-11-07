@@ -119,6 +119,11 @@ public static class SettingsResolver
             UseColor = !flags.NoColor
                 && string.IsNullOrEmpty(sources.GetVariable(EnvironmentVariables.NoColor))
                 && !sources.IsErrorRedirected,
+            Animate = !flags.Quiet
+                && !flags.NonInteractive
+                && agent is null
+                && !sources.IsErrorRedirected
+                && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal),
         };
     }
 

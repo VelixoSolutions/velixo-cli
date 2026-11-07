@@ -15,12 +15,14 @@ Each command that talks to the server calls one tool of the Velixo server with t
 | `--intent TEXT` | Why you make the call: the user's goal. The server records it so that an administrator can see why each call was made. Optional: without it and without `VELIXO_INTENT`, a command that calls a working tool sends `Run from the Velixo CLI: ` and the command name, such as `velixo query run`, and never the argument values. `VELIXO_INTENT` sets it for a whole script. |
 | `--output json\|table\|csv` | The output format. `json` is the default when stdout is not a terminal or an AI agent is detected, `table` otherwise. `csv` applies to query rows and any array result. |
 | `--compact` | Print the JSON document on one line. |
-| `--quiet` | Print no progress on stderr; warnings and errors still print. |
+| `--quiet` | Print no progress on stderr; warnings and errors still print. Also turns the spinner off. |
 | `--no-color` | Turn colors off. `NO_COLOR` does the same. |
 | `--non-interactive` | Never prompt or open a browser. Turns on by itself when stdin is not a terminal or an agent is detected. |
 | `--yes` | Confirm a write. |
 | `--timeout SECONDS` | Stop waiting after this many seconds (exit code 124). It is one budget for the whole command, however many calls the command makes. |
 | `--no-wait` | Print `{ "taskId", "status": "running" }` after the first hold and return. |
+
+While the CLI waits, on the server, a task or a sign-in, a person at a terminal sees a spinner on stderr with what it waits for, redrawn in place, such as `⠹ Release on SO301000, 2m14s`. It shows after a quarter of a second, so a quick call shows none, and it erases itself when the wait ends. When stderr is not a terminal, with `--quiet` or `--non-interactive`, under an AI agent, or with `TERM=dumb`, there is no spinner, and the progress lines print one per line as before.
 
 A tool returns `{ taskId, status, result }`. The CLI parses the JSON text in `result` and prints it as `result.data`. It keeps `result.attachments`, `result.processStatus`, `result.skippedFields` and `result.feedback` beside it. Text that is not JSON stays a string under `result.text`.
 

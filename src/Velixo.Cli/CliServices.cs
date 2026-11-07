@@ -130,7 +130,7 @@ public sealed class CliServices
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _boundAt = Clock.GetTimestamp();
-        _output = new OutputWriter(Console, settings.Output);
+        _output = new OutputWriter(Console, settings.Output, Clock);
         _accessTokens = null;
         _mcp = null;
     }
@@ -190,14 +190,16 @@ public sealed class CliServices
     }
 
     private static IMcpClient CreateMcpClient(CliServices services) =>
-        new StreamableHttpMcpClient(
-            services.Http,
-            services.Settings.McpUrl,
-            services.AccessTokens,
-            services.Profiles,
-            services.Settings.ProfileName,
-            services.Settings.Agent,
-            CliInfo.Version);
+        new ActivityMcpClient(
+            new StreamableHttpMcpClient(
+                services.Http,
+                services.Settings.McpUrl,
+                services.AccessTokens,
+                services.Profiles,
+                services.Settings.ProfileName,
+                services.Settings.Agent,
+                CliInfo.Version),
+            services.Output);
 
     private static IAccessTokenProvider CreateAccessTokenProvider(CliServices services) =>
         new GatewayTokenProvider(
