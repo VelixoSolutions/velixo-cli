@@ -104,6 +104,34 @@ To check signing before a release, run the Release workflow by hand (Actions, Re
 workflow): it builds and signs every target and keeps the packages as run artifacts, and
 publishes nothing. Tick "allow unsigned" to build the targets whose keys are missing.
 
+### Homebrew and WinGet
+
+After it publishes a release, the Release workflow runs `package-managers.yml`, which publishes it
+to both. A prerelease (a tag with a hyphen) goes to neither. To publish a release that is already
+out, run Package managers by hand (Actions, Package managers, Run workflow) with its tag.
+
+- **Homebrew:** this repository is the tap. The job writes `Formula/velixo.rb` with
+  `scripts/homebrew-formula.sh` from the release's `checksums.txt`, installs the CLI with it on a
+  macOS runner, and commits it to `main`. Do not edit the formula by hand.
+- **WinGet:** the package `Velixo.CLI` is in `microsoft/winget-pkgs`. The job opens a pull request
+  there with Komac, through `vedantmgoyal9/winget-releaser`. It needs the organization secret
+  `WINGET_TOKEN`: a classic token with `public_repo`, whose owner has a fork of
+  `microsoft/winget-pkgs` (a fine-grained token cannot open the pull request). Without the secret,
+  or before Microsoft has accepted the first version, the job skips with a warning.
+
+The first WinGet version goes in by hand, once, on Windows:
+
+```powershell
+winget install wingetcreate
+wingetcreate new https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.2/velixo-1.0.2-win-x64.zip https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.2/velixo-1.0.2-win-arm64.zip
+```
+
+Answer `Velixo.CLI` for the identifier, `Velixo Solutions Inc.` for the publisher, `Velixo CLI`
+for the name, `Apache-2.0` for the license, `portable` for the nested installer type,
+`velixo.exe` for the nested installer file and `velixo` for the command alias, then let it submit
+the pull request. Microsoft reviews it in 1 to 3 days; every later version goes through the
+workflow.
+
 ## The symbol on the welcome screen
 
 `src/Velixo.Cli/Output/VelixoSymbol.cs` is generated from the brand artwork in `assets/`: the colours

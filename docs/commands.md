@@ -453,7 +453,7 @@ Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, cha
 | Command | Meaning |
 |---|---|
 | `velixo config get\|set\|list\|path` | Reads and writes `config.json`. `path` prints its location. |
-| `velixo version [--check]` | Prints the version. With `--check`, also prints the latest release. |
+| `velixo version [--check]` | Prints the version. With `--check`, also prints the latest release, and `updateCommand`: the command that updates the CLI for the way it was installed (Homebrew, WinGet or the install script). |
 
 ## Error codes
 

@@ -82,22 +82,36 @@ mv velixo ~/.local/bin/
 
 On Windows, unzip the archive and add the folder that holds `velixo.exe` to your `Path` variable.
 
-### Package managers (coming soon)
+### Homebrew (macOS, Linux)
 
-These channels do not exist yet. Use the install scripts or GitHub Releases for now.
+```sh
+brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
+brew install velixo
+```
+
+The tap is this repository, so `brew tap` needs its URL, once. Homebrew installs the signed binary from the GitHub Release, and `brew upgrade velixo` updates it.
+
+### WinGet (Windows)
+
+```powershell
+winget install Velixo.CLI
+```
+
+WinGet adds `velixo` to your `PATH`; open a new terminal afterwards. `winget upgrade Velixo.CLI` updates it.
+
+### Other package managers (planned)
 
 | Channel | Planned command |
 |---|---|
-| Homebrew | `brew install velixosolutions/tap/velixo` |
+| npm | `npm install -g @velixo/cli` |
 | Scoop | `scoop bucket add velixo` then `scoop install velixo` |
-| WinGet | `winget install Velixo.CLI` |
 | apt (Debian, Ubuntu) | signed repository, commands to follow |
 | yum and dnf (RedHat, Fedora, CentOS) | signed repository, commands to follow |
 | Docker | `docker run --rm -it velixo/cli version` |
 
 ### Upgrading
 
-The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release, then run the install script again or download the new release.
+The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release: when a newer one is out, it prints the command that updates the CLI for the way you installed it (`brew upgrade velixo`, `winget upgrade Velixo.CLI`, or the install script again).
 
 ### Uninstalling
 

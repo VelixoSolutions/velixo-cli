@@ -345,3 +345,14 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             $flags
+
+  # Homebrew and WinGet, once the release is out. A prerelease (a tag with a hyphen) goes to neither.
+  package-managers:
+    needs: release
+    if: ${{ github.ref_type == 'tag' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/package-managers.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
