@@ -53,7 +53,7 @@ WinGet adds `velixo` to your `PATH`; open a new terminal afterwards. `winget upg
 npm install -g @velixo/cli
 ```
 
-npm installs the signed binary for your platform from a package of its own, such as `@velixo/cli-darwin-arm64`, and `velixo` runs it; Node.js 18 or later only starts it. `npm install -g @velixo/cli@latest` updates it.
+npm installs the signed binary for your platform from a package of its own, such as `@velixo/cli-darwin-arm64`, and `velixo` runs it; Node.js 18 or later only starts it. `npm install -g @velixo/cli@latest` updates it. The packages `velixo-cli` and `velixo` are other names for `@velixo/cli`, and install the same thing.
 
 ### Other package managers (planned)
 

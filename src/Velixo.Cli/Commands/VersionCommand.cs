@@ -74,6 +74,15 @@ public static class VersionCommand
 
         if (path.Contains("/node_modules/@velixo/cli-", StringComparison.OrdinalIgnoreCase))
         {
+            // Installed through an alias, the platform package sits inside the alias's own folder.
+            foreach (var alias in new[] { "velixo-cli", "velixo" })
+            {
+                if (path.Contains($"/node_modules/{alias}/node_modules/", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"npm install -g {alias}@latest";
+                }
+            }
+
             return "npm install -g @velixo/cli@latest";
         }
 

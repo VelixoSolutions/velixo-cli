@@ -121,8 +121,10 @@ managers, Run workflow) with its tag.
   or before Microsoft has accepted the first version, the job skips with a warning.
 - **npm:** `@velixo/cli` holds a launcher, `npm/cli/bin/velixo.js`, and lists seven platform
   packages, `@velixo/cli-<platform>`, as optional dependencies; npm installs the one whose `os`,
-  `cpu` and `libc` match. `scripts/npm-packages.mjs` builds all eight from the release's archives,
-  and the job publishes the platform packages first, skipping a version already published. It
+  `cpu` and `libc` match. `velixo-cli` and `velixo` are aliases that install `@velixo/cli`, so
+  nobody else can publish under those names. `scripts/npm-packages.mjs` builds all ten from the
+  release's archives, and the job publishes the platform packages first, then `@velixo/cli`, then
+  the aliases, skipping a version already published. It
   publishes with npm's trusted publishing, with no npm token: each package names
   `package-managers.yml` as its trusted publisher. Until `@velixo/cli` exists on the registry, the
   job skips with a warning.
@@ -133,11 +135,11 @@ owner of the `@velixo` organization. In a clone of this repository:
 ```sh
 gh release download v1.0.2 --repo VelixoSolutions/velixo-cli --pattern 'velixo-*' --dir /tmp/velixo-dist
 node scripts/npm-packages.mjs 1.0.2 /tmp/velixo-dist /tmp/velixo-npm
-for dir in /tmp/velixo-npm/cli-* /tmp/velixo-npm/cli; do (cd "$dir" && npm publish --access public); done
+for dir in /tmp/velixo-npm/cli-* /tmp/velixo-npm/cli /tmp/velixo-npm/alias-*; do (cd "$dir" && npm publish --access public); done
 ```
 
-npm asks for your second factor for each package. Then, on npmjs.com, open each of the eight
-packages (`@velixo/cli` and the seven `@velixo/cli-<platform>`), Settings, Trusted Publisher,
+npm asks for your second factor for each package. Then, on npmjs.com, open each of the ten
+packages (`@velixo/cli`, the seven `@velixo/cli-<platform>`, `velixo-cli` and `velixo`), Settings, Trusted Publisher,
 GitHub Actions, and enter organization `VelixoSolutions`, repository `velixo-cli`, workflow
 filename `package-managers.yml`, and no environment. Under Publishing access, choose to require
 two-factor authentication and disallow tokens: only the workflow and a person with 2FA can publish.

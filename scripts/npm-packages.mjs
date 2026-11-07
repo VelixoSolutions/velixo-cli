@@ -5,8 +5,9 @@
 //
 // dist holds the release's velixo-<version>-<rid>.tar.gz and .zip files. npm-out receives one
 // folder per package: a platform package per archive, holding the signed binary, and @velixo/cli,
-// which holds the launcher (npm/cli) and lists the platform packages as optional dependencies.
-// Publish the platform packages first, then @velixo/cli.
+// which holds the launcher (npm/cli) and lists the platform packages as optional dependencies, and
+// the aliases velixo-cli and velixo (alias-<name>), which install @velixo/cli under the unscoped names.
+// Publish the platform packages first, then @velixo/cli, then the aliases.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,6 +26,9 @@ const PLATFORMS = [
   { rid: 'win-arm64', name: 'win32-arm64', os: 'win32', cpu: 'arm64' },
   { rid: 'win-x64', name: 'win32-x64', os: 'win32', cpu: 'x64' },
 ];
+
+// Unscoped names that install @velixo/cli.
+const ALIASES = ['velixo-cli', 'velixo'];
 
 const COMMON = {
   author: 'Velixo Solutions Inc.',
@@ -112,7 +116,37 @@ function main(args) {
     optionalDependencies: Object.fromEntries(PLATFORMS.map((p) => [`@velixo/cli-${p.name}`, version])),
   });
 
-  process.stdout.write(`${PLATFORMS.length + 1} packages in ${out}\n`);
+  // The unscoped names, so nobody else can publish under them: each depends on @velixo/cli at the
+  // same version and runs its launcher.
+  for (const alias of ALIASES) {
+    const dir = path.join(out, `alias-${alias}`);
+    mkdirSync(path.join(dir, 'bin'), { recursive: true });
+    writeFileSync(
+      path.join(dir, 'bin', 'velixo.js'),
+      "#!/usr/bin/env node\n// Runs @velixo/cli, which this package installs.\n'use strict';\nrequire('@velixo/cli/bin/velixo.js');\n",
+    );
+    chmodSync(path.join(dir, 'bin', 'velixo.js'), 0o755);
+    for (const file of ['LICENSE', 'NOTICE']) {
+      copyFileSync(path.join(root, file), path.join(dir, file));
+    }
+    writeFileSync(
+      path.join(dir, 'README.md'),
+      `# ${alias}\n\nAnother name for [@velixo/cli](https://www.npmjs.com/package/@velixo/cli), the Velixo CLI: it installs @velixo/cli and gives you the same \`velixo\` command.\n\n\`\`\`sh\nnpm install -g @velixo/cli\n\`\`\`\n`,
+    );
+    writeJson(path.join(dir, 'package.json'), {
+      name: alias,
+      version,
+      description: 'The Velixo CLI. Another name for @velixo/cli.',
+      keywords: ['velixo', 'cli'],
+      ...COMMON,
+      bin: { velixo: 'bin/velixo.js' },
+      files: ['bin', 'LICENSE', 'NOTICE', 'README.md'],
+      engines: { node: '>=18' },
+      dependencies: { '@velixo/cli': version },
+    });
+  }
+
+  process.stdout.write(`${PLATFORMS.length + 1 + ALIASES.length} packages in ${out}\n`);
 }
 
 main(process.argv.slice(2));

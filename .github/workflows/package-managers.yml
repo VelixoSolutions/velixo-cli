@@ -153,10 +153,10 @@ jobs:
           token: ${{ secrets.WINGET_TOKEN }}
 
   # npm: @velixo/cli, a launcher that runs the binary from one of seven platform packages,
-  # @velixo/cli-<platform>, which npm installs by os, cpu and libc. scripts/npm-packages.mjs builds
-  # them from the release's archives. A version already on the registry is skipped, so a rerun
+  # @velixo/cli-<platform>, which npm installs by os, cpu and libc, and two aliases under the unscoped
+  # names velixo-cli and velixo. scripts/npm-packages.mjs builds them from the release's archives. A version already on the registry is skipped, so a rerun
   # publishes what is missing.
-  # It publishes with npm's trusted publishing: each of the eight packages names this workflow file,
+  # It publishes with npm's trusted publishing: each of the ten packages names this workflow file,
   # package-managers.yml in VelixoSolutions/velixo-cli, as its trusted publisher on npmjs.com, and
   # npm accepts the run's OIDC token. There is no npm token. Trusted publishing can only be set on a
   # package that exists, so the first version goes in by hand (CONTRIBUTING.md); until then, the job
@@ -203,13 +203,14 @@ jobs:
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'velixo-*' --dir "$RUNNER_TEMP/dist"
           node scripts/npm-packages.mjs "${TAG#v}" "$RUNNER_TEMP/dist" "$RUNNER_TEMP/npm"
 
-      # The platform packages first: @velixo/cli must not reach the registry before what it installs.
+      # The platform packages first, then @velixo/cli, then the aliases: no package may reach the
+      # registry before what it installs.
       - name: Publish
         if: ${{ steps.ready.outputs.ready == 'true' }}
         run: |
           set -euo pipefail
           version="${TAG#v}"
-          for dir in "$RUNNER_TEMP"/npm/cli-* "$RUNNER_TEMP/npm/cli"; do
+          for dir in "$RUNNER_TEMP"/npm/cli-* "$RUNNER_TEMP/npm/cli" "$RUNNER_TEMP"/npm/alias-*; do
             name=$(node -p "require('$dir/package.json').name")
             if npm view "$name@$version" version > /dev/null 2>&1; then
               echo "$name@$version is already published."

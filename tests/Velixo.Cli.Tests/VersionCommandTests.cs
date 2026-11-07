@@ -13,6 +13,8 @@ public sealed class VersionCommandTests
     [InlineData("/usr/local/lib/node_modules/@velixo/cli-darwin-arm64/bin/velixo", false, "npm install -g @velixo/cli@latest")]
     [InlineData("/opt/homebrew/lib/node_modules/@velixo/cli-darwin-arm64/bin/velixo", false, "npm install -g @velixo/cli@latest")]
     [InlineData(@"C:\Users\ana\AppData\Roaming\npm\node_modules\@velixo\cli-win32-x64\bin\velixo.exe", true, "npm install -g @velixo/cli@latest")]
+    [InlineData("/usr/local/lib/node_modules/velixo-cli/node_modules/@velixo/cli-linux-x64/bin/velixo", false, "npm install -g velixo-cli@latest")]
+    [InlineData("/usr/local/lib/node_modules/velixo/node_modules/@velixo/cli-linux-x64/bin/velixo", false, "npm install -g velixo@latest")]
     [InlineData("/home/ana/.local/bin/velixo", false, "curl -fsSL https://cli.velixo.com/install.sh | sh")]
     [InlineData(null, false, "curl -fsSL https://cli.velixo.com/install.sh | sh")]
     public void UpdateCommand_follows_the_channel_the_binary_came_from(string? path, bool isWindows, string expected)
