@@ -12,4 +12,10 @@ public sealed record OutputSettings
     public bool Compact { get; init; }
 
     public bool UseColor { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether a wait shows as a spinner on stderr: stderr is a terminal, the run is
+    /// interactive and not <c>--quiet</c>, and the terminal is not <c>TERM=dumb</c>.
+    /// </summary>
+    public bool Animate { get; init; }
 }

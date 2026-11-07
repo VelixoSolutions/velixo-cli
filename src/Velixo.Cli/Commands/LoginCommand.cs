@@ -43,7 +43,7 @@ public static class LoginCommand
                 document = await signIn.BeginDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
                 if (CanWaitHere(services))
                 {
-                    ShowCode(services.Console.Error, document);
+                    ShowCode(services, document);
                     document = await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -78,9 +78,16 @@ public static class LoginCommand
     /// </summary>
     private static bool CanWaitHere(CliServices services) => ValuePrompt.CanAsk(services);
 
-    private static void ShowCode(TextWriter prompt, JsonObject started)
+    /// <summary>
+    /// Shows the code, even under <c>--quiet</c>, since the sign-in cannot go on without it. At a terminal that shows
+    /// spinners, the spinner below it says what the command waits for.
+    /// </summary>
+    private static void ShowCode(CliServices services, JsonObject started)
     {
-        prompt.Write($"{Instructions(started)} Waiting for the sign-in...\n");
+        TextWriter prompt = services.Console.Error;
+        prompt.Write(services.Output.Settings.Animate
+            ? $"{Instructions(started)}\n\n"
+            : $"{Instructions(started)} {GatewaySignIn.WaitingForDeviceSignIn}\n");
         prompt.Flush();
     }
 

@@ -33,6 +33,9 @@ public sealed class GatewaySignIn(
     /// <summary>The shortest poll interval, in seconds, so a server that answers an interval of 0 is not polled without pause.</summary>
     private const long MinimumPollSeconds = 1;
 
+    /// <summary>What the spinner says while a device code sign-in is waited for.</summary>
+    public const string WaitingForDeviceSignIn = "Waiting for the sign-in...";
+
     /// <summary>The client id the gateway registers for the CLI itself, with the loopback redirect on any port.</summary>
     public const string FirstPartyClientId = "velixo-cli";
 
@@ -61,6 +64,7 @@ public sealed class GatewaySignIn(
         Uri callback;
         try
         {
+            using Activity waiting = output.BeginActivity("Waiting for the sign-in in the browser");
             callback = await listener.WaitForCallbackAsync(linked.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
@@ -145,6 +149,7 @@ public sealed class GatewaySignIn(
         settings = settings with { ProfileName = profileName };
 
         TimeSpan interval = TimeSpan.FromSeconds(Math.Max(pending.IntervalSeconds, MinimumPollSeconds));
+        using Activity waiting = output.BeginActivity(WaitingForDeviceSignIn);
         while (true)
         {
             if (pending.ExpiresAt <= clock.GetUtcNow())

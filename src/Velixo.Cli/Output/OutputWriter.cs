@@ -8,13 +8,81 @@ namespace Velixo.Cli.Output;
 /// Everything a command prints. stdout carries the one result document in the chosen format;
 /// progress, warnings and errors go to stderr, so a pipe only ever sees data.
 /// </summary>
-public sealed class OutputWriter(ICliConsole console, OutputSettings settings)
+public sealed class OutputWriter(ICliConsole console, OutputSettings settings, TimeProvider? clock = null)
 {
     private const string Red = "\u001b[31m";
     private const string Yellow = "\u001b[33m";
     private const string Reset = "\u001b[0m";
 
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    private Activity? _activity;
+    private int _activityHolds;
+
     public OutputSettings Settings { get; } = settings;
+
+    /// <summary>Gets the lock that keeps a spinner's frames and the lines printed on stderr from crossing.</summary>
+    internal Lock Sync { get; } = new();
+
+    /// <summary>Gets or sets the frames a spinner draws; the console's encoding decides, and a test can set them.</summary>
+    internal string[] SpinnerFrames { get; set; } = CanShowBraille() ? Activity.BrailleFrames : Activity.AsciiFrames;
+
+    /// <summary>
+    /// Begins something the CLI waits on. At a terminal it is a spinner showing <paramref name="label"/>, which appears
+    /// only once the wait has lasted a moment; anywhere else <paramref name="label"/> prints as a progress line when
+    /// <paramref name="announce"/>, and each later <see cref="Activity.Update"/> prints too. An activity begun inside
+    /// another shows nothing, so the outer one keeps its label.
+    /// </summary>
+    public Activity BeginActivity(string label, bool announce = false)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        lock (Sync)
+        {
+            if (_activity is not null || _activityHolds > 0 || Settings.Quiet)
+            {
+                return new Activity(this, label, silent: true);
+            }
+
+            if (!Settings.Animate)
+            {
+                if (announce)
+                {
+                    console.Error.WriteLine(label);
+                }
+
+                return new Activity(this, label, silent: false);
+            }
+
+            _activity = new Activity(this, label, console.Error, _clock, Settings.UseColor, SpinnerFrames, () => console.WindowWidth);
+            return _activity;
+        }
+    }
+
+    /// <summary>
+    /// Keeps spinners off the screen until the returned scope is disposed, while a full-screen view such as the query
+    /// viewer owns the terminal and draws its own loading line.
+    /// </summary>
+    public IDisposable HoldActivities()
+    {
+        lock (Sync)
+        {
+            _activityHolds++;
+            _activity?.EraseLocked();
+        }
+
+        return new Hold(this);
+    }
+
+    /// <summary>Gets whether a full-screen view holds spinners off the screen; read it under <see cref="Sync"/>.</summary>
+    internal bool ActivitiesHeld => _activityHolds > 0;
+
+    internal void End(Activity activity)
+    {
+        if (ReferenceEquals(_activity, activity))
+        {
+            _activity = null;
+        }
+    }
 
     public OutputFormat Format => Settings.Format;
 
@@ -102,14 +170,13 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings)
     {
         if (!Settings.Quiet)
         {
-            console.Error.WriteLine(line);
+            WriteError(line);
         }
     }
 
-    /// <summary>Writes a warning to stderr, unless <c>--quiet</c>.</summary>
     /// <summary>Writes a warning to stderr, even with <c>--quiet</c>: a warning, such as a parameter that matched nothing, is never noise.</summary>
     public void Warn(string message) =>
-        console.Error.WriteLine(Settings.UseColor ? $"{Yellow}warning:{Reset} {message}" : $"warning: {message}");
+        WriteError(Settings.UseColor ? $"{Yellow}warning:{Reset} {message}" : $"warning: {message}");
 
     /// <summary>
     /// Reports a failure: the error envelope on stdout in JSON mode, text on stderr otherwise. Errors
@@ -126,20 +193,69 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings)
         }
 
         var prefix = Settings.UseColor ? $"{Red}error:{Reset}" : "error:";
-        console.Error.WriteLine($"{prefix} {exception.Message} [{exception.Code}]");
+        WriteError($"{prefix} {exception.Message} [{exception.Code}]");
         if (!string.IsNullOrEmpty(exception.Detail))
         {
-            console.Error.WriteLine($"  detail: {exception.Detail}");
+            WriteError($"  detail: {exception.Detail}");
         }
 
         if (!string.IsNullOrEmpty(exception.TaskId))
         {
-            console.Error.WriteLine($"  task: {exception.TaskId}");
+            WriteError($"  task: {exception.TaskId}");
         }
 
         if (!string.IsNullOrEmpty(exception.NextStep))
         {
-            console.Error.WriteLine($"  next: {exception.NextStep}");
+            WriteError($"  next: {exception.NextStep}");
+        }
+    }
+
+    /// <summary>Writes a line to stderr above a spinner that is showing, which then draws again below it.</summary>
+    private void WriteError(string line)
+    {
+        lock (Sync)
+        {
+            _activity?.EraseLocked();
+            console.Error.WriteLine(line);
+            _activity?.RedrawLocked();
+        }
+    }
+
+    /// <summary>
+    /// Tells whether the console can show the braille frames: any terminal but a Windows console on a legacy code
+    /// page, which shows them as question marks.
+    /// </summary>
+    private static bool CanShowBraille()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        try
+        {
+            return Console.OutputEncoding.CodePage == 65001;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
+    private sealed class Hold(OutputWriter owner) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            lock (owner.Sync)
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    owner._activityHolds--;
+                }
+            }
         }
     }
 }

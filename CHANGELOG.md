@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- A spinner on stderr while the CLI waits at a terminal: on the server, on a task (its progress line redraws in place instead of printing again after each poll), and on a sign-in in the browser or with a device code. It shows only after a quarter of a second, erases itself when the wait ends, and keeps progress and warnings printed above it. A script, a pipe, an AI agent, `--quiet`, `--non-interactive` and `TERM=dumb` see no spinner and get the progress lines as before.
+
 ## [1.0.2] - 2026-11-07
 
 ### Changed

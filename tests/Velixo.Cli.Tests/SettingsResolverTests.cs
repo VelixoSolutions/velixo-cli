@@ -157,6 +157,36 @@ public sealed class SettingsResolverTests
         Assert.True(settings.Output.IsFormatExplicit);
     }
 
+    [Theory]
+    [InlineData(false, false, null, null, true)]
+    [InlineData(true, false, null, null, false)]
+    [InlineData(false, true, null, null, false)]
+    [InlineData(false, false, "1", null, false)]
+    [InlineData(false, false, null, "dumb", false)]
+    public void A_wait_spins_only_at_a_terminal_a_person_watches(bool errorRedirected, bool quiet, string? claudeCode, string? term, bool expected)
+    {
+        var variables = new Dictionary<string, string>();
+        if (claudeCode is not null)
+        {
+            variables["CLAUDECODE"] = claudeCode;
+        }
+
+        if (term is not null)
+        {
+            variables["TERM"] = term;
+        }
+
+        ResolvedSettings settings = SettingsResolver.Resolve(new SettingsSources
+        {
+            Flags = new CommandLineValues { Quiet = quiet },
+            GetVariable = variables.GetValueOrDefault,
+            Config = new CliConfig(),
+            IsErrorRedirected = errorRedirected,
+        });
+
+        Assert.Equal(expected, settings.Output.Animate);
+    }
+
     private static ResolvedSettings Resolve(CommandLineValues flags, Dictionary<string, string> variables, ProjectConfig? project, CliConfig config) =>
         SettingsResolver.Resolve(new SettingsSources
         {
