@@ -34,10 +34,12 @@ internal static class ScreenRunner
             { BatchPath: "-" } => ScreenBatch.Parse(services.Console.In.ReadToEnd(), "the batch on stdin", "stdin"),
             _ => ScreenBatch.Read(FullPath(options.BatchPath!)),
         };
+        var library = new Lazy<LibraryFile>(() => services.Profiles.LoadLibrary(services.Settings.ProfileName));
         JsonObject variables = ScreenVariables.Bind(
             options.VariablesFile is null ? null : FullPath(options.VariablesFile),
             options.Variables,
-            options.NullVariables);
+            options.NullVariables,
+            value => QueryReferences.Resolve(value, () => library.Value));
         JsonArray? rows = options.RowsFile is null ? null : ScreenRows.Read(FullPath(options.RowsFile));
 
         // A person at a terminal is asked for what the flags did not give. A continued record already

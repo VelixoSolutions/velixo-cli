@@ -231,7 +231,7 @@ Tool: `execute_commands`.
 | Flag | Meaning |
 |---|---|
 | `--batch FILE\|-` | The batch from `command build`: the whole output, or only its `result.data`, from a file or, with `-`, from stdin. A batch on stdin cannot answer the confirmation prompt, so a write needs `--yes`. |
-| `--param NAME=VALUE` | Bind a placeholder by the name inside the braces. The value is everything after the first `=`. Repeat as needed. An empty value (`--param Note=`) writes a blank. |
+| `--param NAME=VALUE` | Bind a placeholder by the name inside the braces. The value is everything after the first `=`. Repeat as needed. An empty value (`--param Note=`) writes a blank. A value `@query:REF` binds the query text of query REF in `query list`, by number or name, and `@query:REF:ITEM` one item of a plan with several queries; `@@query:` is the literal text `@query:`. |
 | `--param-null NAME` | Pass an explicit null. This drops every command that writes the placeholder, so the ERP sets the field by default. |
 | `--params FILE` | Bind variables from a JSON object. `--param` and `--param-null` win over the file. |
 | `--rows FILE` | A JSON array of detail rows, `[{ "values": {...}, "rows": [...] }]`, bound to `lineCommands` and `splitCommands`. Use `[]` for no rows. |

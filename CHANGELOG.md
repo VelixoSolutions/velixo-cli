@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- `velixo command run --param NAME=@query:REF` binds the query text of a query in the profile's list, by its number or name, so a batch can save a built query as a generic inquiry: `--param Giql=@query:3`. A plan with several queries takes `@query:REF:ITEM`. A value from `--params FILE` is never resolved. (RD-12797)
+
 ## [1.0.4] - 2026-11-07
 
 ### Changed
