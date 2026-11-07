@@ -55,15 +55,6 @@ npm install -g @velixo/cli
 
 npm installs the signed binary for your platform from a package of its own, such as `@velixo/cli-darwin-arm64`, and `velixo` runs it; Node.js 18 or later only starts it. `npm install -g @velixo/cli@latest` updates it. The packages `velixo-cli` and `velixo` are other names for `@velixo/cli`, and install the same thing.
 
-### Other package managers (planned)
-
-| Channel | Planned command |
-|---|---|
-| Scoop | `scoop bucket add velixo` then `scoop install velixo` |
-| apt (Debian, Ubuntu) | signed repository, commands to follow |
-| yum and dnf (RedHat, Fedora, CentOS) | signed repository, commands to follow |
-| Docker | `docker run --rm -it velixo/cli version` |
-
 ### Install script (macOS, Linux)
 
 ```sh
