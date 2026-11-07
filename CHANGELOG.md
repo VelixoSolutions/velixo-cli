@@ -4,6 +4,12 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-11-07
+
+### Changed
+
+- Nothing in the CLI itself. This release checks that every package manager publishes from the release workflow alone.
+
 ## [1.0.3] - 2026-11-07
 
 ### Added
@@ -54,6 +60,7 @@ Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windo
 - Agent detection from environment variables, which turns on non-interactive mode and goes to the server for its telemetry. The CLI sends no telemetry of its own.
 - Binaries for `win-x64`, `win-arm64`, `osx-x64`, `osx-arm64`, `linux-x64`, `linux-arm64` and `linux-musl-x64`, the install scripts `install.sh` and `install.ps1`, and `checksums.txt` on every GitHub Release. The release workflow signs the Windows binaries with the Velixo EV certificate and signs and notarizes the macOS binaries once their keys are set up.
 
+[1.0.4]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.4
 [1.0.3]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.3
 [1.0.2]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.2
 [1.0.1]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.1
