@@ -104,10 +104,10 @@ To check signing before a release, run the Release workflow by hand (Actions, Re
 workflow): it builds and signs every target and keeps the packages as run artifacts, and
 publishes nothing. Tick "allow unsigned" to build the targets whose keys are missing.
 
-### Homebrew and WinGet
+### Homebrew, WinGet and npm
 
 After it publishes a release, the Release workflow runs `package-managers.yml`, which publishes it
-to both. A prerelease (a tag with a hyphen) goes to neither. To publish a release that is already
+to all three. A prerelease (a tag with a hyphen) goes to none. To publish a release that is already
 out, run Package managers by hand (Actions, Package managers, Run workflow) with its tag.
 
 - **Homebrew:** this repository is the tap. The job writes `Formula/velixo.rb` with
@@ -118,6 +118,12 @@ out, run Package managers by hand (Actions, Package managers, Run workflow) with
   `WINGET_TOKEN`: a classic token with `public_repo`, whose owner has a fork of
   `microsoft/winget-pkgs` (a fine-grained token cannot open the pull request). Without the secret,
   or before Microsoft has accepted the first version, the job skips with a warning.
+- **npm:** `@velixo/cli` holds a launcher, `npm/cli/bin/velixo.js`, and lists seven platform
+  packages, `@velixo/cli-<platform>`, as optional dependencies; npm installs the one whose `os`,
+  `cpu` and `libc` match. `scripts/npm-packages.mjs` builds all eight from the release's archives,
+  and the job publishes the platform packages first, skipping a version already published. It needs
+  the organization secret `NPM_TOKEN`: an npm granular access token with read and write access to
+  the `@velixo` scope (it can publish new packages there). Without it, the job skips with a warning.
 
 The first WinGet version goes in by hand, once, on Windows:
 

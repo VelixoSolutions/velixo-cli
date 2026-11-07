@@ -47,13 +47,13 @@ winget install Velixo.CLI
 
 WinGet adds `velixo` to your `PATH`; open a new terminal afterwards. `winget upgrade Velixo.CLI` updates it.
 
-### npm (coming soon)
+### npm (macOS, Linux, Windows)
 
 ```sh
 npm install -g @velixo/cli
 ```
 
-The npm package is not published yet. It will install the same binary for your platform.
+npm installs the signed binary for your platform from a package of its own, such as `@velixo/cli-darwin-arm64`, and `velixo` runs it; Node.js 18 or later only starts it. `npm install -g @velixo/cli@latest` updates it.
 
 ### Other package managers (planned)
 
@@ -118,12 +118,12 @@ On Windows, unzip the archive and add the folder that holds `velixo.exe` to your
 
 ### Upgrading
 
-The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release: when a newer one is out, it prints the command that updates the CLI for the way you installed it (`brew upgrade velixo`, `winget upgrade Velixo.CLI`, or the install script again).
+The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release: when a newer one is out, it prints the command that updates the CLI for the way you installed it (`brew upgrade velixo`, `winget upgrade Velixo.CLI`, `npm install -g @velixo/cli@latest`, or the install script again).
 
 ### Uninstalling
 
 1. Run `velixo logout --all` to end your sessions and delete the stored tokens.
-2. Remove the CLI: `brew uninstall velixo` (then `brew untap velixosolutions/velixo-cli`), `winget uninstall Velixo.CLI`, or delete the `velixo` binary the install script or download put on your `PATH`.
+2. Remove the CLI: `brew uninstall velixo` (then `brew untap velixosolutions/velixo-cli`), `winget uninstall Velixo.CLI`, `npm uninstall -g @velixo/cli`, or delete the `velixo` binary the install script or download put on your `PATH`.
 3. Delete the configuration folder if you want to remove your settings (see [Configuration files](#configuration-files)).
 
 ## Sign in

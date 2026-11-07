@@ -1,6 +1,6 @@
 name: Package managers
 
-# Publishes a GitHub Release of the CLI to Homebrew and WinGet. The Release workflow calls it after
+# Publishes a GitHub Release of the CLI to Homebrew, WinGet and npm. The Release workflow calls it after
 # it publishes a release. Run it by hand (Actions, Package managers, Run workflow) with a tag to
 # publish a release that is already out, such as one published before this workflow existed.
 on:
@@ -123,3 +123,64 @@ jobs:
           release-tag: ${{ inputs.tag }}
           installers-regex: '-win-(x64|arm64)\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
+
+  # npm: @velixo/cli, a launcher that runs the binary from one of seven platform packages,
+  # @velixo/cli-<platform>, which npm installs by os, cpu and libc. scripts/npm-packages.mjs builds
+  # them from the release's archives. A version already on the registry is skipped, so a rerun
+  # publishes what is missing.
+  #   NPM_TOKEN  an npm granular access token that can publish to the @velixo scope
+  # Without it, the job skips with a warning.
+  npm:
+    if: ${{ !contains(inputs.tag, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Provenance links each package to this workflow run; npm accepts it only from a public repository.
+      PROVENANCE: ${{ github.event.repository.visibility == 'public' && '--provenance' || '' }}
+    steps:
+      - name: Check the token
+        id: ready
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::warning::npm is skipped: the secret NPM_TOKEN is not available to this repository."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+
+      - uses: actions/setup-node@v6
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Build the packages
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'velixo-*' --dir "$RUNNER_TEMP/dist"
+          node scripts/npm-packages.mjs "${TAG#v}" "$RUNNER_TEMP/dist" "$RUNNER_TEMP/npm"
+
+      # The platform packages first: @velixo/cli must not reach the registry before what it installs.
+      - name: Publish
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          for dir in "$RUNNER_TEMP"/npm/cli-* "$RUNNER_TEMP/npm/cli"; do
+            name=$(node -p "require('$dir/package.json').name")
+            if npm view "$name@$version" version > /dev/null 2>&1; then
+              echo "$name@$version is already published."
+              continue
+            fi
+            (cd "$dir" && npm publish --access public $PROVENANCE)
+          done

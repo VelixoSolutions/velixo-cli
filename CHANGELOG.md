@@ -6,8 +6,8 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
-- Homebrew and WinGet. On macOS and Linux, `brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli` then `brew install velixo`; on Windows, `winget install Velixo.CLI`. Each release updates both. (RD-14780)
-- `velixo version --check` prints `updateCommand`, the command that updates the CLI for the way it was installed: `brew upgrade velixo`, `winget upgrade Velixo.CLI` or the install script. At a terminal it shows it when a newer release is out.
+- Homebrew, WinGet and npm. On macOS and Linux, `brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli` then `brew install velixo`; on Windows, `winget install Velixo.CLI`; anywhere, `npm install -g @velixo/cli`. Each release updates all three. (RD-14780)
+- `velixo version --check` prints `updateCommand`, the command that updates the CLI for the way it was installed: `brew upgrade velixo`, `winget upgrade Velixo.CLI`, `npm install -g @velixo/cli@latest` or the install script. At a terminal it shows it when a newer release is out.
 
 ## [1.0.2] - 2026-11-07
 

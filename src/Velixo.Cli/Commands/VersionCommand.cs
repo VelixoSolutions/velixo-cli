@@ -64,12 +64,18 @@ public static class VersionCommand
 
     /// <summary>
     /// The command that updates the CLI, for the channel it was installed with, read from where the
-    /// binary is: Homebrew keeps it under a <c>Cellar</c> folder, WinGet under <c>WinGet\Packages</c>.
-    /// Anything else came from an install script or a download, which the install script replaces.
+    /// binary is: npm keeps it in a <c>@velixo/cli-&lt;platform&gt;</c> package, Homebrew under a
+    /// <c>Cellar</c> folder, WinGet under <c>WinGet\Packages</c>. Anything else came from an install
+    /// script or a download, which the install script replaces.
     /// </summary>
     public static string UpdateCommand(string? binaryPath, bool isWindows)
     {
         var path = (binaryPath ?? string.Empty).Replace('\\', '/');
+
+        if (path.Contains("/node_modules/@velixo/cli-", StringComparison.OrdinalIgnoreCase))
+        {
+            return "npm install -g @velixo/cli@latest";
+        }
 
         if (path.Contains("/Cellar/velixo/", StringComparison.Ordinal))
         {
