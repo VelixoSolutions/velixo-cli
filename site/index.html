@@ -16,6 +16,10 @@
   pre { background: var(--code); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
   code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   a { color: inherit; }
+  .sample { margin: 24px 0 0; }
+  .sample h3 { color: var(--ink); font-size: 1rem; margin: 0 0 4px; }
+  .sample img { display: block; width: 100%; height: auto; margin: 12px 0 8px; border: 1px solid var(--code); border-radius: 8px; }
+  .sample img.phone { max-width: 320px; }
 </style>
 </head>
 <body>
@@ -41,6 +45,20 @@ brew install velixo</code></pre>
 velixo connections list
 velixo guide</code></pre>
   <p class="muted">Every channel installs the same signed binary from the latest GitHub release. Update with <code>brew upgrade velixo</code>, <code>winget upgrade Velixo.CLI</code>, <code>npm install -g @velixo/cli@latest</code>, or by running the install script again; <code>velixo version --check</code> prints the command for your install. The install scripts verify the checksum, and take a version to pin one: <code>sh -s -- 1.0.0</code>.</p>
+  <h2>Samples</h2>
+  <p>Two sample apps use the CLI as their ERP back end, to show that an app in any language can read from and write to an ERP through it. Claude Code built both with the CLI signed in on demo companies. Each sample's <code>PROMPT.md</code> holds the prompt that built it, so you can read how it was made or build it again.</p>
+  <section class="sample">
+    <h3>Inventory checker <span class="muted">· Node.js, Acumatica</span></h3>
+    <p>A full-screen kiosk for a store floor. Scan an item's barcode and it shows the item live from Acumatica: its image, the quantity on hand and available in each warehouse, the stock by location, and when the next purchase order is due. Staff can reserve units with one tap, which runs an inventory transfer.</p>
+    <img src="samples/inventory-checker.jpg" alt="The inventory checker showing an item on order" width="1920" height="1080" loading="lazy">
+    <p><a href="https://github.com/VelixoSolutions/velixo-cli/tree/main/samples/inventorychecker#readme">README</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/blob/main/samples/inventorychecker/PROMPT.md">The prompt that built it</a></p>
+  </section>
+  <section class="sample">
+    <h3>Expense receipts by text message <span class="muted">· Python, Acumatica and Sage Intacct</span></h3>
+    <p>An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app finds the employee by the phone number, straightens and reads the receipt, creates the expense with the photo attached, and texts back a link to it. It asks a question only when it must.</p>
+    <img src="samples/expense-receipts.jpg" alt="The expense receipts simulator: a receipt photo in, the expense receipt's link back" width="750" height="1365" loading="lazy" class="phone">
+    <p><a href="https://github.com/VelixoSolutions/velixo-cli/tree/main/samples/expensereceipts#readme">README</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/blob/main/samples/expensereceipts/PROMPT.md">The prompt that built it</a></p>
+  </section>
   <p><a href="https://github.com/VelixoSolutions/velixo-cli#readme">Documentation</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a></p>
 </main>
 </body>
