@@ -106,9 +106,10 @@ publishes nothing. Tick "allow unsigned" to build the targets whose keys are mis
 
 ### Homebrew, WinGet and npm
 
-After it publishes a release, the Release workflow runs `package-managers.yml`, which publishes it
-to all three. A prerelease (a tag with a hyphen) goes to none. To publish a release that is already
-out, run Package managers by hand (Actions, Package managers, Run workflow) with its tag.
+When a Release run for a tag succeeds, the Package managers workflow (`package-managers.yml`)
+starts by itself and publishes that release to all three. A prerelease (a tag with a hyphen) goes to
+none. To publish a release that is already out, run Package managers by hand (Actions, Package
+managers, Run workflow) with its tag.
 
 - **Homebrew:** this repository is the tap. The job writes `Formula/velixo.rb` with
   `scripts/homebrew-formula.sh` from the release's `checksums.txt`, installs the CLI with it on a
@@ -121,9 +122,25 @@ out, run Package managers by hand (Actions, Package managers, Run workflow) with
 - **npm:** `@velixo/cli` holds a launcher, `npm/cli/bin/velixo.js`, and lists seven platform
   packages, `@velixo/cli-<platform>`, as optional dependencies; npm installs the one whose `os`,
   `cpu` and `libc` match. `scripts/npm-packages.mjs` builds all eight from the release's archives,
-  and the job publishes the platform packages first, skipping a version already published. It needs
-  the organization secret `NPM_TOKEN`: an npm granular access token with read and write access to
-  the `@velixo` scope (it can publish new packages there). Without it, the job skips with a warning.
+  and the job publishes the platform packages first, skipping a version already published. It
+  publishes with npm's trusted publishing, with no npm token: each package names
+  `package-managers.yml` as its trusted publisher. Until `@velixo/cli` exists on the registry, the
+  job skips with a warning.
+
+The first npm version goes in by hand, once, from a machine signed in to npm (`npm login`) as an
+owner of the `@velixo` organization. In a clone of this repository:
+
+```sh
+gh release download v1.0.2 --repo VelixoSolutions/velixo-cli --pattern 'velixo-*' --dir /tmp/velixo-dist
+node scripts/npm-packages.mjs 1.0.2 /tmp/velixo-dist /tmp/velixo-npm
+for dir in /tmp/velixo-npm/cli-* /tmp/velixo-npm/cli; do (cd "$dir" && npm publish --access public); done
+```
+
+npm asks for your second factor for each package. Then, on npmjs.com, open each of the eight
+packages (`@velixo/cli` and the seven `@velixo/cli-<platform>`), Settings, Trusted Publisher,
+GitHub Actions, and enter organization `VelixoSolutions`, repository `velixo-cli`, workflow
+filename `package-managers.yml`, and no environment. Under Publishing access, choose to require
+two-factor authentication and disallow tokens: only the workflow and a person with 2FA can publish.
 
 The first WinGet version goes in by hand, once, on Windows:
 

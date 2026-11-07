@@ -1,15 +1,13 @@
 name: Package managers
 
-# Publishes a GitHub Release of the CLI to Homebrew, WinGet and npm. The Release workflow calls it after
-# it publishes a release. Run it by hand (Actions, Package managers, Run workflow) with a tag to
-# publish a release that is already out, such as one published before this workflow existed.
+# Publishes a GitHub Release of the CLI to Homebrew, WinGet and npm. It starts by itself when a
+# Release run for a tag succeeds. Run it by hand (Actions, Package managers, Run workflow) with a tag
+# to publish a release that is already out. It always runs as this file, never called from another
+# workflow, because npm's trusted publishing accepts one workflow file.
 on:
-  workflow_call:
-    inputs:
-      tag:
-        description: The release's tag, such as v1.0.2.
-        type: string
-        required: true
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,19 +19,48 @@ permissions:
   contents: read
 
 jobs:
+  # Which release to publish: the tag given by hand, or the tag the Release run built. A dry run of
+  # Release (started by hand), a failed run and a prerelease (a tag with a hyphen) publish nothing.
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_REF: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          elif [ "$RUN_EVENT" = "push" ] && [ "$RUN_CONCLUSION" = "success" ] && [ "${RUN_REF#v}" != "$RUN_REF" ]; then
+            tag="$RUN_REF"
+          else
+            echo "Nothing to publish: the Release run was a $RUN_EVENT on $RUN_REF that ended in $RUN_CONCLUSION."
+            tag=""
+          fi
+          case "$tag" in *-*) echo "Nothing to publish: $tag is a prerelease."; tag="" ;; esac
+          echo "Tag: ${tag:-none}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   # Homebrew: the formula is Formula/velixo.rb in this repository, which is its own tap:
   #   brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
   #   brew install velixo
   # The job writes the formula from the release's checksums.txt, installs the CLI with it from a tap
   # of this checkout, and commits it to main.
   homebrew:
-    if: ${{ !contains(inputs.tag, '-') }}
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
     runs-on: macos-15
     timeout-minutes: 20
     permissions:
       contents: write
     env:
-      TAG: ${{ inputs.tag }}
+      TAG: ${{ needs.resolve.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
       HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
@@ -90,11 +117,12 @@ jobs:
   # The first version goes in by hand (wingetcreate new): until Microsoft accepts it, Komac has no
   # package to update, so the job skips with a warning.
   winget:
-    if: ${{ !contains(inputs.tag, '-') }}
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      TAG: ${{ inputs.tag }}
+      TAG: ${{ needs.resolve.outputs.tag }}
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - name: Check the token and the package
@@ -120,7 +148,7 @@ jobs:
         if: ${{ steps.ready.outputs.ready == 'true' }}
         with:
           identifier: Velixo.CLI
-          release-tag: ${{ inputs.tag }}
+          release-tag: ${{ needs.resolve.outputs.tag }}
           installers-regex: '-win-(x64|arm64)\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
 
@@ -128,30 +156,31 @@ jobs:
   # @velixo/cli-<platform>, which npm installs by os, cpu and libc. scripts/npm-packages.mjs builds
   # them from the release's archives. A version already on the registry is skipped, so a rerun
   # publishes what is missing.
-  #   NPM_TOKEN  an npm granular access token that can publish to the @velixo scope
-  # Without it, the job skips with a warning.
+  # It publishes with npm's trusted publishing: each of the eight packages names this workflow file,
+  # package-managers.yml in VelixoSolutions/velixo-cli, as its trusted publisher on npmjs.com, and
+  # npm accepts the run's OIDC token. There is no npm token. Trusted publishing can only be set on a
+  # package that exists, so the first version goes in by hand (CONTRIBUTING.md); until then, the job
+  # skips with a warning.
   npm:
-    if: ${{ !contains(inputs.tag, '-') }}
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
     env:
-      TAG: ${{ inputs.tag }}
+      TAG: ${{ needs.resolve.outputs.tag }}
       GH_TOKEN: ${{ github.token }}
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # Provenance links each package to this workflow run; npm accepts it only from a public repository.
-      PROVENANCE: ${{ github.event.repository.visibility == 'public' && '--provenance' || '' }}
     steps:
-      - name: Check the token
+      - name: Check that the package exists
         id: ready
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::warning::npm is skipped: the secret NPM_TOKEN is not available to this repository."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+          if npm view @velixo/cli version > /dev/null 2>&1; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::npm is skipped: @velixo/cli is not on the registry yet. Publish the first version by hand and set up trusted publishing (CONTRIBUTING.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v7
@@ -161,7 +190,11 @@ jobs:
         if: ${{ steps.ready.outputs.ready == 'true' }}
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Update npm
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: npm install -g npm@11 && npm --version
 
       - name: Build the packages
         if: ${{ steps.ready.outputs.ready == 'true' }}
@@ -182,5 +215,5 @@ jobs:
               echo "$name@$version is already published."
               continue
             fi
-            (cd "$dir" && npm publish --access public $PROVENANCE)
+            (cd "$dir" && npm publish --access public)
           done
