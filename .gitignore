@@ -10,3 +10,6 @@ publish/
 TestResults/
 *.swp
 .claude/worktrees/
+
+# The npm launcher is source, not build output.
+!npm/cli/bin/
