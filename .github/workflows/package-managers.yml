@@ -142,15 +142,19 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          fork_user=$(curl -sSf -H "Authorization: Bearer $WINGET_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user | jq -r .login)
+          echo "fork-user=$fork_user" >> "$GITHUB_OUTPUT"
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
-      - uses: vedantmgoyal9/winget-releaser@v2
+      - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
         if: ${{ steps.ready.outputs.ready == 'true' }}
         with:
           identifier: Velixo.CLI
           release-tag: ${{ needs.resolve.outputs.tag }}
           installers-regex: '-win-(x64|arm64)\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
+          fork-user: ${{ steps.ready.outputs.fork-user }}
 
   # npm: @velixo/cli, a launcher that runs the binary from one of seven platform packages,
   # @velixo/cli-<platform>, which npm installs by os, cpu and libc, and two aliases under the unscoped
