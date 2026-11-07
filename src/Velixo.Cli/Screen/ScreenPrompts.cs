@@ -10,12 +10,17 @@ namespace Velixo.Cli.Screen;
 /// </summary>
 internal static class ScreenPrompts
 {
-    /// <summary>Adds an answer to <paramref name="variables"/> for every header placeholder it does not bind.</summary>
-    public static void AskForValues(CliServices services, ScreenBatch batch, JsonObject variables)
+    /// <summary>
+    /// Adds an answer to <paramref name="variables"/> for every header placeholder it does not bind. An
+    /// answer passes through <paramref name="resolveValue"/>, as a <c>--param</c> value does, so a person can
+    /// type <c>@query:3</c> at the prompt.
+    /// </summary>
+    public static void AskForValues(CliServices services, ScreenBatch batch, JsonObject variables, Func<string, string> resolveValue)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(variables);
+        ArgumentNullException.ThrowIfNull(resolveValue);
 
         var missing = HeaderNames(batch).Where(name => !variables.ContainsKey(name)).ToList();
         if (missing.Count == 0)
@@ -27,7 +32,7 @@ internal static class ScreenPrompts
         foreach (var name in missing)
         {
             PromptAnswer answer = ValuePrompt.Ask(services, name, About(batch, name), required: true, allowNull: true);
-            variables[name] = answer.Value;
+            variables[name] = answer.Value is null ? null : resolveValue(answer.Value);
         }
     }
 

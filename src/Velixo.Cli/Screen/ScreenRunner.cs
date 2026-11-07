@@ -34,19 +34,22 @@ internal static class ScreenRunner
             { BatchPath: "-" } => ScreenBatch.Parse(services.Console.In.ReadToEnd(), "the batch on stdin", "stdin"),
             _ => ScreenBatch.Read(FullPath(options.BatchPath!)),
         };
-        var library = new Lazy<LibraryFile>(() => services.Profiles.LoadLibrary(services.Settings.ProfileName));
+        var queryReferences = new QueryReferences(
+            () => services.Profiles.LoadLibrary(services.Settings.ProfileName),
+            services.Settings.Connection,
+            services.Output.Warn);
         JsonObject variables = ScreenVariables.Bind(
             options.VariablesFile is null ? null : FullPath(options.VariablesFile),
             options.Variables,
             options.NullVariables,
-            value => QueryReferences.Resolve(value, () => library.Value));
+            queryReferences.Resolve);
         JsonArray? rows = options.RowsFile is null ? null : ScreenRows.Read(FullPath(options.RowsFile));
 
         // A person at a terminal is asked for what the flags did not give. A continued record already
         // has its header, so only a first call asks; a batch read from stdin has used up the terminal.
         if (ValuePrompt.CanAsk(services) && options.BatchPath != "-" && !options.Continue && options.ContinuationFile is null)
         {
-            ScreenPrompts.AskForValues(services, batch, variables);
+            ScreenPrompts.AskForValues(services, batch, variables, queryReferences.Resolve);
             if (batch.LineCommands is not null && rows is null)
             {
                 rows = ScreenPrompts.AskForRows(services, batch, variables);
