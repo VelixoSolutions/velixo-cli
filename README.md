@@ -338,6 +338,26 @@ velixo import run --connection gab-dev --scenario "Import Customers" --file cust
 velixo import run --connection gab-dev --scenario "Import Customers" --file customers.csv --yes
 ```
 
+## Samples
+
+Two sample apps in [`samples/`](samples/) use the CLI as their ERP back end, to show that an app in any language can read from and write to an ERP through it. Claude Code built both with the CLI signed in on demo companies. Each sample's `PROMPT.md` holds the prompt that built it, so you can read how it was made or build it again.
+
+### Inventory checker (Node.js, Acumatica)
+
+A full-screen kiosk for a store floor. Scan an item's barcode and it shows the item live from Acumatica: its image, the quantity on hand and available in each warehouse, the stock by location, and when the next purchase order is due. Staff can reserve units with one tap, which runs an inventory transfer.
+
+![The inventory checker showing an item on order](samples/inventorychecker/docs/result.jpg)
+
+[README](samples/inventorychecker/README.md) · [The prompt that built it](samples/inventorychecker/PROMPT.md)
+
+### Expense receipts by text message (Python, Acumatica and Sage Intacct)
+
+An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app finds the employee by the phone number, straightens and reads the receipt, creates the expense with the photo attached, and texts back a link to it. It asks a question only when it must.
+
+<img src="samples/expensereceipts/docs/telegram.jpg" alt="The Telegram bot on Sage Intacct: a receipt photo in, a tip added, and the expense report created" width="320">
+
+[README](samples/expensereceipts/README.md) · [The prompt that built it](samples/expensereceipts/PROMPT.md)
+
 ## Commands
 
 | Group | Commands |
