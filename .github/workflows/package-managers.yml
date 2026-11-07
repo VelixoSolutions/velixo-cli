@@ -1,0 +1,251 @@
+name: Package managers
+
+# Publishes a GitHub Release of the CLI to Homebrew, WinGet and npm. It starts by itself when a
+# Release run for a tag succeeds. Run it by hand (Actions, Package managers, Run workflow) with a tag
+# to publish a release that is already out. It always runs as this file, never called from another
+# workflow, because npm's trusted publishing accepts one workflow file.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, such as v1.0.2.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Which release to publish: the tag given by hand, or the tag the Release run built. A dry run of
+  # Release (started by hand), a failed run and a prerelease (a tag with a hyphen) publish nothing.
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_REF: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          elif [ "$RUN_EVENT" = "push" ] && [ "$RUN_CONCLUSION" = "success" ] && [ "${RUN_REF#v}" != "$RUN_REF" ]; then
+            tag="$RUN_REF"
+          else
+            echo "Nothing to publish: the Release run was a $RUN_EVENT on $RUN_REF that ended in $RUN_CONCLUSION."
+            tag=""
+          fi
+          case "$tag" in *-*) echo "Nothing to publish: $tag is a prerelease."; tag="" ;; esac
+          echo "Tag: ${tag:-none}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  # Homebrew: the formula is Formula/velixo.rb in this repository, which is its own tap:
+  #   brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
+  #   brew install velixo
+  # The job writes the formula from the release's checksums.txt, installs the CLI with it from a tap
+  # of this checkout, and commits it to main.
+  homebrew:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
+    runs-on: macos-15
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Write the formula
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          mkdir -p Formula
+          scripts/homebrew-formula.sh "$version" "$RUNNER_TEMP/checksums.txt" > Formula/velixo.rb
+          cat Formula/velixo.rb
+
+      - name: Commit the formula
+        id: commit
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- Formula/velixo.rb && git ls-files --error-unmatch Formula/velixo.rb > /dev/null 2>&1; then
+            echo "Formula/velixo.rb is already at ${TAG#v}."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/velixo.rb
+          git commit -m "Homebrew: velixo ${TAG#v}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Tapping the local checkout installs exactly the committed formula, before anyone else sees it.
+      - name: Install with Homebrew and run velixo
+        run: |
+          set -euo pipefail
+          brew tap velixosolutions/velixo-cli "$GITHUB_WORKSPACE"
+          brew install velixosolutions/velixo-cli/velixo
+          velixo --version | grep -F "${TAG#v}"
+          brew test velixosolutions/velixo-cli/velixo
+
+      - name: Remove the test tap
+        if: ${{ always() }}
+        run: brew untap velixosolutions/velixo-cli 2>/dev/null || true
+
+      - name: Push the formula
+        if: ${{ steps.commit.outputs.changed == 'true' }}
+        run: git push origin HEAD:main
+
+  # WinGet: the package Velixo.CLI lives in microsoft/winget-pkgs. Komac, through winget-releaser,
+  # opens a pull request there with the new version; Microsoft's checks merge it.
+  #   WINGET_TOKEN  a classic GitHub token with public_repo. The pull request comes from the token
+  #                 owner's fork of microsoft/winget-pkgs, which Komac creates if it is missing. A
+  #                 fine-grained token cannot open the pull request.
+  # Once Velixo.CLI is in winget-pkgs, winget-releaser updates it. Before that, the job writes the
+  # manifests with scripts/winget-manifests.sh and submits them as a new package with Komac, unless
+  # a pull request for Velixo.CLI is already open there, which a rerun would only duplicate.
+  winget:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      KOMAC_VERSION: 2.17.2
+      KOMAC_SHA256: b03b020eec98acfb0b53e284a6e21815b884be33de6785b97e7a120f0e748966
+    steps:
+      - name: Check the token and the package
+        id: ready
+        run: |
+          set -euo pipefail
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "::warning::WinGet is skipped: the secret WINGET_TOKEN is not available to this repository."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          api() { curl -sS -H "Authorization: Bearer $WINGET_TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
+          fork_user=$(api -f https://api.github.com/user | jq -r .login)
+          echo "fork-user=$fork_user" >> "$GITHUB_OUTPUT"
+          status=$(api -o /dev/null -w '%{http_code}' https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/v/Velixo/CLI)
+          if [ "$status" = "200" ]; then
+            echo "mode=update" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          open=$(api -f -G https://api.github.com/search/issues \
+            --data-urlencode 'q=repo:microsoft/winget-pkgs is:pr is:open in:title "Velixo.CLI"' | jq '.total_count')
+          if [ "$open" != "0" ]; then
+            echo "::warning::WinGet is skipped: a pull request for Velixo.CLI is already open in microsoft/winget-pkgs. Rerun this workflow for $TAG once Microsoft has merged it."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Velixo.CLI is not in microsoft/winget-pkgs yet (HTTP $status): submitting it as a new package."
+          echo "mode=new" >> "$GITHUB_OUTPUT"
+
+      - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
+        if: ${{ steps.ready.outputs.mode == 'update' }}
+        with:
+          identifier: Velixo.CLI
+          release-tag: ${{ needs.resolve.outputs.tag }}
+          installers-regex: '-win-(x64|arm64)\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
+          fork-user: ${{ steps.ready.outputs.fork-user }}
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.ready.outputs.mode == 'new' }}
+
+      - name: Submit Velixo.CLI as a new package
+        if: ${{ steps.ready.outputs.mode == 'new' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          scripts/winget-manifests.sh "${TAG#v}" "$RUNNER_TEMP/checksums.txt" "$RUNNER_TEMP/winget"
+          archive="komac-$KOMAC_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/russellbanks/Komac/releases/download/v$KOMAC_VERSION/$archive"
+          echo "$KOMAC_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" komac
+          "$RUNNER_TEMP/komac" submit "$RUNNER_TEMP/winget" --yes
+
+  # npm: @velixo/cli, a launcher that runs the binary from one of seven platform packages,
+  # @velixo/cli-<platform>, which npm installs by os, cpu and libc, and two aliases under the unscoped
+  # names velixo-cli and velixo. scripts/npm-packages.mjs builds them from the release's archives. A version already on the registry is skipped, so a rerun
+  # publishes what is missing.
+  # It publishes with npm's trusted publishing: each of the ten packages names this workflow file,
+  # package-managers.yml in VelixoSolutions/velixo-cli, as its trusted publisher on npmjs.com, and
+  # npm accepts the run's OIDC token. There is no npm token. Trusted publishing can only be set on a
+  # package that exists, so the first version goes in by hand (CONTRIBUTING.md); until then, the job
+  # skips with a warning.
+  npm:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.tag != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check that the package exists
+        id: ready
+        run: |
+          if npm view @velixo/cli version > /dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::npm is skipped: @velixo/cli is not on the registry yet. Publish the first version by hand and set up trusted publishing (CONTRIBUTING.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+
+      - uses: actions/setup-node@v6
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        with:
+          node-version: 24
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Update npm
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: npm install -g npm@11 && npm --version
+
+      - name: Build the packages
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'velixo-*' --dir "$RUNNER_TEMP/dist"
+          node scripts/npm-packages.mjs "${TAG#v}" "$RUNNER_TEMP/dist" "$RUNNER_TEMP/npm"
+
+      # The platform packages first, then @velixo/cli, then the aliases: no package may reach the
+      # registry before what it installs.
+      - name: Publish
+        if: ${{ steps.ready.outputs.ready == 'true' }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          for dir in "$RUNNER_TEMP"/npm/cli-* "$RUNNER_TEMP/npm/cli" "$RUNNER_TEMP"/npm/alias-*; do
+            name=$(node -p "require('$dir/package.json').name")
+            if npm view "$name@$version" version > /dev/null 2>&1; then
+              echo "$name@$version is already published."
+              continue
+            fi
+            (cd "$dir" && npm publish --access public)
+          done

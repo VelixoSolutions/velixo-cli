@@ -6,6 +6,8 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
+- Homebrew, WinGet and npm. On macOS and Linux, `brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli` then `brew install velixo`; on Windows, `winget install Velixo.CLI`; anywhere, `npm install -g @velixo/cli`. Each release updates all three. (RD-14780)
+- `velixo version --check` prints `updateCommand`, the command that updates the CLI for the way it was installed: `brew upgrade velixo`, `winget upgrade Velixo.CLI`, `npm install -g @velixo/cli@latest` or the install script. At a terminal it shows it when a newer release is out.
 - A spinner on stderr while the CLI waits at a terminal: on the server, on a task (its progress line redraws in place instead of printing again after each poll), and on a sign-in in the browser or with a device code. It shows only after a quarter of a second, erases itself when the wait ends, and keeps progress and warnings printed above it. A script, a pipe, an AI agent, `--quiet`, `--non-interactive` and `TERM=dumb` see no spinner and get the progress lines as before.
 
 ## [1.0.2] - 2026-11-07

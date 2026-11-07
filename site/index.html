@@ -11,6 +11,7 @@
   main { max-width: 720px; margin: 0 auto; }
   h1 { color: var(--navy); font-size: 2rem; margin: 24px 0 8px; }
   h2 { font-size: 1.1rem; margin: 32px 0 8px; }
+  h3 { font-size: .95rem; margin: 16px 0 4px; color: var(--muted); font-weight: 600; }
   p { margin: 8px 0; } .muted { color: var(--muted); }
   pre { background: var(--code); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
   code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -23,14 +24,23 @@
   <h1>Velixo CLI</h1>
   <p>One binary, <code>velixo</code>, that runs the tools of the Velixo MCP server from the command line, for AI coding agents, scripts and people.</p>
   <h2>Install on macOS or Linux</h2>
+  <h3>Homebrew</h3>
+  <pre><code>brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
+brew install velixo</code></pre>
+  <h3>Install script</h3>
   <pre><code>curl -fsSL https://cli.velixo.com/install.sh | sh</code></pre>
   <h2>Install on Windows</h2>
+  <h3>WinGet</h3>
+  <pre><code>winget install Velixo.CLI</code></pre>
+  <h3>Install script (PowerShell)</h3>
   <pre><code>irm https://cli.velixo.com/install.ps1 | iex</code></pre>
+  <h2>npm (macOS, Linux, Windows)</h2>
+  <pre><code>npm install -g @velixo/cli</code></pre>
   <h2>Then</h2>
   <pre><code>velixo login
 velixo connections list
 velixo guide</code></pre>
-  <p class="muted">The install scripts download the latest release from GitHub and verify its checksum. Pass a version to pin one: <code>sh -s -- 1.0.0</code>.</p>
+  <p class="muted">Every channel installs the same signed binary from the latest GitHub release. Update with <code>brew upgrade velixo</code>, <code>winget upgrade Velixo.CLI</code>, <code>npm install -g @velixo/cli@latest</code>, or by running the install script again; <code>velixo version --check</code> prints the command for your install. The install scripts verify the checksum, and take a version to pin one: <code>sh -s -- 1.0.0</code>.</p>
   <p><a href="https://github.com/VelixoSolutions/velixo-cli#readme">Documentation</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a></p>
 </main>
 </body>

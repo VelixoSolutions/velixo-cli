@@ -30,6 +30,40 @@ Without all three, commands that call the server exit with code 4 and print the 
 
 The CLI runs on Linux (x64, arm64, and x64 with musl, such as Alpine), macOS (Intel and Apple silicon) and Windows (x64 and arm64).
 
+### Homebrew (macOS, Linux)
+
+```sh
+brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
+brew install velixo
+```
+
+The tap is this repository, so `brew tap` needs its URL, once. Homebrew installs the signed binary from the GitHub Release, and `brew upgrade velixo` updates it.
+
+### WinGet (Windows)
+
+```powershell
+winget install Velixo.CLI
+```
+
+WinGet adds `velixo` to your `PATH`; open a new terminal afterwards. `winget upgrade Velixo.CLI` updates it.
+
+### npm (macOS, Linux, Windows)
+
+```sh
+npm install -g @velixo/cli
+```
+
+npm installs the signed binary for your platform from a package of its own, such as `@velixo/cli-darwin-arm64`, and `velixo` runs it; Node.js 18 or later only starts it. `npm install -g @velixo/cli@latest` updates it. The packages `velixo-cli` and `velixo` are other names for `@velixo/cli`, and install the same thing.
+
+### Other package managers (planned)
+
+| Channel | Planned command |
+|---|---|
+| Scoop | `scoop bucket add velixo` then `scoop install velixo` |
+| apt (Debian, Ubuntu) | signed repository, commands to follow |
+| yum and dnf (RedHat, Fedora, CentOS) | signed repository, commands to follow |
+| Docker | `docker run --rm -it velixo/cli version` |
+
 ### Install script (macOS, Linux)
 
 ```sh
@@ -82,27 +116,14 @@ mv velixo ~/.local/bin/
 
 On Windows, unzip the archive and add the folder that holds `velixo.exe` to your `Path` variable.
 
-### Package managers (coming soon)
-
-These channels do not exist yet. Use the install scripts or GitHub Releases for now.
-
-| Channel | Planned command |
-|---|---|
-| Homebrew | `brew install velixosolutions/tap/velixo` |
-| Scoop | `scoop bucket add velixo` then `scoop install velixo` |
-| WinGet | `winget install Velixo.CLI` |
-| apt (Debian, Ubuntu) | signed repository, commands to follow |
-| yum and dnf (RedHat, Fedora, CentOS) | signed repository, commands to follow |
-| Docker | `docker run --rm -it velixo/cli version` |
-
 ### Upgrading
 
-The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release, then run the install script again or download the new release.
+The CLI does not update itself and runs no update check. Run `velixo version --check` to compare with the latest release: when a newer one is out, it prints the command that updates the CLI for the way you installed it (`brew upgrade velixo`, `winget upgrade Velixo.CLI`, `npm install -g @velixo/cli@latest`, or the install script again).
 
 ### Uninstalling
 
 1. Run `velixo logout --all` to end your sessions and delete the stored tokens.
-2. Delete the `velixo` binary.
+2. Remove the CLI: `brew uninstall velixo` (then `brew untap velixosolutions/velixo-cli`), `winget uninstall Velixo.CLI`, `npm uninstall -g @velixo/cli`, or delete the `velixo` binary the install script or download put on your `PATH`.
 3. Delete the configuration folder if you want to remove your settings (see [Configuration files](#configuration-files)).
 
 ## Sign in

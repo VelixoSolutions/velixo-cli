@@ -104,6 +104,53 @@ To check signing before a release, run the Release workflow by hand (Actions, Re
 workflow): it builds and signs every target and keeps the packages as run artifacts, and
 publishes nothing. Tick "allow unsigned" to build the targets whose keys are missing.
 
+### Homebrew, WinGet and npm
+
+When a Release run for a tag succeeds, the Package managers workflow (`package-managers.yml`)
+starts by itself and publishes that release to all three. A prerelease (a tag with a hyphen) goes to
+none. To publish a release that is already out, run Package managers by hand (Actions, Package
+managers, Run workflow) with its tag.
+
+- **Homebrew:** this repository is the tap. The job writes `Formula/velixo.rb` with
+  `scripts/homebrew-formula.sh` from the release's `checksums.txt`, installs the CLI with it on a
+  macOS runner, and commits it to `main`. Do not edit the formula by hand.
+- **WinGet:** the package `Velixo.CLI` is in `microsoft/winget-pkgs`. The job opens a pull request
+  there with Komac, through `vedantmgoyal9/winget-releaser`, from the token owner's fork. It needs
+  the organization secret `WINGET_TOKEN`: a classic token with `public_repo` (a fine-grained token
+  cannot open the pull request). Without the secret, the job skips with a warning. Until
+  `Velixo.CLI` is in `winget-pkgs`, the job writes the manifests with `scripts/winget-manifests.sh`
+  and submits them as a new package with `komac submit`; while that pull request is open, it skips.
+- **npm:** `@velixo/cli` holds a launcher, `npm/cli/bin/velixo.js`, and lists seven platform
+  packages, `@velixo/cli-<platform>`, as optional dependencies; npm installs the one whose `os`,
+  `cpu` and `libc` match. `velixo-cli` and `velixo` are aliases that install `@velixo/cli`, so
+  nobody else can publish under those names. `scripts/npm-packages.mjs` builds all ten from the
+  release's archives, and the job publishes the platform packages first, then `@velixo/cli`, then
+  the aliases, skipping a version already published. It
+  publishes with npm's trusted publishing, with no npm token: each package names
+  `package-managers.yml` as its trusted publisher. Until `@velixo/cli` exists on the registry, the
+  job skips with a warning.
+
+The first npm version goes in by hand, once, from a machine signed in to npm (`npm login`) as an
+owner of the `@velixo` organization. In a clone of this repository:
+
+```sh
+gh release download v1.0.2 --repo VelixoSolutions/velixo-cli --pattern 'velixo-*' --dir /tmp/velixo-dist
+node scripts/npm-packages.mjs 1.0.2 /tmp/velixo-dist /tmp/velixo-npm
+for dir in /tmp/velixo-npm/cli-* /tmp/velixo-npm/cli /tmp/velixo-npm/alias-*; do (cd "$dir" && npm publish --access public); done
+```
+
+npm asks for your second factor for each package. Then, on npmjs.com, open each of the ten
+packages (`@velixo/cli`, the seven `@velixo/cli-<platform>`, `velixo-cli` and `velixo`), Settings, Trusted Publisher,
+GitHub Actions, and enter organization `VelixoSolutions`, repository `velixo-cli`, workflow
+filename `package-managers.yml`, and no environment. Under PublishiThe first WinGet version also comes from the workflow. Once `WINGET_TOKEN` is set, run Package
+managers by hand with the tag of the latest release: the job submits `Velixo.CLI` as a new package.
+Microsoft reviews it in 1 to 3 days. Until it is merged, the job skips WinGet, so if a release goes
+out in the meantime, run Package managers again with its tag after the merge.
+
+ alias, then let it submit
+the pull request. Microsoft reviews it in 1 to 3 days; every later version goes through the
+workflow.
+
 ## The symbol on the welcome screen
 
 `src/Velixo.Cli/Output/VelixoSymbol.cs` is generated from the brand artwork in `assets/`: the colours
