@@ -354,7 +354,7 @@ A full-screen kiosk for a store floor. Scan an item's barcode and it shows the i
 
 An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app finds the employee by the phone number, straightens and reads the receipt, creates the expense with the photo attached, and texts back a link to it. It asks a question only when it must.
 
-<img src="samples/expensereceipts/docs/simulator.jpg" alt="The expense receipts simulator: a receipt photo in, the expense receipt's link back" width="320">
+<img src="samples/expensereceipts/docs/telegram.jpg" alt="The Telegram bot on Sage Intacct: a receipt photo in, a tip added, and the expense report created" width="320">
 
 [README](samples/expensereceipts/README.md) · [The prompt that built it](samples/expensereceipts/PROMPT.md)
 

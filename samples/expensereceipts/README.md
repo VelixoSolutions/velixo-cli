@@ -2,7 +2,7 @@
 
 An employee texts a photo of a receipt, with a note such as the project if they like. The app finds the employee by the phone number, straightens the receipt, reads it, creates the expense in Acumatica or Sage Intacct with the photo attached, and texts back a link to it. It asks a question only when it must: who an unknown number belongs to, an expense type it cannot pick, a project it cannot match, or the amount of a receipt in another currency.
 
-<img src="docs/simulator.jpg" alt="The simulator: a receipt photo in, the expense receipt's link back" width="320">
+<img src="docs/telegram.jpg" alt="The Telegram bot on Sage Intacct: a receipt photo in, a tip added, and the expense report created" width="320">
 
 The app is a small Python server. Every ERP read and write goes through the Velixo CLI, through the queries and batches in `velixo/`. Texts come in through Twilio, and a simulator page lets you try it without a Twilio account. [PROMPT.md](PROMPT.md) holds the prompt that builds it.
 
