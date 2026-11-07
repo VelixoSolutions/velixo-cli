@@ -3,28 +3,28 @@
 class Velixo < Formula
   desc "Query an ERP, run ERP commands and imports from the command line"
   homepage "https://github.com/VelixoSolutions/velixo-cli"
-  version "1.0.3"
+  version "1.0.4"
   license "Apache-2.0"
 
   on_macos do
     on_arm do
-      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.3/velixo-1.0.3-osx-arm64.tar.gz"
-      sha256 "41e10ed2e738dd1ac0fd4345cda22ff170b0532c54caaff3da73e54119c3cad5"
+      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.4/velixo-1.0.4-osx-arm64.tar.gz"
+      sha256 "3537f26cc5eeb15edb5dcb280c3fdb1c380d163767b694f223bc624b8753fec7"
     end
     on_intel do
-      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.3/velixo-1.0.3-osx-x64.tar.gz"
-      sha256 "a7d49fa3c8b0621972d1172cc1601c95c92162cec3feef9a7ec87611c0249e06"
+      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.4/velixo-1.0.4-osx-x64.tar.gz"
+      sha256 "882b0aabd0e7dcd7a2cdc55dda7e047e628884b7afdc2ea11839c45af2783fe0"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.3/velixo-1.0.3-linux-arm64.tar.gz"
-      sha256 "a073ab779ea5a0b50304e1e338d1849413d12c005d848a819cae6f0b16e43424"
+      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.4/velixo-1.0.4-linux-arm64.tar.gz"
+      sha256 "fb3ce5ff78984317ba1efd847acb019a18d195b2a0954ae8c35ee8435ed0690f"
     end
     on_intel do
-      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.3/velixo-1.0.3-linux-x64.tar.gz"
-      sha256 "7ca67e2a1105dd36ddb396022fb2b9d526cff60bc00e88ebaf9f6e630bcb0134"
+      url "https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.4/velixo-1.0.4-linux-x64.tar.gz"
+      sha256 "74664d39827c124f347a38b8ce0f18b9983510d2ca61a92bae49ae1b6f9fcaf5"
     end
   end
 
