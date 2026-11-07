@@ -112,10 +112,12 @@ jobs:
 
   # WinGet: the package Velixo.CLI lives in microsoft/winget-pkgs. Komac, through winget-releaser,
   # opens a pull request there with the new version; Microsoft's checks merge it.
-  #   WINGET_TOKEN  a classic GitHub token with public_repo, whose owner has a fork of
-  #                 microsoft/winget-pkgs. A fine-grained token cannot open the pull request.
-  # The first version goes in by hand (wingetcreate new): until Microsoft accepts it, Komac has no
-  # package to update, so the job skips with a warning.
+  #   WINGET_TOKEN  a classic GitHub token with public_repo. The pull request comes from the token
+  #                 owner's fork of microsoft/winget-pkgs, which Komac creates if it is missing. A
+  #                 fine-grained token cannot open the pull request.
+  # Once Velixo.CLI is in winget-pkgs, winget-releaser updates it. Before that, the job writes the
+  # manifests with scripts/winget-manifests.sh and submits them as a new package with Komac, unless
+  # a pull request for Velixo.CLI is already open there, which a rerun would only duplicate.
   winget:
     needs: resolve
     if: ${{ needs.resolve.outputs.tag != '' }}
@@ -124,6 +126,8 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      KOMAC_VERSION: 2.17.2
+      KOMAC_SHA256: b03b020eec98acfb0b53e284a6e21815b884be33de6785b97e7a120f0e748966
     steps:
       - name: Check the token and the package
         id: ready
@@ -131,30 +135,53 @@ jobs:
           set -euo pipefail
           if [ -z "$WINGET_TOKEN" ]; then
             echo "::warning::WinGet is skipped: the secret WINGET_TOKEN is not available to this repository."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          status=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer $WINGET_TOKEN" -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/v/Velixo/CLI)
-          if [ "$status" != "200" ]; then
-            echo "::warning::WinGet is skipped: Velixo.CLI is not in microsoft/winget-pkgs yet (HTTP $status). Submit the first version by hand with wingetcreate."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          fork_user=$(curl -sSf -H "Authorization: Bearer $WINGET_TOKEN" -H "Accept: application/vnd.github+json" \
-            https://api.github.com/user | jq -r .login)
+          api() { curl -sS -H "Authorization: Bearer $WINGET_TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
+          fork_user=$(api -f https://api.github.com/user | jq -r .login)
           echo "fork-user=$fork_user" >> "$GITHUB_OUTPUT"
-          echo "ready=true" >> "$GITHUB_OUTPUT"
+          status=$(api -o /dev/null -w '%{http_code}' https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/v/Velixo/CLI)
+          if [ "$status" = "200" ]; then
+            echo "mode=update" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          open=$(api -f -G https://api.github.com/search/issues \
+            --data-urlencode 'q=repo:microsoft/winget-pkgs is:pr is:open in:title "Velixo.CLI"' | jq '.total_count')
+          if [ "$open" != "0" ]; then
+            echo "::warning::WinGet is skipped: a pull request for Velixo.CLI is already open in microsoft/winget-pkgs. Rerun this workflow for $TAG once Microsoft has merged it."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Velixo.CLI is not in microsoft/winget-pkgs yet (HTTP $status): submitting it as a new package."
+          echo "mode=new" >> "$GITHUB_OUTPUT"
 
       - uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
-        if: ${{ steps.ready.outputs.ready == 'true' }}
+        if: ${{ steps.ready.outputs.mode == 'update' }}
         with:
           identifier: Velixo.CLI
           release-tag: ${{ needs.resolve.outputs.tag }}
           installers-regex: '-win-(x64|arm64)\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
           fork-user: ${{ steps.ready.outputs.fork-user }}
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.ready.outputs.mode == 'new' }}
+
+      - name: Submit Velixo.CLI as a new package
+        if: ${{ steps.ready.outputs.mode == 'new' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          scripts/winget-manifests.sh "${TAG#v}" "$RUNNER_TEMP/checksums.txt" "$RUNNER_TEMP/winget"
+          archive="komac-$KOMAC_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/russellbanks/Komac/releases/download/v$KOMAC_VERSION/$archive"
+          echo "$KOMAC_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" komac
+          "$RUNNER_TEMP/komac" submit "$RUNNER_TEMP/winget" --yes
 
   # npm: @velixo/cli, a launcher that runs the binary from one of seven platform packages,
   # @velixo/cli-<platform>, which npm installs by os, cpu and libc, and two aliases under the unscoped

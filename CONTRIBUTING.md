@@ -115,10 +115,11 @@ managers, Run workflow) with its tag.
   `scripts/homebrew-formula.sh` from the release's `checksums.txt`, installs the CLI with it on a
   macOS runner, and commits it to `main`. Do not edit the formula by hand.
 - **WinGet:** the package `Velixo.CLI` is in `microsoft/winget-pkgs`. The job opens a pull request
-  there with Komac, through `vedantmgoyal9/winget-releaser`. It needs the organization secret
-  `WINGET_TOKEN`: a classic token with `public_repo`, whose owner has a fork of
-  `microsoft/winget-pkgs` (a fine-grained token cannot open the pull request). Without the secret,
-  or before Microsoft has accepted the first version, the job skips with a warning.
+  there with Komac, through `vedantmgoyal9/winget-releaser`, from the token owner's fork. It needs
+  the organization secret `WINGET_TOKEN`: a classic token with `public_repo` (a fine-grained token
+  cannot open the pull request). Without the secret, the job skips with a warning. Until
+  `Velixo.CLI` is in `winget-pkgs`, the job writes the manifests with `scripts/winget-manifests.sh`
+  and submits them as a new package with `komac submit`; while that pull request is open, it skips.
 - **npm:** `@velixo/cli` holds a launcher, `npm/cli/bin/velixo.js`, and lists seven platform
   packages, `@velixo/cli-<platform>`, as optional dependencies; npm installs the one whose `os`,
   `cpu` and `libc` match. `velixo-cli` and `velixo` are aliases that install `@velixo/cli`, so
@@ -141,19 +142,12 @@ for dir in /tmp/velixo-npm/cli-* /tmp/velixo-npm/cli /tmp/velixo-npm/alias-*; do
 npm asks for your second factor for each package. Then, on npmjs.com, open each of the ten
 packages (`@velixo/cli`, the seven `@velixo/cli-<platform>`, `velixo-cli` and `velixo`), Settings, Trusted Publisher,
 GitHub Actions, and enter organization `VelixoSolutions`, repository `velixo-cli`, workflow
-filename `package-managers.yml`, and no environment. Under Publishing access, choose to require
-two-factor authentication and disallow tokens: only the workflow and a person with 2FA can publish.
+filename `package-managers.yml`, and no environment. Under PublishiThe first WinGet version also comes from the workflow. Once `WINGET_TOKEN` is set, run Package
+managers by hand with the tag of the latest release: the job submits `Velixo.CLI` as a new package.
+Microsoft reviews it in 1 to 3 days. Until it is merged, the job skips WinGet, so if a release goes
+out in the meantime, run Package managers again with its tag after the merge.
 
-The first WinGet version goes in by hand, once, on Windows:
-
-```powershell
-winget install wingetcreate
-wingetcreate new https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.2/velixo-1.0.2-win-x64.zip https://github.com/VelixoSolutions/velixo-cli/releases/download/v1.0.2/velixo-1.0.2-win-arm64.zip
-```
-
-Answer `Velixo.CLI` for the identifier, `Velixo Solutions Inc.` for the publisher, `Velixo CLI`
-for the name, `Apache-2.0` for the license, `portable` for the nested installer type,
-`velixo.exe` for the nested installer file and `velixo` for the command alias, then let it submit
+ alias, then let it submit
 the pull request. Microsoft reviews it in 1 to 3 days; every later version goes through the
 workflow.
 
