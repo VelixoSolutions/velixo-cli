@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Velixo.Cli.Commands;
+using Velixo.Cli.Output;
 
 namespace Velixo.Cli.Screen;
 
@@ -11,9 +12,10 @@ namespace Velixo.Cli.Screen;
 internal static class ScreenPrompts
 {
     /// <summary>
-    /// Adds an answer to <paramref name="variables"/> for every header placeholder it does not bind. An
-    /// answer passes through <paramref name="resolveValue"/>, as a <c>--param</c> value does, so a person can
-    /// type <c>@query:3</c> at the prompt.
+    /// Adds an answer to <paramref name="variables"/> for every header placeholder it does not bind. Every
+    /// answer, here and in <see cref="AskForRows"/>, passes through <paramref name="resolveValue"/>, as a
+    /// <c>--param</c> value does, so a person can type <c>@query:3</c> at any prompt. An answer the resolver
+    /// refuses is asked again.
     /// </summary>
     public static void AskForValues(CliServices services, ScreenBatch batch, JsonObject variables, Func<string, string> resolveValue)
     {
@@ -31,8 +33,7 @@ internal static class ScreenPrompts
         services.Console.Error.WriteLine($"Values for the batch (type {ValuePrompt.NullAnswer} to leave a field to the ERP's default):");
         foreach (var name in missing)
         {
-            PromptAnswer answer = ValuePrompt.Ask(services, name, About(batch, name), required: true, allowNull: true);
-            variables[name] = answer.Value is null ? null : resolveValue(answer.Value);
+            variables[name] = AskValue(services, name, About(batch, name), resolveValue);
         }
     }
 
@@ -40,11 +41,12 @@ internal static class ScreenPrompts
     /// Asks for the detail lines of a batch that has <c>lineCommands</c>: a line at a time until the person
     /// says no more, each with its sub-lines for a batch that has <c>splitCommands</c>.
     /// </summary>
-    public static JsonArray AskForRows(CliServices services, ScreenBatch batch, JsonObject variables)
+    public static JsonArray AskForRows(CliServices services, ScreenBatch batch, JsonObject variables, Func<string, string> resolveValue)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(variables);
+        ArgumentNullException.ThrowIfNull(resolveValue);
 
         var bound = HeaderNames(batch).Concat(variables.Select(pair => pair.Key)).ToHashSet(StringComparer.Ordinal);
         var lineNames = ScreenPlaceholders.Names(batch.LineCommands).Where(name => !bound.Contains(name)).ToList();
@@ -54,7 +56,7 @@ internal static class ScreenPrompts
         while (ValuePrompt.YesNo(services, rows.Count == 0 ? "Add a line?" : "Add another line?", defaultYes: rows.Count == 0))
         {
             services.Console.Error.WriteLine($"Line {rows.Count + 1}:");
-            var row = new JsonObject { ["values"] = AskRow(services, batch, lineNames, "  ") };
+            var row = new JsonObject { ["values"] = AskRow(services, batch, lineNames, "  ", resolveValue) };
 
             if (batch.SplitCommands is not null)
             {
@@ -62,7 +64,7 @@ internal static class ScreenPrompts
                 while (ValuePrompt.YesNo(services, splits.Count == 0 ? "  Add a sub-line to this line?" : "  Add another sub-line?", defaultYes: false))
                 {
                     services.Console.Error.WriteLine($"  Sub-line {splits.Count + 1}:");
-                    splits.Add((JsonNode)new JsonObject { ["values"] = AskRow(services, batch, splitNames, "    ") });
+                    splits.Add((JsonNode)new JsonObject { ["values"] = AskRow(services, batch, splitNames, "    ", resolveValue) });
                 }
 
                 if (splits.Count > 0)
@@ -77,16 +79,36 @@ internal static class ScreenPrompts
         return rows;
     }
 
-    private static JsonObject AskRow(CliServices services, ScreenBatch batch, IReadOnlyList<string> names, string indent)
+    private static JsonObject AskRow(CliServices services, ScreenBatch batch, IReadOnlyList<string> names, string indent, Func<string, string> resolveValue)
     {
         var values = new JsonObject();
         foreach (var name in names)
         {
-            PromptAnswer answer = ValuePrompt.Ask(services, indent + name, About(batch, name), required: true, allowNull: true);
-            values[name] = answer.Value;
+            values[name] = AskValue(services, indent + name, About(batch, name), resolveValue);
         }
 
         return values;
+    }
+
+    private static string? AskValue(CliServices services, string label, string? about, Func<string, string> resolveValue)
+    {
+        while (true)
+        {
+            PromptAnswer answer = ValuePrompt.Ask(services, label, about, required: true, allowNull: true);
+            if (answer.Value is null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return resolveValue(answer.Value);
+            }
+            catch (CliException error) when (error.ExitCode == ExitCodes.Usage)
+            {
+                services.Console.Error.WriteLine(error.NextStep is null ? error.Message : $"{error.Message} {error.NextStep}");
+            }
+        }
     }
 
     /// <summary>The placeholders a run binds once: those of the header and the finish commands.</summary>

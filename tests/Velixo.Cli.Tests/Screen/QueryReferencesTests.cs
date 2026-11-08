@@ -131,6 +131,58 @@ public sealed class QueryReferencesTests
         Assert.Contains("both with --param and with --param-null", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_trailing_colon_is_named_in_the_error()
+    {
+        CliException error = Assert.Throws<CliException>(() => References().Resolve("@query:3:"));
+
+        Assert.Contains("ends in ':' with no item number", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_unreadable_plan_keeps_the_reason_it_cannot_be_read()
+    {
+        var library = new LibraryFile();
+        library.Add(LibraryKind.Query, Entry(null, Plan(new JsonObject { ["purpose"] = "neither" })));
+        var references = new QueryReferences(() => library, null, warnings.Add);
+
+        CliException error = Assert.Throws<CliException>(() => references.Resolve("@query:1"));
+
+        Assert.Contains("neither", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_prompt_answer_that_names_no_query_is_asked_again()
+    {
+        using var test = new ScreenHarness(terminal: true, input: "@query:9\n@query:1\n");
+        ScreenBatch batch = ScreenBatch.Parse(GiqlBatch, "the test batch", "test");
+        var variables = new JsonObject();
+
+        ScreenPrompts.AskForValues(test.Services, batch, variables, References().Resolve);
+
+        Assert.Equal(VendorQuery, (string?)variables["Giql"]);
+        Assert.Contains("'@query:9' names query '9'", test.Console.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_line_prompt_answer_is_resolved_too()
+    {
+        using var test = new ScreenHarness(terminal: true, input: "y\n@query:1\nn\n");
+        ScreenBatch batch = ScreenBatch.Parse(GiqlBatch, "the test batch", "test");
+
+        JsonArray rows = ScreenPrompts.AskForRows(test.Services, batch, new JsonObject { ["Giql"] = "x" }, References().Resolve);
+
+        Assert.Equal(VendorQuery, (string?)rows[0]!["values"]!["Formula"]);
+    }
+
+    private const string GiqlBatch = """
+        {
+          "target": "SM208000",
+          "commands": [ { "type": "Set", "name": "CurrentDesign.Query", "value": "{{Giql}}" } ],
+          "lineCommands": [ { "type": "Set", "name": "Results.Formula", "value": "{{Formula}}" } ]
+        }
+        """;
+
     private QueryReferences References(string? runConnection = null) => new(Library, runConnection, warnings.Add);
 
     private QueryReferences Unreadable() =>

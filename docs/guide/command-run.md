@@ -38,7 +38,7 @@ A batch that only reads runs without `--yes`: the dry run shows `wouldWrite: fal
 - `--param-null NAME` lets Acumatica set the field by default. It drops every command that writes that placeholder, so the fields that default from it follow (leave the employee unset on an expense claim, and Acumatica fills the claimant and the branch from the employee's record). This is how you say "use the default" for a field the batch writes. When the build itself asked for a value, such as a branch or a project, the user's "use the defaults" goes to `command build --accept-defaults` instead. The output lists what was dropped in `result.skippedFields`: read those fields back and tell the user what the ERP chose.
 - **Null is not blank.** `--param NAME=` writes an empty string over the default and breaks the chain of defaults. Use it only when the user asked to clear the field.
 - **A missing name is not null.** A placeholder you bind with nothing exits 5 with `SCREEN_VARIABLE_MISSING`. Skipping a field must be something you asked for.
-- `--param NAME=@query:REF` binds the query text of query REF in the profile's list, by its number or name in `velixo query list`. Use it to save a built query as a generic inquiry: `--param Giql=@query:3`. A plan with several queries takes `@query:REF:ITEM`, ITEM counted from 1. Write `@@query:` for a value that starts with the text `@query:`.
+- `--param NAME=@query:REF` binds the query text of query REF in the profile's list, by its number or name in `velixo query list`. Use it to save a built query as a generic inquiry: `--param Giql=@query:3`. A plan with several queries takes `@query:REF:ITEM`, ITEM counted from 1. Write `@@query:` for a value that starts with the text `@query:`. An answer typed at a value prompt takes `@query:` too, and a reference that names no query is asked again.
 - `--params FILE` reads a JSON object of names and values, each taken as written. `--param` and `--param-null` win over it.
 - `--rows FILE` gives the detail rows of a batch with `lineCommands`: a JSON array, one entry per line, in order.
 
@@ -59,7 +59,7 @@ These are refused before anything runs. The CLI checks the first three on your m
 | `SCREEN_VARIABLE_MISSING` | 5 | Bind every name the message lists, row by row. |
 | `SCREEN_VARIABLE_UNKNOWN` | 5 | Remove the names no placeholder takes: a stale batch or a wrong case. |
 | `SCREEN_SETS_*` | 5 | The rows and the batch's sets do not fit. The message names the fix. |
-| `SCREEN_VARIABLE_ILLEGAL_VALUE` | 5 | A value is a whole value in angle brackets, such as `<NEW>`. Values are field data, never structure. |
+| `SCREEN_VARIABLE_ILLEGAL_VALUE` | 5 | A value is a whole value in angle brackets, such as `<SELECT>`, or holds `<NEW>` anywhere. Values are field data, never structure. A server older than VelixoSolutions/Velixo-NextGen#10782 refuses any `<` or `>`. |
 | `SCREEN_VARIABLE_MISPLACED`, `SCREEN_VARIABLE_NOT_WHOLE_VALUE`, `SCREEN_VARIABLE_MALFORMED` | 5 | The batch is malformed. Build it again; never edit it. |
 | `SCREEN_VARIABLE_NOT_SKIPPABLE` | 5 | That null cannot be dropped (a key, a row selector, the command that loads the record). Give a value, or build again without the field. |
 | `SCREEN_RECORD_NOT_FOUND` | 5 | No record holds the key the batch changes. The key is probably mistyped: ask the user. |

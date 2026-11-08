@@ -75,6 +75,12 @@ internal sealed class QueryReferences(Func<LibraryFile> loadLibrary, string? run
         }
 
         var item = rest[(separator + 1)..].Trim();
+        if (item.Length == 0)
+        {
+            throw CliException.Usage(
+                $"'{value}' ends in ':' with no item number: write @query:REF, or @query:REF:ITEM with ITEM counted from 1.");
+        }
+
         if (!int.TryParse(item, NumberStyles.None, CultureInfo.InvariantCulture, out var itemNumber) || itemNumber < 1)
         {
             throw CliException.Usage(
@@ -95,10 +101,10 @@ internal sealed class QueryReferences(Func<LibraryFile> loadLibrary, string? run
         {
             return QueryPlan.Read(entry.Document, $"query {entry.Reference}");
         }
-        catch (CliException)
+        catch (CliException error)
         {
             throw CliException.Usage(
-                $"'{value}' names query {entry.Reference}, whose saved build holds no plan.",
+                $"'{value}' names query {entry.Reference}, whose saved build cannot be read as a plan: {error.Message}",
                 $"Build the query again with velixo query build, or remove it with: velixo query delete {entry.Reference}");
         }
     }

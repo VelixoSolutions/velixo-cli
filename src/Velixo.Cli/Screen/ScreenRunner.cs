@@ -52,7 +52,7 @@ internal static class ScreenRunner
             ScreenPrompts.AskForValues(services, batch, variables, queryReferences.Resolve);
             if (batch.LineCommands is not null && rows is null)
             {
-                rows = ScreenPrompts.AskForRows(services, batch, variables);
+                rows = ScreenPrompts.AskForRows(services, batch, variables, queryReferences.Resolve);
             }
         }
 
