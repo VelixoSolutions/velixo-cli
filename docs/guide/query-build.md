@@ -33,6 +33,8 @@ A request that names a saved generic inquiry keeps the name in words, exactly as
 
 A direct run of an inquiry carries no query text, so it cannot become a workbook or a formula. When the user wants the inquiry as a workbook, a formula or a query to save, say so in the request ("the AR Aging GI as a workbook"). The builder then returns a query over the inquiry.
 
+The inquiry's own definition is not a query build. On Acumatica, "show me the GIQL of inquiry X" reads the inquiry on the Generic Inquiry screen: `velixo command build "Read the GIQL query of the generic inquiry titled {{InquiryTitle}}, without changing it"`, then `velixo command run`. Saving a built query as an inquiry goes the same way: `velixo command build "Save the GIQL query {{Giql}} as a new generic inquiry titled {{InquiryTitle}}"`, then `velixo command run N --param Giql=@query:3`. Every parameter the query declares becomes a value the saved inquiry asks for on every run, so list them to the user before you save.
+
 ### Analyses and drill-downs
 
 "Analyze", "break down" and "explain" a figure are drill-downs, and a drill-down needs a grouping axis. On Acumatica the axes are Company, Branch, one of possibly several Subaccount segments, and business account, and several can be combined. If the user named none, ask which they want. Never pick an axis yourself.
