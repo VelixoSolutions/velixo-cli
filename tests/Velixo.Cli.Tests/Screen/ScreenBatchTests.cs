@@ -128,7 +128,7 @@ public sealed class ScreenBatchTests
         var file = Path.Combine(directory.Path, "vars.json");
         File.WriteAllText(file, """{"CustomerID":"FROMFILE","Note":"kept","Hold":"true"}""");
 
-        JsonObject variables = ScreenVariables.Bind(file, ["CustomerID=ACME", "Formula=a=b", "Blank="], ["Hold"]);
+        JsonObject variables = ScreenVariables.Bind(file, ["CustomerID=ACME", "Formula=a=b", "Blank="], ["Hold"], value => value);
 
         Assert.Equal("ACME", (string?)variables["CustomerID"]);
         Assert.Equal("kept", (string?)variables["Note"]);
@@ -143,7 +143,7 @@ public sealed class ScreenBatchTests
     [InlineData("=ACME")]
     public void A_var_without_a_name_and_an_equals_sign_is_a_usage_error(string assignment)
     {
-        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, [assignment], []));
+        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, [assignment], [], value => value));
 
         Assert.Equal(ExitCodes.Usage, error.ExitCode);
     }
@@ -151,7 +151,7 @@ public sealed class ScreenBatchTests
     [Fact]
     public void The_same_name_with_var_and_var_null_is_a_usage_error()
     {
-        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, ["Hold=1"], ["Hold"]));
+        CliException error = Assert.Throws<CliException>(() => ScreenVariables.Bind(null, ["Hold=1"], ["Hold"], value => value));
 
         Assert.Equal(ExitCodes.Usage, error.ExitCode);
     }
