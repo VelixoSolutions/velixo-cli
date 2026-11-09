@@ -21,6 +21,14 @@
   .sample h3 { color: var(--ink); font-size: 1rem; margin: 0 0 4px; }
   .sample img { display: block; width: 100%; height: auto; margin: 12px 0 8px; border: 1px solid var(--code); border-radius: 8px; }
   .sample img.phone { max-width: 320px; }
+  .agent-prompt { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 6px 12px; border: 1px solid var(--muted); border-radius: 6px; background: transparent; color: var(--ink); font: 500 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; cursor: pointer; }
+  .agent-prompt:hover { border-color: var(--ink); }
+  .agent-prompt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .agent-prompt svg { width: 16px; height: 16px; flex: none; }
+  .agent-prompt .done, .agent-prompt[data-copied] .idle { display: none; }
+  .agent-prompt[data-copied] .done { display: inline; }
+  .agent-prompt[data-copied] { color: #1a7f4b; border-color: #1a7f4b; }
+  @media (prefers-color-scheme: dark) { .agent-prompt[data-copied] { color: #5fd49a; border-color: #5fd49a; } }
 </style>
 </head>
 <body>
@@ -28,6 +36,11 @@
   <img src="https://secure.velixo.com/logos/logo-full-gradient-navy.svg" alt="Velixo" width="180">
   <h1>Velixo CLI</h1>
   <p>One binary, <code>velixo</code>, that runs the tools of the Velixo MCP server from the command line, for AI coding agents, scripts and people.</p>
+  <button type="button" class="agent-prompt" data-copy-text="Set me up on Velixo.com: https://cli.velixo.com/agent-ready.md" aria-label="Copy a prompt to onboard your agent">
+    <svg class="idle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    <svg class="done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+    <span class="idle">Onboard your agent</span><span class="done" role="status">Prompt copied</span>
+  </button>
   <h2>Install on macOS or Linux</h2>
   <h3>Homebrew</h3>
   <pre><code>brew tap velixosolutions/velixo-cli https://github.com/VelixoSolutions/velixo-cli
@@ -63,5 +76,23 @@ velixo guide</code></pre>
   </section>
   <p><a href="https://github.com/VelixoSolutions/velixo-cli#readme">Documentation</a> · <a href="agent-ready.md">For AI agents</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a></p>
 </main>
+<script>
+  document.querySelectorAll('.agent-prompt').forEach(function (button) {
+    var timer;
+    button.addEventListener('click', function () {
+      var text = button.dataset.copyText;
+      var copied = function () {
+        button.setAttribute('data-copied', '');
+        clearTimeout(timer);
+        timer = setTimeout(function () { button.removeAttribute('data-copied'); }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(copied, function () { window.prompt('Copy this prompt for your agent:', text); });
+      } else {
+        window.prompt('Copy this prompt for your agent:', text);
+      }
+    });
+  });
+</script>
 </body>
 </html>
