@@ -33,6 +33,7 @@ jobs:
         run: |
           mkdir -p _site
           cp site/index.html _site/index.html
+          cp site/agent-ready.md _site/agent-ready.md
           cp scripts/install.sh _site/install.sh
           cp scripts/install.ps1 _site/install.ps1
           mkdir -p _site/samples
