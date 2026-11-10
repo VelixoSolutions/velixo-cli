@@ -171,6 +171,21 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_result_in_response_prints_as_a_table()
+    {
+        var query = WriteFile("q.vql", "FROM X SELECT Y");
+        _mcp.ThenText(DoneInResponse(QueryResult(2, 2))).ThenText(DoneInResponse(QueryResult(2, 2)));
+
+        var exit = await Run("query", "run", "--query", query, "--output", "table");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Contains("Customer", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("C2", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("200.50", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"response\"", _test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_partial_table_shows_the_footer_not_the_servers_agent_warning_and_json_keeps_it()
     {
         JsonObject data = JsonNode.Parse(QueryResult(2, 66))!.AsObject();
@@ -594,6 +609,15 @@ public sealed class QueryCommandsTests : IDisposable
             ["taskId"] = "t_1",
             ["status"] = "done",
             ["result"] = new JsonObject { ["textualResponse"] = textualResponse },
+        }.ToJsonString();
+
+    /// <summary>A done task as the server sends it since RD-13757: the answer as JSON in <c>response</c>.</summary>
+    private static string DoneInResponse(string response) =>
+        new JsonObject
+        {
+            ["taskId"] = "t_1",
+            ["status"] = "done",
+            ["result"] = new JsonObject { ["response"] = JsonNode.Parse(response) },
         }.ToJsonString();
 
     /// <summary>A query result of <paramref name="rows"/> rows named C1, C2, … from <paramref name="firstRow"/>.</summary>

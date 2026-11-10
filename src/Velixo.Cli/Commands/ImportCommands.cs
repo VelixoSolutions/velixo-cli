@@ -153,7 +153,7 @@ public static class ImportCommands
             UnwrappedToolResult previewed = await ExecuteAsync(
                 Arguments(previewOnly: true),
                 services.FollowOptions() with { NoWait = false }).ConfigureAwait(false);
-            JsonObject preview = PromoteTextualResponse(previewed.Document);
+            JsonObject preview = PromoteAnswer(previewed.Document);
             CommandText.RelayWarnings(services.Output, preview);
             ImportPreview summary = ImportPreview.From(preview, scenarioName);
             Describe(services.Output, summary, connection);
@@ -174,7 +174,7 @@ public static class ImportCommands
 
             services.Output.Progress("running the import");
             UnwrappedToolResult ran = await ExecuteAsync(Arguments(previewOnly: false), services.FollowOptions()).ConfigureAwait(false);
-            JsonObject report = PromoteTextualResponse(ran.Document);
+            JsonObject report = PromoteAnswer(ran.Document);
             CommandText.RelayWarnings(services.Output, report);
             if (!ran.IsRunning)
             {
@@ -194,18 +194,22 @@ public static class ImportCommands
             "velixo connections list");
 
     /// <summary>
-    /// The validation preview is answered as plain text holding <c>{ "textualResponse": "{...}" }</c>,
-    /// not as a task, so the tool result unwrapper leaves the inner document as a string. This parses it
-    /// into <c>result.data</c> the way a finished task's result is.
+    /// The validation preview is answered as plain text holding <c>{ "response": {...} }</c>, or
+    /// <c>{ "textualResponse": "{...}" }</c> from a server before RD-13757, not as a task, so the tool
+    /// result unwrapper leaves that envelope in <c>result.data</c>. This puts the answer inside it in
+    /// <c>result.data</c> the way a finished task's result is.
     /// </summary>
-    private static JsonObject PromoteTextualResponse(JsonObject document)
+    private static JsonObject PromoteAnswer(JsonObject document)
     {
         if (document["result"] is JsonObject result
-            && result["data"] is JsonObject data
-            && CommandText.String(data["textualResponse"]) is { } text
-            && TryParse(text) is { } parsed)
+            && result["data"] is JsonObject { Count: 1 } data
+            && data[ToolResultUnwrapper.AnswerField(data)] is { } answer)
         {
-            result["data"] = parsed;
+            JsonNode? promoted = CommandText.String(answer) is { } text ? TryParse(text) : answer.DeepClone();
+            if (promoted is not null)
+            {
+                result["data"] = promoted;
+            }
         }
 
         return document;

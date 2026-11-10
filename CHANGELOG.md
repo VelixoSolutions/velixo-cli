@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- Every command reads a task's answer from `response`, the field the server sends it in since RD-13757, as well as from `textualResponse`, the field before. Against a server with that change, 1.0.4 found no answer: `query build` printed a one-row `response` table instead of the plan, `query run` printed the raw document instead of the rows, a builder refusal exited 0, and `import run` lost its counts. (RD-13757)
+
 ## [1.0.4] - 2026-11-07
 
 ### Changed
