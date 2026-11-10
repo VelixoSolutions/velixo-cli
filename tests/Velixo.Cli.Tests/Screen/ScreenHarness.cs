@@ -110,11 +110,11 @@ internal sealed class ScreenHarness : IDisposable
     /// <summary>Gets the arguments of the last <c>execute_commands</c> call.</summary>
     public JsonObject Executed => Mcp.Calls.Last(call => call.Name == "execute_commands").Arguments;
 
-    /// <summary>Returns a <c>done</c> envelope whose <c>textualResponse</c> is <paramref name="envelope"/>, with <paramref name="beside"/> next to it.</summary>
+    /// <summary>Returns a <c>done</c> envelope whose <c>response</c> is <paramref name="envelope"/>, with <paramref name="beside"/> next to it.</summary>
     public static string Done(string envelope = """{"ok":true}""", string beside = "")
     {
         var result = JsonNode.Parse($"{{{beside}}}")!.AsObject();
-        result["textualResponse"] = envelope;
+        result["response"] = envelope;
         return new JsonObject { ["taskId"] = "t_1", ["status"] = "done", ["result"] = result }.ToJsonString();
     }
 

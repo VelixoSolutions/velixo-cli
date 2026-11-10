@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- The CLI reads a task's answer only from `response`, the field the server uses since RD-13757, and no longer from `textualResponse`. It needs a Velixo server with RD-13757, which every environment runs since this release.
+
 ## [1.0.5] - 2026-11-10
 
 ### Fixed

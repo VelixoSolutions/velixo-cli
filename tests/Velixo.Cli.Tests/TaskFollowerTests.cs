@@ -9,7 +9,7 @@ namespace Velixo.Cli.Tests;
 public sealed class TaskFollowerTests
 {
     private const string Running = """{"taskId":"t_1","status":"running","progress":{"label":"Release on SO301000","elapsedMs":134000,"stalledForMs":48000}}""";
-    private const string Done = """{"taskId":"t_1","status":"done","result":{"textualResponse":"{\"ok\":true}"}}""";
+    private const string Done = """{"taskId":"t_1","status":"done","result":{"response":"{\"ok\":true}"}}""";
 
     private readonly TestConsole _console = new();
 

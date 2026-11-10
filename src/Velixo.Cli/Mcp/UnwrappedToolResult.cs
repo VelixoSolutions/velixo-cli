@@ -4,9 +4,8 @@ namespace Velixo.Cli.Mcp;
 
 /// <summary>
 /// A tool result as the CLI prints it. A task tool's document keeps the server's
-/// <c>{ taskId, status, result }</c> envelope with the answer, <c>result.response</c> or
-/// <c>result.textualResponse</c>, parsed into <c>result.data</c>, or kept as <c>result.text</c> when it
-/// is not JSON. Any other tool's document is
+/// <c>{ taskId, status, result }</c> envelope with the answer, <c>result.response</c>, in
+/// <c>result.data</c>, or kept as <c>result.text</c> when it is not JSON. Any other tool's document is
 /// <c>{ result: { data } }</c> or <c>{ result: { text } }</c>.
 /// </summary>
 public sealed class UnwrappedToolResult

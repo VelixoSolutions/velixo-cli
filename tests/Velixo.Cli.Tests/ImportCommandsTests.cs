@@ -129,23 +129,6 @@ public sealed class ImportCommandsTests : IDisposable
     }
 
     [Fact]
-    public async Task Run_reads_the_preview_and_the_report_from_response()
-    {
-        var file = WriteCsv();
-        QueueStaging();
-        _mcp.ThenText(Preview(rows: 15, warnings: [], inResponse: true))
-            .ThenText(Done(Report(total: 15, processed: 14, failed: 1), inResponse: true));
-
-        var exit = await _test.RunAsync([.. _baseArguments, "--file", file, "--yes"]);
-
-        Assert.Equal(ExitCodes.Success, exit);
-        JsonNode printed = JsonNode.Parse(_test.Console.StdOut)!;
-        Assert.Equal(14, (int?)printed["result"]!["data"]!["processed"]);
-        Assert.Contains("15 rows", _test.Console.StdErr, StringComparison.Ordinal);
-        Assert.Contains("AR303000 (Customers)", _test.Console.StdErr, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Run_passes_break_on_error_to_both_calls()
     {
         var file = WriteCsv();
@@ -341,11 +324,8 @@ public sealed class ImportCommandsTests : IDisposable
     private static string Link(string token) =>
         $$"""{"fileToken":"{{token}}","uploadUrl":"https://nx-dev.velixo.com/mcp/upload/{{token}}","expiresAt":"2026-10-28T16:10:00+00:00"}""";
 
-    /// <summary>
-    /// The preview as the server sends it: plain text, not a task, holding <c>{ response }</c> since RD-13757
-    /// when <paramref name="inResponse"/>, or <c>{ textualResponse }</c> before.
-    /// </summary>
-    private static string Preview(int rows, string[] warnings, bool inResponse = false)
+    /// <summary>The preview as the server sends it: plain text holding <c>{ response }</c>, not a task.</summary>
+    private static string Preview(int rows, string[] warnings)
     {
         var inner = new JsonObject
         {
@@ -358,9 +338,7 @@ public sealed class ImportCommandsTests : IDisposable
             ["warnings"] = new JsonArray(warnings.Select(warning => (JsonNode?)warning).ToArray()),
             ["executed"] = false,
         };
-        return inResponse
-            ? new JsonObject { ["response"] = inner }.ToJsonString()
-            : new JsonObject { ["textualResponse"] = inner.ToJsonString() }.ToJsonString();
+        return new JsonObject { ["response"] = inner }.ToJsonString();
     }
 
     private static JsonObject Report(int total, int processed, int failed)
@@ -392,14 +370,12 @@ public sealed class ImportCommandsTests : IDisposable
         };
     }
 
-    private static string Done(JsonObject report, bool inResponse = false) =>
+    private static string Done(JsonObject report) =>
         new JsonObject
         {
             ["taskId"] = "t_7",
             ["status"] = "done",
-            ["result"] = inResponse
-                ? new JsonObject { ["response"] = report }
-                : new JsonObject { ["textualResponse"] = report.ToJsonString() },
+            ["result"] = new JsonObject { ["response"] = report },
         }.ToJsonString();
 
     /// <summary>Queues the link <c>get_upload_url</c> answers with and the upload endpoint's acceptance.</summary>

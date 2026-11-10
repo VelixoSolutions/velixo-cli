@@ -194,16 +194,15 @@ public static class ImportCommands
             "velixo connections list");
 
     /// <summary>
-    /// The validation preview is answered as plain text holding <c>{ "response": {...} }</c>, or
-    /// <c>{ "textualResponse": "{...}" }</c> from a server before RD-13757, not as a task, so the tool
-    /// result unwrapper leaves that envelope in <c>result.data</c>. This puts the answer inside it in
+    /// The validation preview is answered as plain text holding <c>{ "response": {...} }</c>, not as a
+    /// task, so the tool result unwrapper leaves that envelope in <c>result.data</c>. This puts the answer inside it in
     /// <c>result.data</c> the way a finished task's result is.
     /// </summary>
     private static JsonObject PromoteAnswer(JsonObject document)
     {
         if (document["result"] is JsonObject result
             && result["data"] is JsonObject { Count: 1 } data
-            && data[ToolResultUnwrapper.AnswerField(data)] is { } answer)
+            && data[ToolResultUnwrapper.ResponseField] is { } answer)
         {
             JsonNode? promoted = CommandText.String(answer) is { } text ? TryParse(text) : answer.DeepClone();
             if (promoted is not null)
