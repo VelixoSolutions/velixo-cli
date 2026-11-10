@@ -262,7 +262,7 @@ public sealed class QueryPagerTests
         {
             ["taskId"] = "t_1",
             ["status"] = "done",
-            ["result"] = new JsonObject { ["textualResponse"] = data.ToJsonString() },
+            ["result"] = new JsonObject { ["response"] = data.ToJsonString() },
         }.ToJsonString();
     }
 }

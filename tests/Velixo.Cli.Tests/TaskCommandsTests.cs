@@ -8,7 +8,7 @@ namespace Velixo.Cli.Tests;
 public sealed class TaskCommandsTests : IDisposable
 {
     private const string Running = """{"taskId":"t_7","status":"running","progress":{"label":"Release on SO301000","elapsedMs":134000,"stalledForMs":48000}}""";
-    private const string Done = """{"taskId":"t_7","status":"done","result":{"textualResponse":"{\"queries\":[{\"purpose\":\"P\",\"giql\":\"FROM A SELECT B\"}],\"note\":\"n\"}"}}""";
+    private const string Done = """{"taskId":"t_7","status":"done","result":{"response":"{\"queries\":[{\"purpose\":\"P\",\"giql\":\"FROM A SELECT B\"}],\"note\":\"n\"}"}}""";
 
     private readonly TestServices _test = new();
     private readonly FakeMcpClient _mcp = new();

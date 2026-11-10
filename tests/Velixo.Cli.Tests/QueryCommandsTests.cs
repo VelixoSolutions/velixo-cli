@@ -171,21 +171,6 @@ public sealed class QueryCommandsTests : IDisposable
     }
 
     [Fact]
-    public async Task A_result_in_response_prints_as_a_table()
-    {
-        var query = WriteFile("q.vql", "FROM X SELECT Y");
-        _mcp.ThenText(DoneInResponse(QueryResult(2, 2))).ThenText(DoneInResponse(QueryResult(2, 2)));
-
-        var exit = await Run("query", "run", "--query", query, "--output", "table");
-
-        Assert.Equal(ExitCodes.Success, exit);
-        Assert.Contains("Customer", _test.Console.StdOut, StringComparison.Ordinal);
-        Assert.Contains("C2", _test.Console.StdOut, StringComparison.Ordinal);
-        Assert.Contains("200.50", _test.Console.StdOut, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"response\"", _test.Console.StdOut, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task A_partial_table_shows_the_footer_not_the_servers_agent_warning_and_json_keeps_it()
     {
         JsonObject data = JsonNode.Parse(QueryResult(2, 66))!.AsObject();
@@ -309,7 +294,7 @@ public sealed class QueryCommandsTests : IDisposable
     [Fact]
     public async Task A_refusal_as_the_text_of_a_done_build_is_exit_3()
     {
-        _mcp.ThenText(Done("ERROR: No fiscal period was given."));
+        _mcp.ThenText(Done(JsonString("ERROR: No fiscal period was given.")));
 
         var exit = await Run("query", "build", "GL balance");
 
@@ -603,16 +588,8 @@ public sealed class QueryCommandsTests : IDisposable
         Assert.Equal(target, (string?)Output()["result"]!["data"]!["attachments"]![0]!["path"]);
     }
 
-    private static string Done(string textualResponse) =>
-        new JsonObject
-        {
-            ["taskId"] = "t_1",
-            ["status"] = "done",
-            ["result"] = new JsonObject { ["textualResponse"] = textualResponse },
-        }.ToJsonString();
-
-    /// <summary>A done task as the server sends it since RD-13757: the answer as JSON in <c>response</c>.</summary>
-    private static string DoneInResponse(string response) =>
+    /// <summary>A done task as the server sends it: the answer as JSON in <c>response</c>.</summary>
+    private static string Done(string response) =>
         new JsonObject
         {
             ["taskId"] = "t_1",

@@ -3,7 +3,6 @@ how an expense is created with its receipt attached."""
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -302,11 +301,9 @@ class SageIntacct(Erp):
 
 
 def _sage_key(result: dict) -> str:
-    """Returns the key of the record a Sage Intacct batch saved. The runner reports it as JSON text in
-    `textualResponse`, not in the `feedback.savedKey` an Acumatica screen batch returns."""
+    """Returns the key of the record a Sage Intacct batch saved. The runner reports it in the batch's
+    outcome, which the CLI prints as `data`, not in the `feedback.savedKey` an Acumatica screen batch returns."""
     if isinstance(result.get("feedback"), dict) and result["feedback"].get("savedKey"):
         saved_key = result["feedback"]["savedKey"]
         return str(saved_key.get("key") or saved_key.get("id") or next(iter(saved_key.values()))).strip()
-    text = result.get("textualResponse")
-    outcome = json.loads(text) if isinstance(text, str) else (result.get("data") or {})
-    return str(outcome["key"]).strip()
+    return str(result["data"]["key"]).strip()

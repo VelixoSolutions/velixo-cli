@@ -96,7 +96,7 @@ def test_acumatica_leaves_the_project_at_its_default_when_there_is_none(cli, tmp
 
 def test_sage_creates_a_one_line_report_in_the_employees_location(cli, tmp_path):
     velixo, answer, calls = cli
-    answer({"result": {"textualResponse": json.dumps({"object": "expenses/employee-expense", "operation": "created", "key": "3558"})}})
+    answer({"result": {"data": {"object": "expenses/employee-expense", "operation": "created", "key": "3558"}}})
     erp = SageIntacct(velixo, SageIntacctSettings(base_currency="USD", url_template="https://sage.example/expense/{id}"))
 
     created = erp.create_expense(expense(tmp_path, project="10001"))

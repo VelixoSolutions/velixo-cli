@@ -7,7 +7,7 @@ namespace Velixo.Cli.Tests;
 public sealed class ToolResultUnwrapperTests
 {
     [Fact]
-    public void Json_textual_response_becomes_result_data_beside_the_other_fields()
+    public void A_response_string_holding_json_becomes_result_data()
     {
         var envelope = new JsonObject
         {
@@ -15,7 +15,7 @@ public sealed class ToolResultUnwrapperTests
             ["status"] = "done",
             ["result"] = new JsonObject
             {
-                ["textualResponse"] = """{"columns":[{"caption":"Customer"}],"rows":[["ABARTENDE"]],"totalCount":1}""",
+                ["response"] = """{"columns":[{"caption":"Customer"}],"rows":[["ABARTENDE"]],"totalCount":1}""",
                 ["skippedFields"] = new JsonArray("Document.Hold"),
                 ["continuation"] = new JsonObject { ["screenId"] = "SO301000", ["stamp"] = 17 },
             },
@@ -28,7 +28,7 @@ public sealed class ToolResultUnwrapperTests
         Assert.Equal(1, (int?)result.Data!["totalCount"]);
         Assert.Equal("Document.Hold", (string?)result.Document["result"]!["skippedFields"]![0]);
         Assert.Equal("SO301000", (string?)result.Document["result"]!["continuation"]!["screenId"]);
-        Assert.False(result.Document["result"]!.AsObject().ContainsKey("textualResponse"));
+        Assert.False(result.Document["result"]!.AsObject().ContainsKey("response"));
     }
 
     [Fact]
@@ -73,17 +73,6 @@ public sealed class ToolResultUnwrapperTests
     }
 
     [Fact]
-    public void Non_json_textual_response_becomes_result_text()
-    {
-        const string envelope = """{"taskId":"t_1","status":"done","result":{"textualResponse":"Saved the order."}}""";
-
-        UnwrappedToolResult result = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
-
-        Assert.Equal("Saved the order.", result.Text);
-        Assert.Null(result.Data);
-    }
-
-    [Fact]
     public void A_tool_without_a_task_has_its_json_under_result_data()
     {
         UnwrappedToolResult result = ToolResultUnwrapper.Unwrap(McpToolResult.FromText("""[{"name":"gab-dev","status":"ok"}]"""));
@@ -108,7 +97,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_builder_error_plan_is_exit_3()
     {
-        const string envelope = """{"taskId":"t_5c","status":"done","result":{"textualResponse":"ERROR: Which inquiry do you mean: AR-Aging or AR-Open?"}}""";
+        const string envelope = """{"taskId":"t_5c","status":"done","result":{"response":"ERROR: Which inquiry do you mean: AR-Aging or AR-Open?"}}""";
 
         CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
 
@@ -121,7 +110,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_done_build_whose_response_is_a_question_object_is_exit_3_with_the_question()
     {
-        const string envelope = """{"taskId":"t_5e","status":"done","result":{"textualResponse":"{\"question\": \"ERROR: specify the grouping axis.\"}"}}""";
+        const string envelope = """{"taskId":"t_5e","status":"done","result":{"response":"{\"question\": \"ERROR: specify the grouping axis.\"}"}}""";
 
         CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
 
@@ -135,7 +124,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_done_build_whose_response_is_a_question_object_not_a_string_is_exit_3()
     {
-        const string envelope = """{"taskId":"t_5f","status":"done","result":{"textualResponse":{"question":"ERROR: Which branch?"}}}""";
+        const string envelope = """{"taskId":"t_5f","status":"done","result":{"response":{"question":"ERROR: Which branch?"}}}""";
 
         CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope)));
 
@@ -146,7 +135,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_done_build_whose_only_key_is_a_question_is_exit_3_even_without_the_error_prefix()
     {
-        const string envelope = """{"taskId":"t_5h","status":"done","result":{"textualResponse":"{\"question\": \"Which branch do you mean: HQ or EAST?\"}"}}""";
+        const string envelope = """{"taskId":"t_5h","status":"done","result":{"response":"{\"question\": \"Which branch do you mean: HQ or EAST?\"}"}}""";
 
         CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true));
 
@@ -158,7 +147,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_done_task_of_another_tool_whose_only_key_is_a_question_keeps_its_data()
     {
-        const string envelope = """{"taskId":"t_5i","status":"done","result":{"textualResponse":"{\"question\": \"Is this the right customer?\"}"}}""";
+        const string envelope = """{"taskId":"t_5i","status":"done","result":{"response":"{\"question\": \"Is this the right customer?\"}"}}""";
 
         UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
 
@@ -176,7 +165,7 @@ public sealed class ToolResultUnwrapperTests
         {
             ["taskId"] = "t_5j",
             ["status"] = "done",
-            ["result"] = new JsonObject { ["textualResponse"] = response, ["refused"] = true },
+            ["result"] = new JsonObject { ["response"] = response, ["refused"] = true },
         }.ToJsonString();
 
         CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild));
@@ -190,7 +179,7 @@ public sealed class ToolResultUnwrapperTests
     [Fact]
     public void A_done_task_marked_not_refused_keeps_its_plan()
     {
-        const string envelope = """{"taskId":"t_5k","status":"done","result":{"textualResponse":"{\"queries\":[]}","refused":false}}""";
+        const string envelope = """{"taskId":"t_5k","status":"done","result":{"response":"{\"queries\":[]}","refused":false}}""";
 
         UnwrappedToolResult unwrapped = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true);
 
@@ -209,7 +198,7 @@ public sealed class ToolResultUnwrapperTests
         {
             ["taskId"] = "t_5g",
             ["status"] = "done",
-            ["result"] = new JsonObject { ["textualResponse"] = response },
+            ["result"] = new JsonObject { ["response"] = response },
         }.ToJsonString();
 
         foreach (var isBuild in new[] { true, false })

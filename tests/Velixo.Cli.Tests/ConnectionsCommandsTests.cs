@@ -15,7 +15,7 @@ public sealed class ConnectionsCommandsTests : IDisposable
          {"name":"skyline","type":"sage_intacct","status":"ok","description":"sage_intacct ERP connection","url":null,"company":"Skyline"}]
         """;
 
-    private const string QueryDone = """{"taskId":"t_1","status":"done","result":{"textualResponse":"{\"columns\":[],\"rows\":[],\"totalCount\":0}"}}""";
+    private const string QueryDone = """{"taskId":"t_1","status":"done","result":{"response":"{\"columns\":[],\"rows\":[],\"totalCount\":0}"}}""";
 
     private readonly TestServices _test = new();
     private readonly FakeMcpClient _mcp = new();
