@@ -4,6 +4,8 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-11-10
+
 ### Fixed
 
 - Every command reads a task's answer from `response`, the field the server sends it in since RD-13757, as well as from `textualResponse`, the field before. Against a server with that change, 1.0.4 found no answer: `query build` printed a one-row `response` table instead of the plan, `query run` printed the raw document instead of the rows, a builder refusal exited 0, and `import run` lost its counts. (RD-13757)
@@ -64,6 +66,7 @@ Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windo
 - Agent detection from environment variables, which turns on non-interactive mode and goes to the server for its telemetry. The CLI sends no telemetry of its own.
 - Binaries for `win-x64`, `win-arm64`, `osx-x64`, `osx-arm64`, `linux-x64`, `linux-arm64` and `linux-musl-x64`, the install scripts `install.sh` and `install.ps1`, and `checksums.txt` on every GitHub Release. The release workflow signs the Windows binaries with the Velixo EV certificate and signs and notarizes the macOS binaries once their keys are set up.
 
+[1.0.5]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.5
 [1.0.4]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.4
 [1.0.3]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.3
 [1.0.2]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.2
