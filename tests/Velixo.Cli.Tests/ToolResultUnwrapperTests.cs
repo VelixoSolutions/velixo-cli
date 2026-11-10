@@ -32,6 +32,47 @@ public sealed class ToolResultUnwrapperTests
     }
 
     [Fact]
+    public void A_json_response_becomes_result_data_beside_the_other_fields()
+    {
+        const string envelope = """
+            {"taskId":"t_9b","status":"done","result":{
+              "response":{"columns":[{"caption":"Customer"}],"rows":[["ABARTENDE"]],"totalCount":1},
+              "skippedFields":["Document.Hold"]}}
+            """;
+
+        UnwrappedToolResult result = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+
+        Assert.Equal("t_9b", result.TaskId);
+        Assert.Equal(1, (int?)result.Data!["totalCount"]);
+        Assert.Equal("ABARTENDE", (string?)result.Data!["rows"]![0]![0]);
+        Assert.Equal("Document.Hold", (string?)result.Document["result"]!["skippedFields"]![0]);
+        Assert.False(result.Document["result"]!.AsObject().ContainsKey("response"));
+    }
+
+    [Fact]
+    public void A_response_that_is_a_string_becomes_result_text()
+    {
+        const string envelope = """{"taskId":"t_9c","status":"done","result":{"response":"Saved the order."}}""";
+
+        UnwrappedToolResult result = ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope));
+
+        Assert.Equal("Saved the order.", result.Text);
+        Assert.Null(result.Data);
+    }
+
+    [Fact]
+    public void A_done_build_whose_response_is_a_refused_question_is_exit_3()
+    {
+        const string envelope = """{"taskId":"t_9d","status":"done","result":{"response":{"question":"ERROR: Which branch?"},"refused":true}}""";
+
+        CliException error = Assert.Throws<CliException>(() => ToolResultUnwrapper.Unwrap(McpToolResult.FromText(envelope), isBuild: true));
+
+        Assert.Equal(ExitCodes.BuilderRefusal, error.ExitCode);
+        Assert.Equal("ERROR: Which branch?", error.Message);
+        Assert.Equal("t_9d", error.TaskId);
+    }
+
+    [Fact]
     public void Non_json_textual_response_becomes_result_text()
     {
         const string envelope = """{"taskId":"t_1","status":"done","result":{"textualResponse":"Saved the order."}}""";

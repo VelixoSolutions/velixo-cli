@@ -14,6 +14,10 @@ public static partial class ToolResultUnwrapper
 {
     private const string BuilderRefusalPrefix = "ERROR:";
 
+    private const string ResponseField = "response";
+
+    private const string TextualResponseField = "textualResponse";
+
     private const string RefusedWithoutQuestion = "The builder declined the request and gave no question.";
 
     private const string BuilderRefusalNextStep =
@@ -184,9 +188,11 @@ public static partial class ToolResultUnwrapper
         var unwrapped = new JsonObject();
         if (envelope["result"] is JsonObject result)
         {
+            var answerField = AnswerField(result);
+
             // Parsed once: a query result can be megabytes of rows, and the refusal check reads the same node.
-            string? response = result["textualResponse"] is JsonValue textual && textual.TryGetValue(out string? text) ? text : null;
-            JsonNode? data = response is null ? result["textualResponse"]?.DeepClone() : TryParse(response);
+            string? response = result[answerField] is JsonValue textual && textual.TryGetValue(out string? text) ? text : null;
+            JsonNode? data = response is null ? result[answerField]?.DeepClone() : TryParse(response);
 
             if (TryGetRefusal(result, response, data, isBuild) is { } refusal)
             {
@@ -197,14 +203,14 @@ public static partial class ToolResultUnwrapper
             {
                 unwrapped["text"] = response;
             }
-            else if (result.ContainsKey("textualResponse"))
+            else if (result.ContainsKey(answerField))
             {
                 unwrapped["data"] = data;
             }
 
             foreach ((var key, JsonNode? value) in result)
             {
-                if (key != "textualResponse")
+                if (key != answerField)
                 {
                     unwrapped[key] = value?.DeepClone();
                 }
@@ -222,6 +228,14 @@ public static partial class ToolResultUnwrapper
         document["result"] = unwrapped;
         return document;
     }
+
+    /// <summary>
+    /// Returns the field of <paramref name="result"/> that holds the tool's answer. Since RD-13757 the server
+    /// sends <c>response</c>, holding the answer as JSON; before, it sent <c>textualResponse</c>, holding it as
+    /// a string. The CLI reads both, so it works against a server on either side of that change.
+    /// </summary>
+    internal static string AnswerField(JsonObject result) =>
+        result.ContainsKey(ResponseField) ? ResponseField : TextualResponseField;
 
     /// <summary>
     /// Maps a failed task's error text. The server fails a build that ends in an <c>ERROR:</c> question,
@@ -253,8 +267,8 @@ public static partial class ToolResultUnwrapper
     /// Returns the builder's question when a done task is a builder refusal, or null. The signals, strongest first:
     /// <list type="number">
     /// <item><c>result.refused: true</c>, the server's own marker since RD-14934.</item>
-    /// <item>A textualResponse that is an <c>ERROR:</c> text, the shape before RD-14621.</item>
-    /// <item>A textualResponse <c>{"question": "ERROR: …"}</c>, the shape since RD-14621.</item>
+    /// <item>An answer that is an <c>ERROR:</c> text, the shape before RD-14621.</item>
+    /// <item>An answer <c>{"question": "ERROR: …"}</c>, the shape since RD-14621.</item>
     /// <item>For a build only, an answer that is nothing but a non-blank <c>question</c>, which the tool guidance
     /// promises ("{ question } in place of the plan") whatever the text says. A write, an import or a query
     /// finishes through here too, and a result of theirs shaped that way is data.</item>
