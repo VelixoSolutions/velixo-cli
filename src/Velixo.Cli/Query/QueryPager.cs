@@ -61,7 +61,7 @@ internal static class QueryPager
         }
 
         var viewer = new Viewer(services, first["result"]!["data"]!["columns"] as JsonArray, view.Columns, skip, top, total.Value, title, fetch);
-        viewer.Add(skip, view.Rows);
+        viewer.Add(skip, view.Rows, view.Links);
 
         // The viewer owns the screen and draws its own loading line, so no spinner may draw over it.
         using IDisposable held = services.Output.HoldActivities();
@@ -106,6 +106,7 @@ internal static class QueryPager
         private readonly ICliConsole _console = services.Console;
         private readonly bool _useColor = services.Settings.Output.UseColor;
         private readonly Dictionary<int, IReadOnlyList<string>> _rows = [];
+        private readonly Dictionary<int, IReadOnlyList<string?>> _links = [];
         private readonly int _skip = skip;
         private readonly HashSet<int> _fetchedWindows = [skip];
         private readonly List<JsonObject> _fetched = [];
@@ -124,11 +125,15 @@ internal static class QueryPager
 
         private int LastFirstRow => (int)Math.Max(0, Math.Min(_total, int.MaxValue) - BodyHeight);
 
-        public void Add(int start, IReadOnlyList<IReadOnlyList<string>> rows)
+        public void Add(int start, IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<IReadOnlyList<string?>>? links)
         {
             for (var index = 0; index < rows.Count; index++)
             {
                 _rows[start + index] = rows[index];
+                if (links is not null && index < links.Count)
+                {
+                    _links[start + index] = links[index];
+                }
             }
 
             _laidOut = false;
@@ -264,7 +269,7 @@ internal static class QueryPager
 
                     if (TabularView.From(document) is { } page)
                     {
-                        Add(start, page.Rows);
+                        Add(start, page.Rows, page.Links);
                     }
                 }
 
@@ -298,7 +303,10 @@ internal static class QueryPager
             var order = _rows.Keys.Order().ToList();
             (IReadOnlyList<IReadOnlyList<string>> cells, IReadOnlyList<bool> rightAligned) =
                 QueryOutput.ForReading(columns, order.Select(row => _rows[row]).ToList());
-            var lines = services.Output.FormatTable(captions, cells, rightAligned: rightAligned).Split('\n');
+            IReadOnlyList<IReadOnlyList<string?>>? links = _links.Count == 0
+                ? null
+                : order.Select(row => _links.TryGetValue(row, out IReadOnlyList<string?>? rowLinks) ? rowLinks : []).ToList();
+            var lines = services.Output.FormatTable(captions, cells, rightAligned: rightAligned, links: links).Split('\n');
 
             _header = lines[..2];
             _lines.Clear();
@@ -307,7 +315,7 @@ internal static class QueryPager
                 _lines[order[index]] = lines[index + 2];
             }
 
-            _widest = lines.Max(line => line.Length);
+            _widest = lines.Max(Hyperlink.VisibleLength);
             _left = Math.Min(_left, Math.Max(0, _widest - Width));
             _laidOut = true;
         }
@@ -368,15 +376,14 @@ internal static class QueryPager
         }
 
         /// <summary>The part of <paramref name="line"/> the screen shows from column <paramref name="left"/>.</summary>
-        private string Cut(string line, int left) =>
-            line.Length <= left ? string.Empty : line.Substring(left, Math.Min(Width, line.Length - left));
+        private string Cut(string line, int left) => Hyperlink.Slice(line, left, Width);
 
         private void AppendLine(StringBuilder frame, string text, string? style)
         {
             frame.Append(_useColor && style is not null && text.Length > 0 ? $"{style}{text}{Reset}" : text);
 
             // A line that fills the width leaves the cursor waiting to wrap, and erasing there would erase its last character.
-            if (text.Length < Width)
+            if (Hyperlink.VisibleLength(text) < Width)
             {
                 frame.Append(ClearToEnd);
             }

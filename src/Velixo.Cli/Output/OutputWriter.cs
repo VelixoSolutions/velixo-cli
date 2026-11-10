@@ -100,24 +100,50 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings, T
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         string? footer = null,
-        IReadOnlyList<bool>? rightAligned = null) =>
-        console.Out.Write(FormatTable(columns, rows, footer, rightAligned));
+        IReadOnlyList<bool>? rightAligned = null,
+        IReadOnlyList<IReadOnlyList<string?>>? links = null) =>
+        console.Out.Write(FormatTable(columns, rows, footer, rightAligned, links));
 
-    /// <summary>Lays out a table as <see cref="WriteTable"/> prints it, cutting long cells to fit the terminal.</summary>
+    /// <summary>
+    /// Lays out a table as <see cref="WriteTable"/> prints it, cutting long cells to fit the terminal. A cell with a
+    /// link in <paramref name="links"/> is a terminal hyperlink where <see cref="OutputSettings.Hyperlinks"/> allows
+    /// one; anywhere else its URL goes in a column of its own.
+    /// </summary>
     public string FormatTable(
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         string? footer = null,
-        IReadOnlyList<bool>? rightAligned = null)
+        IReadOnlyList<bool>? rightAligned = null,
+        IReadOnlyList<IReadOnlyList<string?>>? links = null)
     {
         int? maxCellWidth = console.IsOutputRedirected || console.WindowWidth <= 0
             ? null
             : Math.Max(20, console.WindowWidth / 2);
-        return TableFormatter.Format(columns, rows, maxCellWidth, footer, rightAligned);
+        if (links is not null && !Settings.Hyperlinks)
+        {
+            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, rightAligned) = RecordLinks.AddUrlColumns(columns, rows, links, rightAligned);
+
+            // A URL is never cut: a cut one opens nothing.
+            return TableFormatter.Format(columns, withUrls, maxCellWidth: null, footer, rightAligned);
+        }
+
+        return TableFormatter.Format(columns, rows, maxCellWidth, footer, rightAligned, links);
     }
 
-    public void WriteCsv(IReadOnlyList<string> columns, IEnumerable<IReadOnlyList<string?>> rows) =>
+    /// <summary>Writes CSV; a cell with a link in <paramref name="links"/> gets its URL in a column of its own beside it.</summary>
+    public void WriteCsv(
+        IReadOnlyList<string> columns,
+        IEnumerable<IReadOnlyList<string?>> rows,
+        IReadOnlyList<IReadOnlyList<string?>>? links = null)
+    {
+        if (links is not null)
+        {
+            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, _) = RecordLinks.AddUrlColumns(columns, rows, links);
+            rows = withUrls;
+        }
+
         console.Out.Write(CsvFormatter.Format(columns, rows));
+    }
 
     /// <summary>
     /// Writes a result document in the chosen format: JSON as it is, a table or CSV from its
@@ -146,11 +172,11 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings, T
 
         if (Format == OutputFormat.Csv)
         {
-            WriteCsv(view.Columns, view.Rows);
+            WriteCsv(view.Columns, view.Rows, view.Links);
         }
         else
         {
-            WriteTable(view.Columns, view.Rows, view.Footer);
+            WriteTable(view.Columns, view.Rows, view.Footer, links: view.Links);
         }
     }
 

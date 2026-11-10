@@ -18,6 +18,12 @@ public sealed class TabularView
     public string? Footer { get; init; }
 
     /// <summary>
+    /// Gets the record each cell opens, as a URL per cell of <see cref="Rows"/> (null where a cell opens none);
+    /// null when no cell does. Only a query result run with record links has them.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<string?>>? Links { get; init; }
+
+    /// <summary>
     /// Reads <paramref name="document"/> as a table, descending into <c>result</c> and <c>data</c> first.
     /// Returns null for a document that is a single scalar.
     /// </summary>
@@ -90,7 +96,7 @@ public sealed class TabularView
                 : $"rows 1 to {cells.Count.ToString("N0", CultureInfo.InvariantCulture)} of {totalCount.ToString("N0", CultureInfo.InvariantCulture)}";
         }
 
-        return new TabularView { Columns = captions, Rows = cells, Footer = footer };
+        return new TabularView { Columns = captions, Rows = cells, Footer = footer, Links = RecordLinks.Resolve(query["recordLinks"], rows) };
     }
 
     private static TabularView FromArray(JsonArray array)

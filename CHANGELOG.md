@@ -4,6 +4,11 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Links to ERP records. At a terminal, the cells of a `query run` table that name a record open it on a click (a terminal hyperlink), in the table and in the full-screen viewer, as the Velixo Intelligence chat does. A `command run` table that saved a record ends with its link, as `Saved SO SO005396: https://…`. Acumatica and Sage Intacct; Business Central has no links. (RD-14754)
+- `--links` asks a query for the links in JSON (`result.data.recordLinks`, as the server sends them) and CSV (a `URL` column beside each linked column) too, and `--no-links` turns every link off. An agent or a pipe gets no links unless it passes `--links`, since they cost the server time. `--all` keeps the links of every window. A table that is not at a terminal, or in a legacy Windows console, shows the URLs in a column instead of as hyperlinks.
+
 ## [1.0.5] - 2026-11-10
 
 ### Fixed

@@ -75,6 +75,7 @@ At a terminal, the run asks for every value no flag gave, one at a time, with th
 ## What comes back
 
 - `result.feedback.savedKey`: the key of the saved record, including an ID Acumatica assigned. Report it, and use it to name the record in later batches.
+- `result.feedback.recordUrl`: the link that opens the saved record in the ERP. Hand it to the user. It is there only when the batch saved the record and stayed on it; a read-only batch has none, and neither does Business Central. On Sage Intacct, only when the batch read the record back with `Get`, for objects that have a link, such as customers, vendors, invoices and bills. A table prints it under the rows, as `Saved SO SO005396: https://…`; `--no-links` leaves that line out.
 - `result.feedback.record`: the values the ERP recalculated (totals, prices, defaults).
 - `result.feedback.issues`: field errors and warnings. Relay every one, warnings included.
 - `result.feedback.enabledActions`: the actions the record allows now. Offer a next step only from this list.

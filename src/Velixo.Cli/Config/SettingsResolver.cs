@@ -107,6 +107,11 @@ public static class SettingsResolver
             : NullIfBlank(sources.Config.DefaultOutput) is { } fromConfig ? ParseOutputFormat(fromConfig, "defaultOutput in config.json")
             : null;
 
+        if (flags.Links && flags.NoLinks)
+        {
+            throw CliException.Usage("--links and --no-links cannot be used together.");
+        }
+
         OutputFormat format = explicitFormat
             ?? (sources.IsOutputRedirected || agent is not null ? OutputFormat.Json : OutputFormat.Table);
 
@@ -124,8 +129,23 @@ public static class SettingsResolver
                 && agent is null
                 && !sources.IsErrorRedirected
                 && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal),
+            Hyperlinks = !flags.NoLinks
+                && !sources.IsOutputRedirected
+                && agent is null
+                && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal)
+                && !IsLegacyWindowsConsole(sources.GetVariable),
+            RecordLinks = flags.Links ? true : flags.NoLinks ? false : null,
         };
     }
+
+    /// <summary>
+    /// Returns whether the CLI runs in a Windows console that may print a terminal hyperlink as text: any Windows
+    /// console but Windows Terminal (<c>WT_SESSION</c>) or a terminal that names itself (<c>TERM_PROGRAM</c>, as VS Code does).
+    /// </summary>
+    private static bool IsLegacyWindowsConsole(Func<string, string?> variable) =>
+        OperatingSystem.IsWindows()
+        && string.IsNullOrEmpty(variable("WT_SESSION"))
+        && string.IsNullOrEmpty(variable("TERM_PROGRAM"));
 
     private static TimeSpan? ResolveTimeout(int? seconds) => seconds switch
     {

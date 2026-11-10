@@ -68,6 +68,12 @@ A plan of one query prints the same document as `--query`: `{ taskId, status, re
 - `truncated: true` and a `warning` mean the ERP matched more rows than the call returned. The CLI repeats the warning on stderr. Never analyse or present those rows as the whole answer. Their absence is what makes a result complete: the last window of a paged walk carries neither.
 - With `--output table`, a footer names the window: `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`. With `--output csv`, a plan of more than one item is refused.
 
+### Links to the records
+
+`--links` asks the ERP for the record each cell opens, and `result.data.recordLinks` then says which cells open one: on a column with `keys`, the link is `baseUrl` + `ScreenId=` + the screen, then `&` + name + `=` + the URL-encoded value of each key column; on a column with `rest: true`, it is `baseUrl` + the string. They cover the first rows of each window only, and only records of the table the query selects FROM. Saved inquiries and Business Central have none. Ask for them only when the user wants links: they cost time and room.
+
+A table at a terminal gets them without `--links`, and its cells open the record on a click (a terminal hyperlink). CSV and a table that is not at a terminal get a `URL` column beside each linked column instead. `--no-links` asks for none.
+
 ### Empty and all-zero results
 
 - Zero rows is a valid answer, but on a parameterized query first rule out a dropped value: a mis-keyed `--param` on Acumatica leaves exactly this result. Read the stderr warnings.

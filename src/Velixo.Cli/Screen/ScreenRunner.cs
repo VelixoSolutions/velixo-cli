@@ -123,7 +123,32 @@ internal static class ScreenRunner
 
         CommandText.RelayWarnings(services.Output, result.Document);
         services.Output.WriteResult(result.Document);
+        if (services.Output.Format == OutputFormat.Table
+            && services.Settings.Output.ShowsRecordUrl
+            && SavedRecordLine(result.Document["result"]?["feedback"]) is { } saved)
+        {
+            services.Output.WriteText(saved);
+        }
+
         return ExitCodes.Success;
+    }
+
+    /// <summary>
+    /// The line a table prints under a batch that saved a record: its key values and the link that opens it, as
+    /// <c>Saved SO SO005396: https://…</c>. It is a plain URL, so every terminal shows it and most open it on a click.
+    /// Null when the result carries no <c>recordUrl</c>.
+    /// </summary>
+    internal static string? SavedRecordLine(JsonNode? feedback)
+    {
+        if (CommandText.String(feedback?["recordUrl"]) is not { } url || !Hyperlink.IsSafe(url))
+        {
+            return null;
+        }
+
+        var key = feedback?["savedKey"] is JsonObject savedKey
+            ? string.Join(' ', savedKey.Select(pair => TabularView.CellText(pair.Value).Trim()).Where(value => value.Length > 0))
+            : string.Empty;
+        return key.Length > 0 ? $"Saved {key}: {url}" : $"Saved: {url}";
     }
 
     /// <summary>Stages each <c>--attach</c> file and returns the <c>attachments</c> argument of <c>execute_commands</c>.</summary>

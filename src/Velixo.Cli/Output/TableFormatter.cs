@@ -16,12 +16,17 @@ public static class TableFormatter
     /// which is what a table written to a file gets.
     /// </param>
     /// <param name="rightAligned">For each column, whether it lines up on the right, as numbers do; null lines up every column on the left.</param>
+    /// <param name="links">
+    /// For each row, the URL each cell opens, written as a terminal hyperlink around the cell's text, so it takes no
+    /// room; null links nothing.
+    /// </param>
     public static string Format(
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         int? maxCellWidth = null,
         string? footer = null,
-        IReadOnlyList<bool>? rightAligned = null)
+        IReadOnlyList<bool>? rightAligned = null,
+        IReadOnlyList<IReadOnlyList<string?>>? links = null)
     {
         ArgumentNullException.ThrowIfNull(columns);
         ArgumentNullException.ThrowIfNull(rows);
@@ -42,11 +47,11 @@ public static class TableFormatter
 
         var right = columns.Select((_, index) => rightAligned is not null && index < rightAligned.Count && rightAligned[index]).ToArray();
         var text = new StringBuilder();
-        AppendLine(text, header, widths, right);
-        AppendLine(text, widths.Select(width => new string('-', width)).ToArray(), widths, right);
-        foreach (var line in lines)
+        AppendLine(text, header, widths, right, links: null);
+        AppendLine(text, widths.Select(width => new string('-', width)).ToArray(), widths, right, links: null);
+        for (var row = 0; row < lines.Count; row++)
         {
-            AppendLine(text, line, widths, right);
+            AppendLine(text, lines[row], widths, right, links is not null && row < links.Count ? links[row] : null);
         }
 
         if (!string.IsNullOrEmpty(footer))
@@ -57,7 +62,7 @@ public static class TableFormatter
         return text.ToString();
     }
 
-    private static void AppendLine(StringBuilder text, string[] cells, int[] widths, bool[] right)
+    private static void AppendLine(StringBuilder text, string[] cells, int[] widths, bool[] right, IReadOnlyList<string?>? links)
     {
         var line = new StringBuilder();
         for (var index = 0; index < cells.Length; index++)
@@ -67,7 +72,9 @@ public static class TableFormatter
                 line.Append(ColumnGap);
             }
 
-            line.Append(right[index] ? cells[index].PadLeft(widths[index]) : cells[index].PadRight(widths[index]));
+            var padding = new string(' ', widths[index] - cells[index].Length);
+            var cell = Hyperlink.Wrap(cells[index], links is not null && index < links.Count ? links[index] : null);
+            line.Append(right[index] ? padding + cell : cell + padding);
         }
 
         text.Append(line.ToString().TrimEnd()).Append('\n');
