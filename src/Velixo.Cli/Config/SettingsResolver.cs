@@ -107,11 +107,6 @@ public static class SettingsResolver
             : NullIfBlank(sources.Config.DefaultOutput) is { } fromConfig ? ParseOutputFormat(fromConfig, "defaultOutput in config.json")
             : null;
 
-        if (flags.Links && flags.NoLinks)
-        {
-            throw CliException.Usage("--links and --no-links cannot be used together.");
-        }
-
         OutputFormat format = explicitFormat
             ?? (sources.IsOutputRedirected || agent is not null ? OutputFormat.Json : OutputFormat.Table);
 
@@ -129,12 +124,11 @@ public static class SettingsResolver
                 && agent is null
                 && !sources.IsErrorRedirected
                 && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal),
-            Hyperlinks = !flags.NoLinks
-                && !sources.IsOutputRedirected
+            Hyperlinks = !sources.IsOutputRedirected
                 && agent is null
                 && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal)
                 && !IsLegacyWindowsConsole(sources.GetVariable),
-            RecordLinks = flags.Links ? true : flags.NoLinks ? false : null,
+            RecordLinks = flags.Links,
         };
     }
 

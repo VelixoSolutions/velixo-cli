@@ -21,8 +21,6 @@ public sealed record CommandLineValues
 
     public bool Links { get; init; }
 
-    public bool NoLinks { get; init; }
-
     public bool NonInteractive { get; init; }
 
     public bool Yes { get; init; }

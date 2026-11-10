@@ -65,12 +65,6 @@ public sealed class GlobalOptions
         Recursive = true,
     };
 
-    public Option<bool> NoLinks { get; } = new("--no-links")
-    {
-        Description = "Never link to ERP records: no clickable cells in a query table, and no link under a saved record.",
-        Recursive = true,
-    };
-
     public Option<bool> NonInteractive { get; } = new("--non-interactive")
     {
         Description = "Never prompt and never open a browser. On by default when stdin is not a terminal or an AI agent is detected.",
@@ -103,7 +97,7 @@ public sealed class GlobalOptions
     };
 
     public IReadOnlyList<Option> All =>
-        [Profile, Environment, Url, Connection, Intent, Output, Quiet, NoColor, Links, NoLinks, NonInteractive, Yes, Timeout, NoWait, Compact];
+        [Profile, Environment, Url, Connection, Intent, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
 
     /// <summary>Reads the options from a parse, leaving out any value that failed to parse.</summary>
     public CommandLineValues Read(ParseResult parse)
@@ -133,7 +127,6 @@ public sealed class GlobalOptions
             Quiet = Value(Quiet),
             NoColor = Value(NoColor),
             Links = Value(Links),
-            NoLinks = Value(NoLinks),
             NonInteractive = Value(NonInteractive),
             Yes = Value(Yes),
             TimeoutSeconds = Value(Timeout),

@@ -124,7 +124,6 @@ internal static class ScreenRunner
         CommandText.RelayWarnings(services.Output, result.Document);
         services.Output.WriteResult(result.Document);
         if (services.Output.Format == OutputFormat.Table
-            && services.Settings.Output.ShowsRecordUrl
             && SavedRecordLine(result.Document["result"]?["feedback"]) is { } saved)
         {
             services.Output.WriteText(saved);

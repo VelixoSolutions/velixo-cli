@@ -43,7 +43,7 @@ internal sealed class QueryRunner
 
     public Task<JsonObject> RunInquiryAsync(string name, JsonObject parameters, CancellationToken cancellationToken)
     {
-        if (_services.Settings.Output.RecordLinks == true && !_warnedInquiryLinks)
+        if (_services.Settings.Output.RecordLinks && !_warnedInquiryLinks)
         {
             _warnedInquiryLinks = true;
             _services.Output.Warn($"A saved inquiry has no record links, so --links gives '{name}' none.");

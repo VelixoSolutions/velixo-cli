@@ -104,15 +104,13 @@ public sealed class RecordLinksTests
         Assert.DoesNotContain(" URL", test.Console.StdOut, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("--no-links")]
-    [InlineData("--output", "json")]
-    public async Task No_links_flag_or_json_at_a_terminal_asks_for_none(params string[] flags)
+    [Fact]
+    public async Task Json_at_a_terminal_asks_for_none()
     {
         using var test = new TestServices(redirected: false);
         FakeMcpClient mcp = Mcp(test, OrderResult());
 
-        await test.RunAsync(["query", "run", "--query", Query(test), "--intent", Intent, .. flags]);
+        await test.RunAsync("query", "run", "--query", Query(test), "--intent", Intent, "--output", "json");
 
         Assert.False(mcp.Calls[0].Arguments.ContainsKey("includeRecordLinks"));
         Assert.DoesNotContain(Osc, test.Console.StdOut, StringComparison.Ordinal);
@@ -218,21 +216,12 @@ public sealed class RecordLinksTests
         Assert.Contains($"{Osc}{Order396}{End}SO005396{Osc}{End}", test.Console.StdOut, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Links_and_no_links_together_are_refused()
-    {
-        CliException error = Assert.Throws<CliException>(() => Resolve(new CommandLineValues { Links = true, NoLinks = true }));
-
-        Assert.Contains("--no-links", error.Message, StringComparison.Ordinal);
-    }
-
     [Theory]
-    [InlineData(false, null, null, false, true)]
-    [InlineData(true, null, null, false, false)]
-    [InlineData(false, "1", null, false, false)]
-    [InlineData(false, null, "dumb", false, false)]
-    [InlineData(false, null, null, true, false)]
-    public void Hyperlinks_go_only_to_a_terminal_a_person_reads(bool outputRedirected, string? claudeCode, string? term, bool noLinks, bool expected)
+    [InlineData(false, null, null, true)]
+    [InlineData(true, null, null, false)]
+    [InlineData(false, "1", null, false)]
+    [InlineData(false, null, "dumb", false)]
+    public void Hyperlinks_go_only_to_a_terminal_a_person_reads(bool outputRedirected, string? claudeCode, string? term, bool expected)
     {
         var variables = new Dictionary<string, string>();
         if (claudeCode is not null)
@@ -245,7 +234,7 @@ public sealed class RecordLinksTests
             variables["TERM"] = term;
         }
 
-        ResolvedSettings settings = Resolve(new CommandLineValues { NoLinks = noLinks }, variables, outputRedirected);
+        ResolvedSettings settings = Resolve(new CommandLineValues(), variables, outputRedirected);
 
         Assert.Equal(expected && !OperatingSystem.IsWindows(), settings.Output.Hyperlinks);
     }
@@ -262,16 +251,14 @@ public sealed class RecordLinksTests
         Assert.EndsWith($"\nSaved SO SO005396: {Order396}\n", test.Console.StdOut, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("--output", "json")]
-    [InlineData("--output", "table", "--no-links")]
-    public async Task Json_or_no_links_prints_no_saved_record_line(params string[] flags)
+    [Fact]
+    public async Task Json_prints_no_saved_record_line()
     {
         using var test = new ScreenHarness();
         var batch = test.Write("invoice.batch.json", ScreenHarness.InvoiceBatch);
         test.Mcp.ThenText(SavedResult());
 
-        await test.RunAsync(["command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--yes", "--intent", ScreenHarness.Intent, .. flags]);
+        await test.RunAsync("command", "run", "--batch", batch, "--param", "CustomerID=ACME", "--yes", "--intent", ScreenHarness.Intent, "--output", "json");
 
         Assert.DoesNotContain("Saved SO", test.Console.StdOut, StringComparison.Ordinal);
     }

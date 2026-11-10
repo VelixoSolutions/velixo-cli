@@ -390,7 +390,6 @@ An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app fin
 | `--quiet` | Print no progress on stderr; warnings and errors still print. |
 | `--no-color` | Turn colors off. |
 | `--links` | Ask a query for the record each cell opens, in JSON and CSV too. |
-| `--no-links` | Never link to ERP records. |
 | `--non-interactive` | Never prompt. |
 | `--yes` | Confirm a write. |
 | `--timeout <seconds>` | Stop waiting after this many seconds: one budget for the whole command. |
