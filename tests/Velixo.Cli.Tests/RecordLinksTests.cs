@@ -164,14 +164,31 @@ public sealed class RecordLinksTests
     }
 
     [Fact]
-    public async Task A_saved_inquiry_never_asks_for_links()
+    public async Task A_saved_inquiry_never_asks_for_links_and_says_so_when_links_were_asked_for()
     {
         using var test = new TestServices();
-        FakeMcpClient mcp = Mcp(test, OrderResult());
+        FakeMcpClient mcp = Mcp(test, OrderResult(), OrderResult());
 
+        await test.RunAsync("query", "run", "--inquiry", "SO-Open", "--intent", Intent);
+        Assert.DoesNotContain("--links", test.Console.StdErr, StringComparison.Ordinal);
         await test.RunAsync("query", "run", "--inquiry", "SO-Open", "--intent", Intent, "--links");
 
-        Assert.False(mcp.Calls[0].Arguments.ContainsKey("includeRecordLinks"));
+        Assert.All(mcp.Calls, call => Assert.False(call.Arguments.ContainsKey("includeRecordLinks")));
+        Assert.Contains("warning: A saved inquiry has no record links, so --links gives 'SO-Open' none.", test.Console.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_url_column_prints_whole_while_the_other_columns_are_still_cut()
+    {
+        var (columns, rows, _, isUrl) = RecordLinks.AddUrlColumns(
+            ["Nbr", "Description"],
+            [["SO005396", new string('d', 40)]],
+            [[Order396, null]]);
+
+        var table = TableFormatter.Format(columns, rows, maxCellWidth: 20, uncut: isUrl);
+
+        Assert.Equal(["Nbr", "Nbr URL", "Description"], columns);
+        Assert.Contains($"SO005396  {Order396}  {new string('d', 19)}…", table, StringComparison.Ordinal);
     }
 
     [Fact]

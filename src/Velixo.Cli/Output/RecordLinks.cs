@@ -66,7 +66,8 @@ public static class RecordLinks
     /// Adds a column of URLs right after each column that links a record, for output where a link cannot be
     /// clicked, such as CSV. The new column takes the caption of its column with <see cref="ColumnSuffix"/>.
     /// </summary>
-    public static (IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<string?>> Rows, IReadOnlyList<bool>? RightAligned) AddUrlColumns(
+    /// <returns>The columns and rows with the URL columns, the alignment of each column, and which columns are URLs.</returns>
+    public static (IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<string?>> Rows, IReadOnlyList<bool>? RightAligned, IReadOnlyList<bool> IsUrl) AddUrlColumns(
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         IReadOnlyList<IReadOnlyList<string?>> links,
@@ -82,14 +83,17 @@ public static class RecordLinks
 
         var captions = new List<string>();
         var aligned = new List<bool>();
+        var isUrl = new List<bool>();
         for (var index = 0; index < columns.Count; index++)
         {
             captions.Add(columns[index]);
             aligned.Add(rightAligned is not null && index < rightAligned.Count && rightAligned[index]);
+            isUrl.Add(false);
             if (linked[index])
             {
                 captions.Add(columns[index] + ColumnSuffix);
                 aligned.Add(false);
+                isUrl.Add(true);
             }
         }
 
@@ -110,7 +114,7 @@ public static class RecordLinks
             })
             .ToList();
 
-        return (captions, expanded, rightAligned is null ? null : aligned);
+        return (captions, expanded, rightAligned is null ? null : aligned, isUrl);
     }
 
     private static string? Link(string baseUrl, JsonObject column, JsonNode? flag, JsonArray values)

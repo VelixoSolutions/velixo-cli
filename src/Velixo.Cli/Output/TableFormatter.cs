@@ -20,19 +20,21 @@ public static class TableFormatter
     /// For each row, the URL each cell opens, written as a terminal hyperlink around the cell's text, so it takes no
     /// room; null links nothing.
     /// </param>
+    /// <param name="uncut">For each column, whether its cells always print whole, as a URL must; null cuts every column alike.</param>
     public static string Format(
         IReadOnlyList<string> columns,
         IEnumerable<IReadOnlyList<string?>> rows,
         int? maxCellWidth = null,
         string? footer = null,
         IReadOnlyList<bool>? rightAligned = null,
-        IReadOnlyList<IReadOnlyList<string?>>? links = null)
+        IReadOnlyList<IReadOnlyList<string?>>? links = null,
+        IReadOnlyList<bool>? uncut = null)
     {
         ArgumentNullException.ThrowIfNull(columns);
         ArgumentNullException.ThrowIfNull(rows);
 
         var lines = rows
-            .Select(row => columns.Select((_, index) => Fit(index < row.Count ? row[index] : null, maxCellWidth)).ToArray())
+            .Select(row => columns.Select((_, index) => Fit(index < row.Count ? row[index] : null, uncut is not null && index < uncut.Count && uncut[index] ? null : maxCellWidth)).ToArray())
             .ToList();
         var header = columns.Select(column => Fit(column, maxCellWidth)).ToArray();
 

@@ -19,6 +19,7 @@ internal sealed class QueryRunner
     private readonly CliServices _services;
     private readonly string _intent;
     private readonly QueryRunOptions _options;
+    private bool _warnedInquiryLinks;
 
     public QueryRunner(CliServices services, string intent, QueryRunOptions options)
     {
@@ -40,8 +41,16 @@ internal sealed class QueryRunner
             : RunQueryAsync(item.Query!, parameters, cancellationToken);
     }
 
-    public Task<JsonObject> RunInquiryAsync(string name, JsonObject parameters, CancellationToken cancellationToken) =>
-        RunAsync(InquiryArgument, name, parameters, cancellationToken);
+    public Task<JsonObject> RunInquiryAsync(string name, JsonObject parameters, CancellationToken cancellationToken)
+    {
+        if (_services.Settings.Output.RecordLinks == true && !_warnedInquiryLinks)
+        {
+            _warnedInquiryLinks = true;
+            _services.Output.Warn($"A saved inquiry has no record links, so --links gives '{name}' none.");
+        }
+
+        return RunAsync(InquiryArgument, name, parameters, cancellationToken);
+    }
 
     private async Task<JsonObject> RunAsync(string sourceArgument, string source, JsonObject parameters, CancellationToken cancellationToken)
     {
@@ -79,7 +88,7 @@ internal sealed class QueryRunner
 
             first ??= page.Document;
             firstData ??= data;
-            links.Add(data["recordLinks"], rows.Count, pageRows.Count);
+            links.Add(data["recordLinks"], pageRows.Count);
             foreach (JsonNode? row in pageRows)
             {
                 rows.Add(row?.DeepClone());
@@ -201,7 +210,7 @@ internal sealed class QueryRunner
 
     /// <summary>
     /// The <c>recordLinks</c> of every window as one: the first window's <c>baseUrl</c> and <c>columns</c>, and each
-    /// window's <c>rows</c> at the offset of its first row. A window's links cover its first rows only, so the rows
+    /// window's <c>rows</c>, padded to the window's row count, in the order the windows came. A window's links cover its first rows only, so the rows
     /// after them link nothing; a window whose links describe other columns links nothing either.
     /// </summary>
     private sealed class RecordLinksMerge
@@ -211,7 +220,7 @@ internal sealed class QueryRunner
 
         public JsonObject? Result => _result is null || _rows.All(row => row is null) ? null : _result;
 
-        public void Add(JsonNode? pageLinks, int offset, int pageRowCount)
+        public void Add(JsonNode? pageLinks, int pageRowCount)
         {
             var links = pageLinks as JsonObject;
             if (links is not null && _result is null)
@@ -228,11 +237,6 @@ internal sealed class QueryRunner
                 && JsonNode.DeepEquals(links["baseUrl"], _result!["baseUrl"])
                 && JsonNode.DeepEquals(links["columns"], _result["columns"]);
             var pageRows = same ? links!["rows"] as JsonArray : null;
-
-            while (_rows.Count < offset)
-            {
-                _rows.Add(null);
-            }
 
             for (var index = 0; index < pageRowCount; index++)
             {

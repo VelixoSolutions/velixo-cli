@@ -121,10 +121,11 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings, T
             : Math.Max(20, console.WindowWidth / 2);
         if (links is not null && !Settings.Hyperlinks)
         {
-            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, rightAligned) = RecordLinks.AddUrlColumns(columns, rows, links, rightAligned);
+            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, rightAligned, IReadOnlyList<bool> isUrl) =
+                RecordLinks.AddUrlColumns(columns, rows, links, rightAligned);
 
             // A URL is never cut: a cut one opens nothing.
-            return TableFormatter.Format(columns, withUrls, maxCellWidth: null, footer, rightAligned);
+            return TableFormatter.Format(columns, withUrls, maxCellWidth, footer, rightAligned, uncut: isUrl);
         }
 
         return TableFormatter.Format(columns, rows, maxCellWidth, footer, rightAligned, links);
@@ -138,7 +139,7 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings, T
     {
         if (links is not null)
         {
-            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, _) = RecordLinks.AddUrlColumns(columns, rows, links);
+            (columns, IReadOnlyList<IReadOnlyList<string?>> withUrls, _, _) = RecordLinks.AddUrlColumns(columns, rows, links);
             rows = withUrls;
         }
 
