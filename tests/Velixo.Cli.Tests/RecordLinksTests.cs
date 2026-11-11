@@ -275,6 +275,51 @@ public sealed class RecordLinksTests
         Assert.DoesNotContain("Saved", test.Console.StdOut, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("{\"id\":\"V-READ\",\"name\":\"Acme\"}", "Saved V-READ: ")]
+    [InlineData("{\"name\":\"Acme\"}", "Saved V-PARAM: ")]
+    public async Task A_sage_intacct_record_is_named_by_its_id_read_back_or_else_as_passed(string fields, string expected)
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("vendor.batch.json", VendorBatch);
+        test.Mcp.ThenText(VendorSaved(fields));
+
+        await test.RunAsync("command", "run", "--batch", batch, "--param", "VendorID=V-PARAM", "--param", "Name=Acme", "--yes", "--intent", ScreenHarness.Intent, "--output", "table");
+
+        Assert.EndsWith($"\n{expected}{IntacctUrl}\n", test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_sage_intacct_batch_without_a_key_command_keeps_the_record_number()
+    {
+        using var test = new ScreenHarness();
+        var batch = test.Write("vendor.batch.json", VendorBatch.Replace("\"Key\"", "\"Set\"", StringComparison.Ordinal));
+        test.Mcp.ThenText(VendorSaved("{\"name\":\"Acme\"}"));
+
+        await test.RunAsync("command", "run", "--batch", batch, "--param", "VendorID=V-PARAM", "--param", "Name=Acme", "--yes", "--intent", ScreenHarness.Intent, "--output", "table");
+
+        Assert.EndsWith($"\nSaved 300: {IntacctUrl}\n", test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    private const string IntacctUrl = "https://www.intacct.com/ia/acct/ur.phtml?.r=uXIhsGKU";
+
+    private const string VendorBatch = """
+        {
+          "target": "accounts-payable/vendor",
+          "commands": [
+            { "type": "Key", "name": "id", "value": "{{VendorID}}" },
+            { "type": "Set", "name": "name", "value": "{{Name}}" },
+            { "type": "Action", "name": "Save" },
+            { "type": "Get", "name": "name" }
+          ]
+        }
+        """;
+
+    /// <summary>A saved Sage Intacct vendor: record number 300 in <c>savedKey</c>, the read-back in <c>data.fields</c>.</summary>
+    private static string VendorSaved(string fields) =>
+        ScreenHarness.Done(beside: $"\"data\":{{\"object\":\"accounts-payable/vendor\",\"operation\":\"updated\",\"key\":\"300\",\"fields\":{fields}}},"
+            + $"\"feedback\":{{\"savedKey\":{{\"key\":\"300\"}},\"recordUrl\":\"{IntacctUrl}\"}}");
+
     private static string SavedResult() =>
         ScreenHarness.Done(beside: $"\"feedback\":{{\"savedKey\":{{\"OrderType\":\"SO\",\"OrderNbr\":\"SO005396\"}},\"recordUrl\":\"{Order396}\"}}");
 
