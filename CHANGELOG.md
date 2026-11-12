@@ -6,7 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Fixed
 
-- `query run` and `query workbook` no longer say that a query with a required parameter left out "matches nothing". Depending on how the query uses the parameter, it can also return rows the value would have excluded, so the warning now says that the condition does not filter as written.
+- `query run` and `query workbook` no longer say that a query with a required parameter left out "matches nothing". Depending on the query, it can also ignore that filter and return too many rows, so the warning now says the query either ignores the filter or returns no rows.
 
 ## [1.0.5] - 2026-11-10
 

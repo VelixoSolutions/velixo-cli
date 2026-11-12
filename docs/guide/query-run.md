@@ -29,7 +29,7 @@ Every value the user gave became a `{{Placeholder}}` at build time, and the quer
 Before the run, the CLI reads the `DECLARE` lines and warns on stderr:
 
 - for a key that matches no parameter. Acumatica discards an unknown key without an error, so the query answers for no value, or for its default, and looks as if it worked. Read the warning and fix the label.
-- for a `REQUIRED` parameter with no `DEFAULT` and no value. The condition that uses it then does not filter as written: depending on the query, it matches nothing, or it returns rows the value would have excluded, which look like a real answer.
+- for a `REQUIRED` parameter with no `DEFAULT` and no value. The query then either ignores that filter, and returns rows that look like a real answer, or returns no rows.
 
 Never ignore these warnings. On Sage Intacct and Business Central, an unknown key on `--query` is refused, and the error lists the keys the query takes.
 

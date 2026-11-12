@@ -11,6 +11,6 @@ public sealed record DeclaredParameter(string Name, string? Label, bool IsRequir
     /// </summary>
     public string Key => Label ?? Name;
 
-    /// <summary>Gets a value indicating whether a run without a value for this parameter does not filter as written.</summary>
+    /// <summary>Gets a value indicating whether a run without a value for this parameter gives a wrong result: the query ignores the filter or returns no rows.</summary>
     public bool NeedsValue => IsRequired && !HasDefault;
 }
