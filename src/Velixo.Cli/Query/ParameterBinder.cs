@@ -6,7 +6,8 @@ namespace Velixo.Cli.Query;
 /// <summary>
 /// Matches the parameters given with <c>--param</c> and <c>--params</c> against what a run takes, and
 /// words the warnings for what does not match. Acumatica discards a key that matches no label without
-/// an error, and a REQUIRED parameter without a value then matches nothing, so both are warned about
+/// an error, and without a value for a REQUIRED parameter the query either ignores that filter or
+/// returns no rows, so both are warned about
 /// on stderr before the call.
 /// </summary>
 public static partial class ParameterBinder
@@ -36,7 +37,7 @@ public static partial class ParameterBinder
 
         var missing = declarations
             .Where(declaration => declaration.NeedsValue && given[declaration.Key] is null)
-            .Select(declaration => $"The query requires '{declaration.Key}' and no --param or --params gives it; without a value it matches nothing.")
+            .Select(declaration => $"The query requires '{declaration.Key}' and no --param or --params gives it; without it, the query either ignores that filter or returns no rows.")
             .ToList();
 
         return new BoundParameters { Send = send, Accepted = accepted, Known = known, Missing = missing };
