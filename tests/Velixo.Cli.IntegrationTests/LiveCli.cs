@@ -55,15 +55,11 @@ public static class LiveCli
 
     public static string? Environment => Variable("VELIXO_IT_ENV");
 
-    /// <summary>The Acumatica connection, and the one every test that is not about a particular ERP uses.</summary>
-    public static string Connection => Variable("VELIXO_IT_CONNECTION") ?? "gab-dev";
-
     /// <summary>
-    /// The Acumatica connection the tests that write to the ERP use, and no other connection: on-hold AP bills
-    /// for the vendor VELIXOIT, which the tests delete. It does not follow <see cref="Connection"/>, so pointing
-    /// the other tests at another company never writes there.
+    /// The Acumatica connection: every test that is not about a particular ERP reads it, the imports validate on
+    /// it, and the tests that write create and delete on-hold AP bills for the vendor VELIXOIT on it.
     /// </summary>
-    public static string WriteConnection => Variable("VELIXO_IT_WRITE_CONNECTION") ?? "gab-dev";
+    public static string Connection => Variable("VELIXO_IT_CONNECTION") ?? "gab-dev";
 
     /// <summary>The Sage Intacct connection. Its data is from 2017 to 2019.</summary>
     public static string SageConnection => Variable("VELIXO_IT_SAGE_CONNECTION") ?? "skyline";

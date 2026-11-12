@@ -199,7 +199,7 @@ public sealed class QueryTests
         run.ExpectError(ExitCodes.Timeout, ErrorCodes.Timeout);
     }
 
-    /// <summary>A generic inquiry that needs no parameter, on gab-dev and on demo, the connection CI uses.</summary>
+    /// <summary>A generic inquiry that needs no parameter, on the Acumatica test company.</summary>
     private const string AcumaticaInquiry = "AP-Vendors";
 
     /// <summary>The posting date of a <c>gl-lines.vql</c> row, its first column, as <c>YYYY-MM-DD…</c>.</summary>
