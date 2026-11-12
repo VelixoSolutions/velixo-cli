@@ -495,6 +495,7 @@ The CLI sends no telemetry of its own. The Velixo server records every call with
 - [docs/commands.md](docs/commands.md): every command, flag and output.
 - [docs/guide/](docs/guide/get-started.md): the pages that `velixo guide` prints.
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version.
+- [Velixo CLI documentation](https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation) on help.velixo.com: the customer guides and reference. [CONTRIBUTING.md](CONTRIBUTING.md#help-center-documentation) says how to edit them.
 
 ## Feedback
 

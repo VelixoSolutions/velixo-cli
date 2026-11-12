@@ -50,6 +50,32 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 - Files move through `Files/FileTransfer.cs`: staging, uploading and downloading. A download into a
   directory never replaces a file; a download to an exact path does.
 
+## Help Center documentation
+
+The customer documentation lives in Confluence, in the Help Center space (HC), under
+[Velixo CLI documentation](https://velixo.atlassian.net/wiki/spaces/HC/pages/1447329855/Velixo+CLI+documentation).
+Scroll Sites publishes it at [help.velixo.com](https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation).
+It is written from this repository's `README.md`, `docs/commands.md` and `docs/guide/`, so a change to a
+command, a flag or an output means a page to update there as well.
+
+- **Label every page `cli`.** Scroll Sites publishes only the pages that carry the label. A page
+  without it stays in Confluence and never reaches help.velixo.com.
+- **Build the hierarchy from pages and subpages, never folders.** Scroll Sites builds the site's
+  navigation from the page tree: put a page under its parent page, not in a Confluence folder.
+- **Write macros in ADF, not storage HTML or Markdown.** Info and warning panels, the excerpt and the
+  table of contents only render when they are native ADF nodes. When Claude writes a page through the
+  Atlassian MCP, its HTML body format converts to ADF (`<div data-type="panel-warning">` for a panel);
+  Confluence storage XML (`<ac:structured-macro>`) shows up as raw text.
+- **Follow the Help Center's house style.** Open each page with a hidden excerpt macro named `Summary`
+  holding one sentence, then an `Overview` heading that ends with "The article covers:" and a list of
+  the sections. Use gerund titles and headings ("Querying ERP data with the Velixo CLI") and end with
+  `Related articles`. Call the server the Velixo AI Gateway, not the MCP server.
+- **Write for customers.** Leave out the internal environments (`nx-staging`, `nx-stage-zero`,
+  `nx-dev`, `local`) and `--env`, ticket numbers and internal connection names, and use neutral
+  examples such as `acumatica-prod`.
+- **Add the label last.** Create or fill a page first and label it once its content is final, so an
+  empty or half-written page is never published.
+
 ## Live tests
 
 `tests/Velixo.Cli.IntegrationTests` runs the real binary against a live environment and an ERP
