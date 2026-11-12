@@ -1,0 +1,4 @@
+FROM [PX.Objects.AP.APInvoice] AS Bill
+INNER JOIN [PX.Objects.AP.Vendor] AS Vendor ON Vendor.BAccountID = Bill.VendorID
+WHERE Vendor.AcctCD = 'VELIXOIT'
+SELECT Bill.DocType AS 'Type', Bill.RefNbr AS 'Reference', Bill.Status AS 'Status'

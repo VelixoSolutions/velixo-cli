@@ -1,0 +1,3 @@
+FROM [accounts-receivable/customer] AS Customer
+ORDER BY Customer.id ASC
+SELECT Customer.id AS 'Customer ID', Customer.name AS 'Customer Name'

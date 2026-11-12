@@ -17,7 +17,12 @@ name: Integration
 #   secrets.VELIXO_IT_SECRETS_TOKEN  a fine-grained token with "Secrets: read and write" on this repository,
 #                                    to save the rotated token
 #   vars.VELIXO_IT_ENV               the environment, such as nx-dev
-#   vars.VELIXO_IT_CONNECTION        the ERP connection, such as gab-dev
+#   vars.VELIXO_IT_CONNECTION        the Acumatica connection (default gab-dev); the imports and the tests
+#                                    that write, which create and delete on-hold AP bills for the vendor
+#                                    VELIXOIT, run on it
+#   vars.VELIXO_IT_SAGE_CONNECTION   the Sage Intacct connection (default skyline)
+#   vars.VELIXO_IT_BC_CONNECTION     the Business Central connection (default bc-dev)
+#   The token's user must see all three connections: share them with the organization.
 
 on:
   workflow_dispatch:
@@ -36,6 +41,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   VELIXO_IT_ENV: ${{ vars.VELIXO_IT_ENV }}
   VELIXO_IT_CONNECTION: ${{ vars.VELIXO_IT_CONNECTION }}
+  VELIXO_IT_SAGE_CONNECTION: ${{ vars.VELIXO_IT_SAGE_CONNECTION }}
+  VELIXO_IT_BC_CONNECTION: ${{ vars.VELIXO_IT_BC_CONNECTION }}
   VELIXO_IT_CONFIG_DIR: ${{ github.workspace }}/../velixo-it-config
 
 jobs:

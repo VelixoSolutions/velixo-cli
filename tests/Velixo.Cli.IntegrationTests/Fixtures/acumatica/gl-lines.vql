@@ -1,0 +1,6 @@
+DECLARE [FromDate] SCHEMA [PX.Objects.GL.GLTran].TranDate AS 'From Date' REQUIRED
+DECLARE [ToDate] SCHEMA [PX.Objects.GL.GLTran].TranDate AS 'To Date' REQUIRED
+FROM [PX.Objects.GL.GLTran] As Tran
+WHERE Tran.Posted = 1 AND Tran.TranDate >= [FromDate] AND Tran.TranDate <= [ToDate]
+ORDER BY Tran.TranDate, Tran.TranID
+SELECT Tran.TranDate AS 'Posting Date', Tran.AccountID AS 'GL Account', Tran.TranDesc AS 'Description', {=[Tran.DebitAmt]-[Tran.CreditAmt]} SCHEMA [PX.Objects.GL.GLTran].DebitAmt AS 'Amount', Tran.TranID AS 'Unique Number'

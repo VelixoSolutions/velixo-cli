@@ -1,0 +1,13 @@
+{
+  "queries": [
+    {
+      "purpose": "List customer IDs followed by customer names, sorted by customer ID.",
+      "query": "FROM [PX.Objects.AR.Customer] As Customer\nORDER BY Customer.AcctCD\nSELECT Customer.AcctCD AS 'Customer ID', Customer.AcctName AS 'Customer Name'"
+    },
+    {
+      "purpose": "List posted GL lines within the required posting-date range, ordered by date and unique transaction number.",
+      "query": "DECLARE [FromDate] SCHEMA [PX.Objects.GL.GLTran].TranDate AS 'From Date' REQUIRED\nDECLARE [ToDate] SCHEMA [PX.Objects.GL.GLTran].TranDate AS 'To Date' REQUIRED\nFROM [PX.Objects.GL.GLTran] As Tran\nWHERE Tran.Posted = 1 AND Tran.TranDate >= [FromDate] AND Tran.TranDate <= [ToDate]\nORDER BY Tran.TranDate, Tran.TranID\nSELECT Tran.TranDate AS 'Posting Date', Tran.AccountID AS 'GL Account', Tran.TranDesc AS 'Description', {=[Tran.DebitAmt]-[Tran.CreditAmt]} SCHEMA [PX.Objects.GL.GLTran].DebitAmt AS 'Amount', Tran.TranID AS 'Unique Number'"
+    }
+  ],
+  "note": "Pass parameters 'From Date' from {{FromDate}} and 'To Date' from {{ToDate}}, both required ISO dates (YYYY-MM-DD). The inclusive date filter uses GLTran.TranDate, the journal transaction date, not the system timestamp when posting occurred. Only posted lines are included. Amount is debit minus credit in the branch's base currency: debits positive, credits negative."
+}

@@ -1,0 +1,42 @@
+{
+  "target": "AP301000",
+  "screenName": "Bills and Adjustments",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "Document.DocType",
+      "value": "Bill",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "Document.RefNbr",
+      "value": "{{RefNbr}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Delete",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "RefNbr",
+      "type": "string",
+      "description": "Bill reference number"
+    }
+  ],
+  "writes": true
+}

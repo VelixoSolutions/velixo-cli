@@ -3,6 +3,14 @@ using System.Text.Json.Nodes;
 
 namespace Velixo.Cli.IntegrationTests;
 
+/// <summary>The ERPs the live tests run on, each through a connection of its own.</summary>
+public enum Erp
+{
+    Acumatica,
+    SageIntacct,
+    BusinessCentral,
+}
+
 /// <summary>One run of the binary: its exit code, its stdout and stderr, and stdout read as JSON.</summary>
 public sealed record CliRun(string[] Args, int ExitCode, string StdOut, string StdErr)
 {
@@ -47,16 +55,58 @@ public static class LiveCli
 
     public static string? Environment => Variable("VELIXO_IT_ENV");
 
+    /// <summary>The Acumatica connection, and the one every test that is not about a particular ERP uses.</summary>
     public static string Connection => Variable("VELIXO_IT_CONNECTION") ?? "gab-dev";
+
+    /// <summary>The Sage Intacct connection. Its data is from 2017 to 2019.</summary>
+    public static string SageConnection => Variable("VELIXO_IT_SAGE_CONNECTION") ?? "skyline";
+
+    /// <summary>The Business Central connection: CRONUS International Ltd., whose GL activity is mostly 2023.</summary>
+    public static string BusinessCentralConnection => Variable("VELIXO_IT_BC_CONNECTION") ?? "bc-dev";
+
+    /// <summary>The connection the tests use for <paramref name="erp"/>.</summary>
+    public static string ConnectionOf(Erp erp) => erp switch
+    {
+        Erp.Acumatica => Connection,
+        Erp.SageIntacct => SageConnection,
+        Erp.BusinessCentral => BusinessCentralConnection,
+        _ => throw new ArgumentOutOfRangeException(nameof(erp), erp, null),
+    };
+
+    /// <summary>A checked-in file under <c>Fixtures/&lt;erp&gt;/</c>, such as a query or a batch, copied beside the tests.</summary>
+    public static string Fixture(Erp erp, string name) => Fixture(Path.Combine(FolderOf(erp), name));
+
+    /// <summary>A checked-in file under <c>Fixtures/</c>, by its path inside that folder.</summary>
+    public static string Fixture(string path)
+    {
+        var full = Path.Combine(AppContext.BaseDirectory, "Fixtures", path);
+        return File.Exists(full) ? full : throw new FileNotFoundException($"No fixture {path}; is it under Fixtures/ in the test project?", full);
+    }
+
+    /// <summary>The fixture folder of <paramref name="erp"/>: <c>acumatica</c>, <c>sage-intacct</c> or <c>business-central</c>.</summary>
+    public static string FolderOf(Erp erp) => erp switch
+    {
+        Erp.Acumatica => "acumatica",
+        Erp.SageIntacct => "sage-intacct",
+        Erp.BusinessCentral => "business-central",
+        _ => throw new ArgumentOutOfRangeException(nameof(erp), erp, null),
+    };
 
     /// <summary>Gets whether the run signs in with a token (CI) rather than a profile of the developer's.</summary>
     public static bool UsesToken => Variable("VELIXO_IT_TOKEN") is not null;
 
     public static string Binary => Variable("VELIXO_IT_BINARY") ?? DefaultBinary();
 
-    /// <summary>Runs <c>velixo</c> signed in to the live environment, with <c>--output json</c>.</summary>
+    /// <summary>
+    /// Runs <c>velixo</c> signed in to the live environment, with <c>--output json</c> unless the arguments
+    /// name another output, and with <c>--env</c> unless they name a server with <c>--url</c>.
+    /// </summary>
     public static Task<CliRun> RunAsync(params string[] args) =>
         RunAsync(signedIn: true, args, configDirectory: null);
+
+    /// <summary>Runs <c>velixo</c> signed in, as <see cref="RunAsync(string[])"/> does, with <paramref name="stdin"/> on its standard input.</summary>
+    public static Task<CliRun> RunWithInputAsync(string stdin, params string[] args) =>
+        RunAsync(signedIn: true, args, configDirectory: null, stdin);
 
     /// <summary>Runs <c>velixo</c> with an empty configuration of its own and no token: a machine that never signed in.</summary>
     public static Task<CliRun> RunSignedOutAsync(params string[] args) =>
@@ -80,12 +130,12 @@ public static class LiveCli
         return Path.Combine(directory, name);
     }
 
-    private static async Task<CliRun> RunAsync(bool signedIn, string[] args, string? configDirectory)
+    private static async Task<CliRun> RunAsync(bool signedIn, string[] args, string? configDirectory, string? stdin = null)
     {
-        var target = UsesToken || !signedIn
-            ? new[] { "--env", Environment! }
-            : ["--profile", Profile, "--env", Environment!];
-        string[] all = [.. args, .. target, "--output", "json", "--non-interactive"];
+        string[] server = args.Contains("--url") ? [] : ["--env", Environment!];
+        string[] profile = UsesToken || !signedIn ? [] : ["--profile", Profile];
+        string[] output = args.Contains("--output") ? [] : ["--output", "json"];
+        string[] all = [.. args, .. profile, .. server, .. output, "--non-interactive"];
 
         var start = new ProcessStartInfo(Binary)
         {
@@ -118,6 +168,11 @@ public static class LiveCli
         }
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {Binary}.");
+        if (stdin is not null)
+        {
+            await process.StandardInput.WriteAsync(stdin);
+        }
+
         process.StandardInput.Close();
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
