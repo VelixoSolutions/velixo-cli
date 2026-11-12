@@ -97,3 +97,34 @@ jobs:
       - name: Remove the sign-in
         if: always()
         run: rm -rf "$VELIXO_IT_CONFIG_DIR"
+
+  notify-integration-tests-passed:
+    needs: live
+    if: needs.live.result == 'success'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "✅ Velixo CLI: live integration tests passed"
+      branch-name: ${{ github.ref_name }}
+      style: good
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
+
+  notify-integration-tests-failed:
+    needs: live
+    if: always() && needs.live.result == 'failure'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "⚠️ Velixo CLI: live integration tests failed"
+      branch-name: ${{ github.ref_name }}
+      style: warning
+      include-error-annotations: true
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
