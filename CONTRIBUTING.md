@@ -70,6 +70,13 @@ command, a flag or an output means a page to update there as well.
   holding one sentence, then an `Overview` heading that ends with "The article covers:" and a list of
   the sections. Use gerund titles and headings ("Querying ERP data with the Velixo CLI") and end with
   `Related articles`. Call the server the Velixo AI Gateway, not the MCP server.
+- **Use the serial comma** in every list of three or more ("macOS, Linux, and Windows"), as the rest
+  of the Help Center does, and make list items parallel: capitalized, with the same ending. Name the
+  Velixo Portal with a capital P, link "Velixo support" to [the support desk](https://hd.velixo.com/tickets/new),
+  and link an exit code to the exit codes article.
+- **Test every example before you publish it.** Readers and agents copy code blocks as written. A query
+  parameter takes the display label the build prints in its note (`{{AsOfDate}}` becomes `As Of Date`),
+  not the placeholder name, so run the build and check the label rather than guessing it.
 - **Write for customers.** Leave out the internal environments (`nx-staging`, `nx-stage-zero`,
   `nx-dev`, `local`) and `--env`, ticket numbers and internal connection names, and use neutral
   examples such as `acumatica-prod`.
