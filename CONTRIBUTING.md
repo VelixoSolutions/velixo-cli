@@ -95,8 +95,9 @@ reason.
 
 The query and screen-read tests run on each ERP, as theories over `Erp`: Acumatica, Sage Intacct and
 Business Central. The imports are Acumatica's. Only the tests in `ErpWriteTests.cs` write to the ERP,
-and only on the Acumatica connection: each creates AP bills on hold for the vendor `VELIXOIT` (which
-the first run creates, once) and deletes them at the end, even when it fails. Every other write batch
+and only on `VELIXO_IT_WRITE_CONNECTION` (default `gab-dev`), whatever `VELIXO_IT_CONNECTION` names: each
+creates AP bills on hold for the vendor `VELIXOIT` (which the first run creates, once) and deletes them
+at the end, even when it fails. Every other write batch
 runs only with `--dry-run` or without `--yes`, and every import only with `--validate-only`. `notify`
 sends one message, to the signed-in user. `connections switch` puts the profile's default back, and
 `config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV` the
@@ -120,8 +121,9 @@ VELIXO_IT_ENV=nx-dev dotnet test tests/Velixo.Cli.IntegrationTests -c Release
 
 `VELIXO_IT_PROFILE` names another profile and `VELIXO_IT_BINARY` another binary, such as a NativeAOT
 publish. The connections are `VELIXO_IT_CONNECTION` (Acumatica, default `gab-dev`),
+`VELIXO_IT_WRITE_CONNECTION` (the only one the tests write to, default `gab-dev`),
 `VELIXO_IT_SAGE_CONNECTION` (Sage Intacct, default `skyline`) and `VELIXO_IT_BC_CONNECTION` (Business
-Central, default `bc-dev`); all three are shared with the organization on `nx-dev`. The tests run one at a
+Central, default `bc-dev`); all of them are shared with the organization on `nx-dev`. The tests run one at a
 time: each run of the binary can rotate the refresh token, and two rotations of one token at once end
 the session.
 

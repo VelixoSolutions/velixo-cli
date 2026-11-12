@@ -136,6 +136,8 @@ public sealed class LiveTests
             Assert.True(connection is not null, $"{LiveCli.ConnectionOf(erp)} is not a working connection.\n{run}");
             Assert.Equal(type, (string?)connection["type"]);
         }
+
+        Assert.Contains(connections, entry => (string?)entry?["name"] == LiveCli.WriteConnection && (string?)entry?["type"] == "acumatica");
     }
 
     [LiveFact]

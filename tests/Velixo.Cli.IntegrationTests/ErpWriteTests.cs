@@ -6,7 +6,7 @@ using static Velixo.Cli.IntegrationTests.LiveHelpers;
 namespace Velixo.Cli.IntegrationTests;
 
 /// <summary>
-/// The tests that write to the ERP, on the Acumatica connection only, and only AP bills (AP301000) for the
+/// The tests that write to the ERP, on <see cref="LiveCli.WriteConnection"/> only (gab-dev), and only AP bills (AP301000) for the
 /// test vendor <see cref="LiveHelpers.TestVendor"/>. A bill is created on hold, which gab-dev gives a new
 /// bill, and each test deletes the bills it saved in a <c>finally</c>, then checks that the vendor has
 /// none left. When the vendor is missing, the first test creates it once, in the class GNA; it stays.
@@ -44,7 +44,7 @@ public sealed class ErpWriteTests
             "command", "run", "--batch", Batch("ap-bill-create"), "--param", $"VendorID={TestVendor}", "--param", $"VendorRef={VendorReference()}",
             "--param-null", "Description", "--rows", RowsFile("bill-rows.json", 1, 2),
             "--attach", byPath, "--attach-comment", "Attached by its path", "--attach-token", token!, "--attach-comment", "Attached by a staged token",
-            "--yes", "--connection", LiveCli.Connection)).Expect();
+            "--yes", "--connection", LiveCli.WriteConnection)).Expect();
         var bill = SavedBill(created);
 
         try
@@ -57,14 +57,14 @@ public sealed class ErpWriteTests
             // A read: no --yes. Both files come back, each into the folder under its own name.
             var directory = Directory.CreateTempSubdirectory("velixo-it-bill-files-").FullName;
             CliRun files = (await LiveCli.RunAsync(
-                "command", "run", "--batch", Batch("ap-bill-files"), "--param", $"RefNbr={bill}", "--download-dir", directory, "--connection", LiveCli.Connection)).Expect();
+                "command", "run", "--batch", Batch("ap-bill-files"), "--param", $"RefNbr={bill}", "--download-dir", directory, "--connection", LiveCli.WriteConnection)).Expect();
             var paths = files.Json!["result"]!["attachments"]!.AsArray().Select(file => (string?)file?["path"]).ToList();
             Assert.Equal(2, paths.Count);
             Assert.Equal(await File.ReadAllTextAsync(byPath, TestContext.Current.CancellationToken), await File.ReadAllTextAsync(Path.Combine(directory, Path.GetFileName(byPath)), TestContext.Current.CancellationToken));
             Assert.Equal(await File.ReadAllTextAsync(byToken, TestContext.Current.CancellationToken), await File.ReadAllTextAsync(Path.Combine(directory, Path.GetFileName(byToken)), TestContext.Current.CancellationToken));
 
             // A bill on hold cannot be released: the ERP refuses the action, and nothing changes.
-            (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-release"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.Connection))
+            (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-release"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.WriteConnection))
                 .ExpectError(ExitCodes.TaskFailed, ErrorCodes.ErpActionRefused);
         }
         finally
@@ -90,19 +90,19 @@ public sealed class ErpWriteTests
             CliRun opened = (await LiveCli.RunAsync(
                 "command", "run", "--batch", batch, "--param", $"VendorID={TestVendor}", "--param", $"VendorRef={VendorReference()}",
                 "--param", "Description=Velixo CLI integration test, continued", "--rows", RowsFile("continued-1.json", 1),
-                "--leave-open", "--yes", "--connection", LiveCli.Connection)).Expect();
+                "--leave-open", "--yes", "--connection", LiveCli.WriteConnection)).Expect();
             Assert.Equal("AP301000", (string?)opened.Json!["result"]!["continuation"]!["screenId"]);
 
             // The stored continuation, and the record still open after it.
             CliRun continued = (await LiveCli.RunAsync(
-                "command", "run", "--batch", batch, "--continue", "--rows", RowsFile("continued-2.json", 2), "--leave-open", "--yes", "--connection", LiveCli.Connection)).Expect();
+                "command", "run", "--batch", batch, "--continue", "--rows", RowsFile("continued-2.json", 2), "--leave-open", "--yes", "--connection", LiveCli.WriteConnection)).Expect();
             Assert.NotNull(continued.Json!["result"]!["continuation"]);
             var saved = LiveCli.TempFile("continued.result.json");
             await File.WriteAllTextAsync(saved, continued.StdOut, TestContext.Current.CancellationToken);
 
             // The saved result, as another process would read it, and the finish set: Save.
             CliRun finished = (await LiveCli.RunAsync(
-                "command", "run", "--batch", batch, "--continuation", saved, "--rows", RowsFile("continued-3.json", 3), "--finish", "--yes", "--connection", LiveCli.Connection)).Expect();
+                "command", "run", "--batch", batch, "--continuation", saved, "--rows", RowsFile("continued-3.json", 3), "--finish", "--yes", "--connection", LiveCli.WriteConnection)).Expect();
             bill = SavedBill(finished);
             Assert.Null(finished.Json!["result"]!["continuation"]);
             Assert.Equal(3, await LineCountAsync(bill));
@@ -125,7 +125,7 @@ public sealed class ErpWriteTests
         string[] args =
         [
             "command", "run", "--batch", Batch("ap-bill-create"), "--param", $"VendorID={TestVendor}", "--param", "VendorRef=IT-NEVER-SAVED",
-            "--param", "Description=Velixo CLI integration test, never saved", "--rows", RowsFile("dry-run.json", 1, 2), "--connection", LiveCli.Connection,
+            "--param", "Description=Velixo CLI integration test, never saved", "--rows", RowsFile("dry-run.json", 1, 2), "--connection", LiveCli.WriteConnection,
         ];
 
         CliRun dryRun = (await LiveCli.RunAsync([.. args, "--dry-run"])).Expect();
@@ -166,30 +166,30 @@ public sealed class ErpWriteTests
     }
 
     private static async Task DeleteAsync(string bill) =>
-        (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-delete"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.Connection)).Expect();
+        (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-delete"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.WriteConnection)).Expect();
 
     /// <summary>The reference numbers of the test vendor's bills.</summary>
     private static async Task<List<string?>> BillsAsync()
     {
         CliRun run = (await LiveCli.RunAsync(
-            "query", "run", "--query", LiveCli.Fixture(Erp.Acumatica, "test-vendor-bills.vql"), "--all", "--connection", LiveCli.Connection)).Expect();
+            "query", "run", "--query", LiveCli.Fixture(Erp.Acumatica, "test-vendor-bills.vql"), "--all", "--connection", LiveCli.WriteConnection)).Expect();
         return Rows(run).Select(row => ((string?)row?[1])?.Trim()).ToList();
     }
 
     private static async Task<int> LineCountAsync(string bill)
     {
         var query = $"FROM [PX.Objects.AP.APTran] AS Line\nWHERE Line.TranType = 'INV' AND Line.RefNbr = '{bill}'\nSELECT Line.LineNbr AS 'Line'\n";
-        return Rows((await LiveCli.RunWithInputAsync(query, "query", "run", "--query", "-", "--connection", LiveCli.Connection)).Expect()).Count;
+        return Rows((await LiveCli.RunWithInputAsync(query, "query", "run", "--query", "-", "--connection", LiveCli.WriteConnection)).Expect()).Count;
     }
 
     private static async Task EnsureVendorAsync()
     {
-        CliRun vendor = (await LiveCli.RunAsync("query", "run", "--query", LiveCli.Fixture(Erp.Acumatica, "test-vendor.vql"), "--connection", LiveCli.Connection)).Expect();
+        CliRun vendor = (await LiveCli.RunAsync("query", "run", "--query", LiveCli.Fixture(Erp.Acumatica, "test-vendor.vql"), "--connection", LiveCli.WriteConnection)).Expect();
         if (Rows(vendor).Count == 0)
         {
             (await LiveCli.RunAsync(
                 "command", "run", "--batch", Batch("vendor-create"), "--param", $"VendorID={TestVendor}", "--param", "VendorName=Velixo CLI integration tests",
-                "--param", "VendorClassID=GNA", "--yes", "--connection", LiveCli.Connection)).Expect();
+                "--param", "VendorClassID=GNA", "--yes", "--connection", LiveCli.WriteConnection)).Expect();
         }
     }
 }

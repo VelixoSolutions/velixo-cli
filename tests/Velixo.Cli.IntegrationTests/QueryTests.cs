@@ -199,8 +199,8 @@ public sealed class QueryTests
         run.ExpectError(ExitCodes.Timeout, ErrorCodes.Timeout);
     }
 
-    /// <summary>A generic inquiry on the Acumatica test company that needs no parameter.</summary>
-    private const string AcumaticaInquiry = "AR-Customers";
+    /// <summary>A generic inquiry that needs no parameter, on gab-dev and on demo, the connection CI uses.</summary>
+    private const string AcumaticaInquiry = "AP-Vendors";
 
     /// <summary>The posting date of a <c>gl-lines.vql</c> row, its first column, as <c>YYYY-MM-DD…</c>.</summary>
     private static string DateOf(JsonNode? row) => (string?)row?[0] ?? string.Empty;
