@@ -17,6 +17,10 @@
   pre { background: var(--code); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
   code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   a { color: inherit; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+  .top nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .95rem; }
+  .top nav a { text-decoration: none; color: var(--muted); }
+  .top nav a:hover { color: var(--ink); text-decoration: underline; }
   .sample { margin: 24px 0 0; }
   .sample h3 { color: var(--ink); font-size: 1rem; margin: 0 0 4px; }
   .sample img { display: block; width: 100%; height: auto; margin: 12px 0 8px; border: 1px solid var(--code); border-radius: 8px; }
@@ -33,7 +37,14 @@
 </head>
 <body>
 <main>
-  <img src="https://secure.velixo.com/logos/logo-full-gradient-navy.svg" alt="Velixo" width="180">
+  <header class="top">
+    <img src="https://secure.velixo.com/logos/logo-full-gradient-navy.svg" alt="Velixo" width="180">
+    <nav aria-label="Links">
+      <a href="https://github.com/VelixoSolutions/velixo-cli">GitHub</a>
+      <a href="https://github.com/VelixoSolutions/velixo-cli#documentation">Documentation</a>
+      <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a>
+    </nav>
+  </header>
   <h1>Velixo CLI</h1>
   <p>One binary, <code>velixo</code>, that runs the tools of the Velixo MCP server from the command line, for AI coding agents, scripts and people.</p>
   <button type="button" class="agent-prompt" data-copy-text="Set me up on Velixo.com: https://cli.velixo.com/agent-ready.md" aria-label="Copy a prompt to onboard your agent">
@@ -74,7 +85,6 @@ velixo guide</code></pre>
     <img src="samples/expense-receipts.jpg" alt="The Telegram bot on Sage Intacct: a receipt photo in, a tip added, and the expense report created" width="900" height="1957" loading="lazy" class="phone">
     <p><a href="https://github.com/VelixoSolutions/velixo-cli/tree/main/samples/expensereceipts#readme">README</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/blob/main/samples/expensereceipts/PROMPT.md">The prompt that built it</a></p>
   </section>
-  <p><a href="https://github.com/VelixoSolutions/velixo-cli#readme">Documentation</a> · <a href="agent-ready.md">For AI agents</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a></p>
 </main>
 <script>
   document.querySelectorAll('.agent-prompt').forEach(function (button) {
