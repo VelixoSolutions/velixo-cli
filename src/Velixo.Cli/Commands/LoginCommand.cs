@@ -36,7 +36,7 @@ public static class LoginCommand
             JsonObject document;
             if (parse.GetValue(complete))
             {
-                document = await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
+                document = await WaitWithinTimeoutAsync(services, signIn, cancellationToken).ConfigureAwait(false);
             }
             else if (parse.GetValue(noBrowser) || !services.Settings.IsInteractive || NoBrowserHere(services))
             {
@@ -44,7 +44,7 @@ public static class LoginCommand
                 if (CanWaitHere(services))
                 {
                     ShowCode(services, document);
-                    document = await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
+                    document = await WaitWithinTimeoutAsync(services, signIn, cancellationToken).ConfigureAwait(false);
                 }
             }
             else
@@ -57,6 +57,35 @@ public static class LoginCommand
         });
 
         return command;
+    }
+
+    /// <summary>
+    /// Waits for the device sign-in for what is left of <c>--timeout</c>, the one budget of the whole command, and
+    /// exits 124 when it runs out. The pending sign-in stays in the profile state, so <c>login --complete</c> can still
+    /// finish it until its code expires.
+    /// </summary>
+    private static async Task<JsonObject> WaitWithinTimeoutAsync(CliServices services, GatewaySignIn signIn, CancellationToken cancellationToken)
+    {
+        if (services.FollowOptions().Timeout is not { } left)
+        {
+            return await signIn.WaitForDeviceSignInAsync(services.Settings, cancellationToken).ConfigureAwait(false);
+        }
+
+        using var deadline = new CancellationTokenSource(left, services.Clock);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        try
+        {
+            return await signIn.WaitForDeviceSignInAsync(services.Settings, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new CliException(
+                ExitCodes.Timeout,
+                ErrorCodes.Timeout,
+                $"The --timeout of {DurationText.Format(services.Settings.Timeout!.Value)} ran out before the sign-in was finished in the browser. "
+                    + "The code stays good until it expires.",
+                $"velixo login --profile {services.Settings.ProfileName} --complete");
+        }
     }
 
     /// <summary>Tells, at a terminal, that no browser can open here and the sign-in goes on without one.</summary>

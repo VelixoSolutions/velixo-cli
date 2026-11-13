@@ -84,7 +84,8 @@ public sealed class LiveTests
     [LiveFact]
     [Covers("login")]
     [CoversFlags("login", "--no-browser", "--complete")]
-    public async Task Login_without_a_browser_gets_a_device_code_from_the_gateway()
+    [CoversFlags(CoversFlagsAttribute.Shared, "--timeout")]
+    public async Task Login_without_a_browser_gets_a_device_code_and_the_wait_for_it_times_out()
     {
         var config = LiveCli.NewConfigDirectory();
 
@@ -98,6 +99,11 @@ public sealed class LiveTests
         Assert.StartsWith("https://", (string?)start.Json!["verificationUri"], StringComparison.Ordinal);
         Assert.False(string.IsNullOrEmpty((string?)start.Json!["userCode"]), start.ToString());
         Assert.EndsWith("--complete", (string?)start.Json!["nextStep"], StringComparison.Ordinal);
+
+        // Nobody enters the code, so only --timeout ends the wait for it (RD-15491).
+        CliRun complete = await LiveCli.RunInAsync(config, "login", "--complete", "--timeout", "3");
+        complete.ExpectError(ExitCodes.Timeout, ErrorCodes.Timeout);
+        Assert.EndsWith("--complete", (string?)complete.Json!["error"]!["nextStep"], StringComparison.Ordinal);
     }
 
     [LiveFact]

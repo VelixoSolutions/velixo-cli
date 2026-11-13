@@ -26,6 +26,9 @@ public sealed class ErpWriteTests
     /// <summary>Whether a test of this run has already found or created the vendor. Not cached on failure, so one timeout fails one test.</summary>
     private static bool _vendorReady;
 
+    /// <summary>A vendor ID the tests never save: creating it without a vendor class fails on gab-dev.</summary>
+    private const string UnsavedVendor = "VELIXOITNS";
+
     [LiveFact]
     [Covers("command run")]
     [CoversFlags("command run", "--rows", "--param-null", "--attach", "--attach-token", "--attach-comment", "--download-dir")]
@@ -64,9 +67,11 @@ public sealed class ErpWriteTests
             Assert.Equal(await File.ReadAllTextAsync(byPath, TestContext.Current.CancellationToken), await File.ReadAllTextAsync(Path.Combine(directory, Path.GetFileName(byPath)), TestContext.Current.CancellationToken));
             Assert.Equal(await File.ReadAllTextAsync(byToken, TestContext.Current.CancellationToken), await File.ReadAllTextAsync(Path.Combine(directory, Path.GetFileName(byToken)), TestContext.Current.CancellationToken));
 
-            // A bill on hold cannot be released: the ERP refuses the action, and nothing changes.
-            (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-release"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.Connection))
+            // A bill on hold cannot be released: the ERP refuses the action, and nothing changes. The batch only
+            // opened the bill before the Release, so the server says that nothing was written (RD-15492).
+            CliRun release = (await LiveCli.RunAsync("command", "run", "--batch", Batch("ap-bill-release"), "--param", $"RefNbr={bill}", "--yes", "--connection", LiveCli.Connection))
                 .ExpectError(ExitCodes.TaskFailed, ErrorCodes.ErpActionRefused);
+            Assert.Contains("NOTHING was written", (string?)release.Json!["error"]!["message"], StringComparison.Ordinal);
         }
         finally
         {
@@ -117,6 +122,47 @@ public sealed class ErpWriteTests
         }
 
         Assert.DoesNotContain(bill, await BillsAsync());
+    }
+
+    [LiveFact]
+    [Covers("command run")]
+    public async Task A_bill_whose_save_fails_is_reported_unsaved_with_the_file_it_carried()
+    {
+        await VendorReadyAsync();
+        var file = LiveCli.TempFile("bill-never-saved.txt");
+        await File.WriteAllTextAsync(file, "Velixo CLI integration test, never attached.\n", TestContext.Current.CancellationToken);
+
+        // gab-dev requires a vendor reference, so the Save fails, and the bill and its file never reach the ERP.
+        CliRun run = await LiveCli.RunAsync(
+            "command", "run", "--batch", Batch("ap-bill-create"), "--param", $"VendorID={TestVendor}", "--param-null", "VendorRef",
+            "--param", "Description=Velixo CLI integration test, never saved", "--rows", RowsFile("never-saved.json", 1),
+            "--attach", file, "--yes", "--connection", LiveCli.Connection);
+
+        run.ExpectError(ExitCodes.TaskFailed, ErrorCodes.TaskFailed);
+        var message = (string?)run.Json!["error"]!["message"];
+        Assert.Contains("NOTHING was saved", message, StringComparison.Ordinal);
+        Assert.Contains(Path.GetFileName(file), message, StringComparison.Ordinal);
+        Assert.DoesNotContain("the document exists", message, StringComparison.Ordinal);
+        Assert.Empty(await BillsAsync());
+    }
+
+    [LiveFact]
+    [Covers("command run")]
+    public async Task A_vendor_whose_save_fails_is_reported_unsaved()
+    {
+        // gab-dev requires a vendor class, and the batch sets it blank, so the Save fails and no vendor is created. The
+        // vendor's key is the ID typed here, so only the screen's record state shows that it was never saved.
+        CliRun run = await LiveCli.RunAsync(
+            "command", "run", "--batch", Batch("vendor-create"), "--param", $"VendorID={UnsavedVendor}", "--param", "VendorName=Velixo CLI integration test, never saved",
+            "--param", "VendorClassID=", "--yes", "--connection", LiveCli.Connection);
+
+        run.ExpectError(ExitCodes.TaskFailed, ErrorCodes.TaskFailed);
+        var message = (string?)run.Json!["error"]!["message"];
+        Assert.Contains("NOTHING was saved", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("PARTIALLY RAN", message, StringComparison.Ordinal);
+
+        var vendors = $"FROM [PX.Objects.AP.Vendor] AS Vendor\nWHERE Vendor.AcctCD = '{UnsavedVendor}'\nSELECT Vendor.AcctCD AS 'Vendor ID'\n";
+        Assert.Empty(Rows((await LiveCli.RunWithInputAsync(vendors, "query", "run", "--query", "-", "--connection", LiveCli.Connection)).Expect()));
     }
 
     [LiveFact]
