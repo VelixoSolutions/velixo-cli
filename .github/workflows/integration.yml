@@ -7,6 +7,11 @@ name: Integration
 # saves the rotated token back into the secret. Runs never overlap (concurrency below). A gateway
 # session also ends after 30 days whatever happens, so the token needs seeding again about monthly.
 #
+# Before the tests, the run checks the sign-in. When the session has ended, no test runs, and the card in
+# Teams says to seed the token again.
+#
+# A test that fails on a timeout, such as HTTP 524 from a slow ERP, runs once more (scripts/live-tests.sh).
+#
 # Seed it (and again whenever a run says the session ended):
 #   velixo login --profile it --env nx-dev
 #   velixo auth token --profile it | gh secret set VELIXO_IT_TOKEN
@@ -50,6 +55,8 @@ jobs:
   live:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sign-in-ended: ${{ steps.sign-in.outputs.ended }}
     steps:
       - name: Check the settings
         env:
@@ -80,16 +87,31 @@ jobs:
       - name: Publish with NativeAOT (linux-x64)
         run: dotnet publish src/Velixo.Cli -c Release -r linux-x64 -p:PublishAot=true -o out
 
+      # Signs in as the tests do, so they continue from the token this step rotates.
+      - name: Check the sign-in
+        id: sign-in
+        env:
+          VELIXO_TOKEN: ${{ secrets.VELIXO_IT_TOKEN }}
+          VELIXO_CLIENT_ID: velixo-cli
+        run: |
+          status=0
+          VELIXO_CONFIG_DIR="$VELIXO_IT_CONFIG_DIR" ./out/velixo connections list --env "$VELIXO_IT_ENV" --output json --non-interactive > /dev/null || status=$?
+          if [ "$status" -eq 4 ]; then
+            echo "ended=true" >> "$GITHUB_OUTPUT"
+            echo "::error title=Sign-in ended::The sign-in of the live tests on $VELIXO_IT_ENV has ended, so no test ran. Seed secrets.VELIXO_IT_TOKEN again, as the header of .github/workflows/integration.yml says."
+          fi
+          exit "$status"
+
       - name: Run the live tests
         id: live
         env:
           VELIXO_IT_TOKEN: ${{ secrets.VELIXO_IT_TOKEN }}
           VELIXO_IT_BINARY: ${{ github.workspace }}/out/velixo
-        run: dotnet test tests/Velixo.Cli.IntegrationTests -c Release --no-build
+        run: scripts/live-tests.sh "$RUNNER_TEMP/live-test-results"
 
       # Runs even when a test failed: the token was rotated all the same, and the old one is now spent.
       - name: Save the rotated token
-        if: always() && steps.live.outcome != 'skipped'
+        if: always() && steps.sign-in.outcome != 'skipped' && steps.sign-in.outputs.ended != 'true'
         env:
           GH_TOKEN: ${{ secrets.VELIXO_IT_SECRETS_TOKEN }}
         run: |
@@ -123,7 +145,7 @@ jobs:
 
   notify-integration-tests-failed:
     needs: live
-    if: always() && needs.live.result == 'failure'
+    if: always() && needs.live.result == 'failure' && needs.live.outputs.sign-in-ended != 'true'
     permissions:
       actions: read
       checks: read
@@ -134,5 +156,22 @@ jobs:
       branch-name: ${{ github.ref_name }}
       style: warning
       include-error-annotations: true
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
+
+  notify-sign-in-ended:
+    needs: live
+    if: always() && needs.live.outputs.sign-in-ended == 'true'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "🔑 Velixo CLI: the live integration tests' sign-in ended; seed VELIXO_IT_TOKEN again"
+      branch-name: ${{ github.ref_name }}
+      style: attention
+      link-title: How to seed the token
+      link-url: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/integration.yml
     secrets:
       webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
