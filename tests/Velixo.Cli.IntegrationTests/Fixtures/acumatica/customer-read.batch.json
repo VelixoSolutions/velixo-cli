@@ -1,0 +1,39 @@
+{
+  "target": "AR303000",
+  "screenName": "Customers",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "BAccount.AcctCD",
+      "value": "{{CustomerID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentCustomer.AcctName",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "CustomerID",
+      "type": "string",
+      "description": "Customer account code"
+    }
+  ],
+  "keyNumbering": {
+    "field": "AcctCD",
+    "autonumbered": false
+  },
+  "writes": false
+}

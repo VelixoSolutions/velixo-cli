@@ -1,0 +1,27 @@
+{
+  "target": "customers",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "number",
+      "value": "{{CustomerID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "displayName",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "CustomerID",
+      "type": "string",
+      "description": "Customer account number"
+    }
+  ],
+  "writes": false
+}

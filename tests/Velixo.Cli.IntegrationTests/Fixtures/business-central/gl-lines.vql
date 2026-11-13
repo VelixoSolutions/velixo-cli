@@ -1,0 +1,6 @@
+DECLARE [FromDate] TYPE date AS 'From Date' REQUIRED
+DECLARE [ToDate] TYPE date AS 'To Date' REQUIRED
+FROM [G/L Entry] AS Entry
+WHERE Entry.[Posting Date] BETWEEN [FromDate] AND [ToDate]
+ORDER BY Entry.[Posting Date], Entry.[Entry No.]
+SELECT Entry.[Posting Date] AS 'Posting Date', Entry.[G/L Account No.] AS 'G/L Account', Entry.Description AS 'Description', Entry.Amount AS 'Amount'

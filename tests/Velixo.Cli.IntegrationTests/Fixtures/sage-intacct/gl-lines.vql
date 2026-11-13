@@ -1,0 +1,7 @@
+DECLARE [FromDate] TYPE date AS 'From Date' REQUIRED
+DECLARE [ToDate] TYPE date AS 'To Date' REQUIRED
+FROM [general-ledger/journal] AS Journal
+INNER JOIN [general-ledger/journal-entry-line] AS Line ON Line.journalEntry.glJournal.id = Journal.id
+WHERE Journal.bookId = 'Accrual' AND Line.state = 'posted' AND Line.entryDate >= [FromDate] AND Line.entryDate <= [ToDate]
+ORDER BY Line.entryDate ASC, Line.key ASC
+SELECT Line.entryDate AS 'Posting Date', Line.glAccount.id AS 'GL Account', Line.description AS 'Description', Line.txnAmount AS 'Amount', Line.txnType AS 'Debit or Credit', Line.currency.txnCurrency AS 'Currency', Line.key AS 'Unique Line Number'

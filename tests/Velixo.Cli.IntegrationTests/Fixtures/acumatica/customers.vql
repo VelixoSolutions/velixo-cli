@@ -1,0 +1,3 @@
+FROM [PX.Objects.AR.Customer] As Customer
+ORDER BY Customer.AcctCD
+SELECT Customer.AcctCD AS 'Customer ID', Customer.AcctName AS 'Customer Name'

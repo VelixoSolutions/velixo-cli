@@ -85,13 +85,32 @@ command, a flag or an output means a page to update there as well.
 
 ## Live tests
 
-`tests/Velixo.Cli.IntegrationTests` runs the real binary against a live environment and an ERP
-connection, and covers every command: each test names the commands it runs in `[Covers(...)]`, and
-`Every_command_has_a_live_test` fails when a command has none. Nothing writes to the ERP: a write
-batch runs only with `--dry-run` and without `--yes`, an import only with `--validate-only`. `notify`
+`tests/Velixo.Cli.IntegrationTests` runs the real binary against a live environment and three ERP
+connections, and covers every command and every flag. Each test names the commands it runs in
+`[Covers(...)]` and the flags it passes in `[CoversFlags("command", "--flag", ...)]` (the shared flags
+under `CoversFlagsAttribute.Shared`). Two offline tests in `CoverageTests.cs`, `Every_command_has_a_live_test`
+and `Every_flag_has_a_live_test_or_a_reason_it_has_none`, read the command tree and fail when a command
+or a flag has no live test. A flag that cannot run live goes in `CoverageTests.Untestable`, with the
+reason.
+
+The query and screen-read tests run on each ERP, as theories over `Erp`: Acumatica, Sage Intacct and
+Business Central. The imports are Acumatica's. Only the tests in `ErpWriteTests.cs` write to the ERP,
+and only on the Acumatica connection, `VELIXO_IT_CONNECTION` (`gab-dev`): each
+creates AP bills on hold for the vendor `VELIXOIT` (which the first run creates, once) and deletes them
+at the end, even when it fails. Every other write batch
+runs only with `--dry-run` or without `--yes`, and every import only with `--validate-only`. `notify`
 sends one message, to the signed-in user. `connections switch` puts the profile's default back, and
-`config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV`
-the live tests skip, so `dotnet test` stays offline.
+`config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV` the
+live tests skip, so `dotnet test` stays offline.
+
+The tests run checked-in queries and batches from `Fixtures/<erp>/` (`acumatica`, `sage-intacct`,
+`business-central`), not builder calls, which are slow, paid and give a different answer each time.
+Only the tests of `query build` and `command build` call the builders. To add a fixture, build it once
+with `velixo query build --save FILE.vql` or `velixo command build --save FILE.batch.json` on a profile
+of your own, run it to check it works, and commit it. The class that uses a folder's files says what
+each holds. Use dates where each company has data: Sage Intacct's `skyline` is 2017 to 2019, and
+Business Central's CRONUS International Ltd. (`bc-dev`) is mostly 2023; a G/L entry query on it needs
+a posting-date window.
 
 On your machine, keep a profile for the tests, sign it in once, and run them:
 
@@ -100,8 +119,10 @@ velixo login --profile it --env nx-dev
 VELIXO_IT_ENV=nx-dev dotnet test tests/Velixo.Cli.IntegrationTests -c Release
 ```
 
-`VELIXO_IT_PROFILE` names another profile, `VELIXO_IT_CONNECTION` another connection (default
-`gab-dev`), and `VELIXO_IT_BINARY` another binary, such as a NativeAOT publish. The tests run one at a
+`VELIXO_IT_PROFILE` names another profile and `VELIXO_IT_BINARY` another binary, such as a NativeAOT
+publish. The connections are `VELIXO_IT_CONNECTION` (Acumatica, default `gab-dev`),
+`VELIXO_IT_SAGE_CONNECTION` (Sage Intacct, default `skyline`) and `VELIXO_IT_BC_CONNECTION` (Business
+Central, default `bc-dev`); all three are shared with the organization on `nx-dev`. The tests run one at a
 time: each run of the binary can rotate the refresh token, and two rotations of one token at once end
 the session.
 
