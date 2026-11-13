@@ -23,7 +23,8 @@ namespace Velixo.Cli.IntegrationTests;
 /// </summary>
 public sealed class ErpWriteTests
 {
-    private static readonly Lazy<Task> _vendor = new(EnsureVendorAsync);
+    /// <summary>Whether a test of this run has already found or created the vendor. Not cached on failure, so one timeout fails one test.</summary>
+    private static bool _vendorReady;
 
     [LiveFact]
     [Covers("command run")]
@@ -31,7 +32,7 @@ public sealed class ErpWriteTests
     [CoversFlags(CoversFlagsAttribute.Shared, "--yes")]
     public async Task A_bill_is_saved_on_hold_with_rows_and_files_its_release_is_refused_and_it_is_deleted()
     {
-        await _vendor.Value;
+        await VendorReadyAsync();
         var byPath = LiveCli.TempFile("bill-by-path.txt");
         var byToken = LiveCli.TempFile("bill-by-token.txt");
         await File.WriteAllTextAsync(byPath, "Velixo CLI integration test, attached by its path.\n", TestContext.Current.CancellationToken);
@@ -80,7 +81,7 @@ public sealed class ErpWriteTests
     [CoversFlags("command run", "--leave-open", "--continue", "--continuation", "--finish")]
     public async Task A_bill_left_open_takes_more_rows_and_is_finished_from_a_saved_continuation()
     {
-        await _vendor.Value;
+        await VendorReadyAsync();
         var batch = Batch("ap-bill-create");
         string? bill = null;
 
@@ -180,6 +181,15 @@ public sealed class ErpWriteTests
     {
         var query = $"FROM [PX.Objects.AP.APTran] AS Line\nWHERE Line.TranType = 'INV' AND Line.RefNbr = '{bill}'\nSELECT Line.LineNbr AS 'Line'\n";
         return Rows((await LiveCli.RunWithInputAsync(query, "query", "run", "--query", "-", "--connection", LiveCli.Connection)).Expect()).Count;
+    }
+
+    private static async Task VendorReadyAsync()
+    {
+        if (!_vendorReady)
+        {
+            await EnsureVendorAsync();
+            _vendorReady = true;
+        }
     }
 
     private static async Task EnsureVendorAsync()

@@ -1,0 +1,3 @@
+FROM [Vendor] AS Vendor
+WHERE Vendor.[No.] = 'VELIXOIT'
+SELECT Vendor.[No.] AS 'Vendor ID', Vendor.Name AS 'Vendor Name'

@@ -1,0 +1,27 @@
+{
+  "target": "company-config/attachment",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "id",
+      "value": "{{AttachmentID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Delete",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "AttachmentID",
+      "type": "string",
+      "description": "Attachment container ID"
+    }
+  ],
+  "writes": true
+}
