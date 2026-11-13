@@ -1,0 +1,27 @@
+{
+  "target": "accounts-payable/bill",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "key",
+      "value": "{{BillKey}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "DownloadAttachments",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "BillKey",
+      "type": "string",
+      "description": "AP bill record key"
+    }
+  ],
+  "writes": false
+}

@@ -1,0 +1,97 @@
+{
+  "target": "purchaseInvoices",
+  "commands": [
+    {
+      "type": "Set",
+      "name": "vendorNumber",
+      "value": "{{VendorNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "vendorInvoiceNumber",
+      "value": "{{VendorInvoiceNo}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorNo",
+      "type": "string",
+      "description": "Vendor account number"
+    },
+    {
+      "name": "VendorInvoiceNo",
+      "type": "string",
+      "description": "Vendor's invoice number"
+    }
+  ],
+  "writes": true,
+  "lineCommands": [
+    {
+      "type": "Set",
+      "name": "purchaseInvoiceLines.lineType",
+      "value": "Account",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "purchaseInvoiceLines.lineObjectNumber",
+      "value": "{{AccountNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "purchaseInvoiceLines.quantity",
+      "value": "{{Quantity}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "purchaseInvoiceLines.unitCost",
+      "value": "{{UnitCost}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "lineVariables": [
+    {
+      "name": "AccountNo",
+      "type": "string",
+      "description": "General ledger account number"
+    },
+    {
+      "name": "Quantity",
+      "type": "number",
+      "description": "Invoice line quantity"
+    },
+    {
+      "name": "UnitCost",
+      "type": "number",
+      "description": "Direct cost per unit"
+    }
+  ],
+  "finishCommands": [
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "number",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "finishVariables": [],
+  "commandSets": "`commands` is the header. Run it with every row in one execute_commands call: pass `lineCommands` and one entry per detail row in `rows`, each with that row's values; pass `splitCommands` with each line's own `rows` when there is a sub-detail set; and pass `finishCommands` to save. Or split the work across calls: `leaveOpen` on one call, then its `continuation` on the next, with no header. `variables` bind the header and the finish set."
+}

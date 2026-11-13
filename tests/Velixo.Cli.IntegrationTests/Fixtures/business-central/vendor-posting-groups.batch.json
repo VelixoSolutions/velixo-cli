@@ -1,0 +1,84 @@
+{
+  "target": "ODataV4/workflowVendors",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "number",
+      "value": "{{VendorNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "genBusPostingGroup",
+      "value": "{{GenBusPostingGroup}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "vendorPostingGroup",
+      "value": "{{VendorPostingGroup}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "vatBusPostingGroup",
+      "value": "{{VatBusPostingGroup}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "genBusPostingGroup",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "vendorPostingGroup",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "vatBusPostingGroup",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorNo",
+      "type": "string",
+      "description": "Vendor number"
+    },
+    {
+      "name": "GenBusPostingGroup",
+      "type": "string",
+      "description": "General business posting group code"
+    },
+    {
+      "name": "VendorPostingGroup",
+      "type": "string",
+      "description": "Vendor posting group code"
+    },
+    {
+      "name": "VatBusPostingGroup",
+      "type": "string",
+      "description": "VAT business posting group code"
+    }
+  ],
+  "writes": true
+}

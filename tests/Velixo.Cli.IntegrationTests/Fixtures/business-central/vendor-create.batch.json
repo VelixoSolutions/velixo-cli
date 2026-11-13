@@ -1,0 +1,46 @@
+{
+  "target": "vendors",
+  "commands": [
+    {
+      "type": "Set",
+      "name": "number",
+      "value": "{{VendorNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "displayName",
+      "value": "{{VendorName}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "number",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorNo",
+      "type": "string",
+      "description": "Vendor account number"
+    },
+    {
+      "name": "VendorName",
+      "type": "string",
+      "description": "Vendor display name"
+    }
+  ],
+  "writes": true
+}

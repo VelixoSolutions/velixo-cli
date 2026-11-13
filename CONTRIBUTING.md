@@ -94,10 +94,16 @@ or a flag has no live test. A flag that cannot run live goes in `CoverageTests.U
 reason.
 
 The query and screen-read tests run on each ERP, as theories over `Erp`: Acumatica, Sage Intacct and
-Business Central. The imports are Acumatica's. Only the tests in `ErpWriteTests.cs` write to the ERP,
-and only on the Acumatica connection, `VELIXO_IT_CONNECTION` (`gab-dev`): each
-creates AP bills on hold for the vendor `VELIXOIT` (which the first run creates, once) and deletes them
-at the end, even when it fails. Every other write batch
+Business Central. The imports are Acumatica's. Only two classes write to the ERP, and only documents for
+the vendor `VELIXOIT`, which the first run creates on each ERP, once:
+
+- `ErpWriteTests.cs`, on the Acumatica connection, `VELIXO_IT_CONNECTION` (`gab-dev`): AP bills on hold.
+- `DocumentWriteTests.cs`, on Sage Intacct (`skyline`) and Business Central (`bc-dev`): a draft AP bill
+  that is never posted, and an unposted purchase invoice, each with two lines and two files.
+
+Each test deletes its documents at the end, even when it fails, and Sage Intacct's attachment record
+with them. `ERP_ACTION_REFUSED` is tested on Acumatica only: on the other two ERPs, an action that should
+be refused, such as a post, could instead succeed, and a posted document cannot be deleted. Every other write batch
 runs only with `--dry-run` or without `--yes`, and every import only with `--validate-only`. `notify`
 sends one message, to the signed-in user. `connections switch` puts the profile's default back, and
 `config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV` the

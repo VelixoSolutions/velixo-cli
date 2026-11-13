@@ -1,0 +1,3 @@
+FROM [accounts-payable/bill] AS Bill
+WHERE Bill.vendor.id = 'VELIXOIT'
+SELECT Bill.key AS 'Key', Bill.billNumber AS 'Vendor reference', Bill.state AS 'State'
