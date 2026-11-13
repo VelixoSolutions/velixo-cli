@@ -6,6 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Fixed
 
+- `login --complete` stops when `--timeout` runs out, with exit 124 and the command that goes on waiting. It used to wait until the code expired, whatever `--timeout` said. The pending sign-in stays, so running `login --complete` again can still finish it.
 - `query run` and `query workbook` no longer say that a query with a required parameter left out "matches nothing". Depending on the query, it can also ignore that filter and return too many rows, so the warning now says the query either ignores the filter or returns no rows.
 
 ## [1.0.5] - 2026-11-10

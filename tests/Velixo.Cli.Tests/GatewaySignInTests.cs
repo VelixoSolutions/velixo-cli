@@ -85,6 +85,30 @@ public sealed class GatewaySignInTests
     }
 
     [Fact]
+    public async Task The_complete_command_stops_when_the_timeout_runs_out_and_keeps_the_sign_in()
+    {
+        using var test = new TestServices();
+        test.Http
+            .ThenJson(ProtectedResource)
+            .ThenJson(AuthorizationServer)
+            .ThenJson(DeviceAnswer());
+        await test.RunAsync("login", "--env", "nx-dev", "--no-browser");
+        test.Console.OutWriter.GetStringBuilder().Clear();
+        for (var poll = 0; poll < 10; poll++)
+        {
+            test.Http.ThenJson(PollError("authorization_pending"), HttpStatusCode.BadRequest);
+        }
+
+        var exit = await test.RunAsync("login", "--profile", "nx-dev", "--complete", "--timeout", "1");
+
+        Assert.Equal(ExitCodes.Timeout, exit);
+        JsonNode error = JsonNode.Parse(test.Console.StdOut)!["error"]!;
+        Assert.Equal(ErrorCodes.Timeout, (string?)error["code"]);
+        Assert.Equal("velixo login --profile nx-dev --complete", (string?)error["nextStep"]);
+        Assert.Equal("device-1", test.Services.Profiles.LoadState("nx-dev").PendingLogin!.DeviceCode);
+    }
+
+    [Fact]
     public async Task The_complete_command_finds_the_sign_in_another_profile_started()
     {
         using var test = new TestServices();
