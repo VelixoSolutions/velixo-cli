@@ -74,6 +74,8 @@ A plan of one query prints the same document as `--query`: `{ taskId, status, re
 
 A table at a terminal gets them without `--links`, and its cells open the record on a click (a terminal hyperlink). With `--links`, CSV, and a table that cannot show a hyperlink (not at a terminal, `TERM=dumb`, or a legacy Windows console), get a `URL` column beside each linked column instead.
 
+A cell opens on a click only in a terminal that supports OSC 8 hyperlinks: iTerm2, Windows Terminal, the Visual Studio Code terminal, GNOME Terminal, Konsole, kitty, WezTerm, Alacritty, and Ghostty do. The macOS Terminal app, the legacy Windows console, and tmux unless it is set up for hyperlinks print the text with no link, and the CLI cannot tell. When the user runs one of those, pass `--links` with `--output csv` or `--output json`, which carry the URLs themselves.
+
 ### Empty and all-zero results
 
 - Zero rows is a valid answer, but on a parameterized query first rule out a dropped value: a mis-keyed `--param` on Acumatica leaves exactly this result. Read the stderr warnings.

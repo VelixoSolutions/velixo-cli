@@ -389,7 +389,7 @@ An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app fin
 | `--output` | `json` (default when stdout is not a terminal or an AI agent is detected), `table` (default otherwise) or `csv`. |
 | `--quiet` | Print no progress on stderr; warnings and errors still print. |
 | `--no-color` | Turn colors off. |
-| `--links` | Ask a query for the record each cell opens, in JSON and CSV too. |
+| `--links` | Ask a query for the record each cell opens, in JSON and CSV too. A table's links open on a click only in a terminal that supports hyperlinks (OSC 8), such as iTerm2, Windows Terminal, or the VS Code terminal; the macOS Terminal app shows no link, so use `--links` with `--output csv` there. |
 | `--non-interactive` | Never prompt. |
 | `--yes` | Confirm a write. |
 | `--timeout <seconds>` | Stop waiting after this many seconds: one budget for the whole command. |
