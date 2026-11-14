@@ -4,6 +4,8 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-14
+
 ### Added
 
 - Links to ERP records. At a terminal, the cells of a `query run` table that name a record open it on a click (a terminal hyperlink), in the table and in the full-screen viewer, as the Velixo Intelligence chat does. A `command run` table that saved a record ends with its link, as `Saved SO SO005396: https://…`; on Sage Intacct it names the record by its ID, such as the vendor ID, not by its internal record number. Acumatica and Sage Intacct; Business Central has no links. A link opens on a click only in a terminal that supports OSC 8 hyperlinks, such as Windows Terminal, the Visual Studio Code terminal, iTerm2, or Ghostty; the default macOS Terminal app shows the text with no link. (RD-14754)
@@ -76,6 +78,7 @@ Initial release. The CLI is one binary named `velixo` for Linux, macOS and Windo
 - Agent detection from environment variables, which turns on non-interactive mode and goes to the server for its telemetry. The CLI sends no telemetry of its own.
 - Binaries for `win-x64`, `win-arm64`, `osx-x64`, `osx-arm64`, `linux-x64`, `linux-arm64` and `linux-musl-x64`, the install scripts `install.sh` and `install.ps1`, and `checksums.txt` on every GitHub Release. The release workflow signs the Windows binaries with the Velixo EV certificate and signs and notarizes the macOS binaries once their keys are set up.
 
+[1.1.0]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.1.0
 [1.0.5]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.5
 [1.0.4]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.4
 [1.0.3]: https://github.com/VelixoSolutions/velixo-cli/releases/tag/v1.0.3
