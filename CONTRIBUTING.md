@@ -134,7 +134,11 @@ the session.
 
 In CI, `.github/workflows/integration.yml` runs them nightly and on demand against the NativeAOT
 binary, signed in with the refresh token in `secrets.VELIXO_IT_TOKEN`, and saves the rotated token
-back into the secret. Its header says how to seed the token and which settings it needs.
+back into the secret. Before the tests, it checks the sign-in: when the session has ended, no test runs,
+and the card in Teams says to seed the token again. `scripts/live-tests.sh` runs the tests, then runs once
+more each test that failed on a timeout, such as HTTP 524 from a slow ERP. A test that fails for any
+other reason, or times out twice, fails the run. The workflow's header says how to seed the token and
+which settings it needs.
 
 ## Releases
 
