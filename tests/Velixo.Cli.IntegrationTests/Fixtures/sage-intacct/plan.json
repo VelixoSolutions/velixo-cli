@@ -1,0 +1,13 @@
+{
+  "queries": [
+    {
+      "purpose": "List customers by customer ID, showing customer ID followed by customer name.",
+      "query": "FROM [accounts-receivable/customer] AS Customer\nORDER BY Customer.id ASC\nSELECT Customer.id AS 'Customer ID', Customer.name AS 'Customer Name'"
+    },
+    {
+      "purpose": "List posted Accrual-book GL lines in the required posting-date range, ordered by posting date and unique line ID.",
+      "query": "DECLARE [FromDate] TYPE date AS 'From Date' REQUIRED\nDECLARE [ToDate] TYPE date AS 'To Date' REQUIRED\nFROM [general-ledger/journal] AS Journal\nINNER JOIN [general-ledger/journal-entry-line] AS Line ON Line.journalEntry.glJournal.id = Journal.id\nWHERE Journal.bookId = 'Accrual' AND Line.state = 'posted' AND Line.entryDate >= [FromDate] AND Line.entryDate <= [ToDate]\nORDER BY Line.entryDate ASC, Line.key ASC\nSELECT Line.entryDate AS 'Posting Date', Line.glAccount.id AS 'GL Account', Line.description AS 'Description', Line.txnAmount AS 'Amount', Line.txnType AS 'Debit or Credit', Line.currency.txnCurrency AS 'Currency', Line.key AS 'Unique Line Number'"
+    }
+  ],
+  "note": "Pass 'From Date' from {{FromDate}} and 'To Date' from {{ToDate}}, both required ISO dates (YYYY-MM-DD). Both bounds are inclusive. Results cover the Accrual book and exclude drafts and entries awaiting approval. Amount is the unsigned transaction-currency amount; use 'Debit or Credit' to interpret its direction, or negate credits for a signed amount. Unique Line Number is the system-assigned unique key, not the line's position within its journal entry."
+}

@@ -345,3 +345,39 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             $flags
+
+  # A dry run (workflow_dispatch) posts nothing: only a tag is a release.
+  notify-released:
+    needs: release
+    if: github.ref_type == 'tag' && needs.release.result == 'success'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "\U0001F680 Velixo CLI released"
+      branch-name: ${{ github.ref_name }}
+      style: accent
+      link-title: View Release
+      link-url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
+
+  notify-release-failed:
+    needs: [test, publish, release]
+    if: >-
+      always() && github.ref_type == 'tag' &&
+      (needs.test.result == 'failure' || needs.publish.result == 'failure' || needs.release.result == 'failure')
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "❌ Velixo CLI: release failed"
+      branch-name: ${{ github.ref_name }}
+      style: attention
+      include-error-annotations: true
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}

@@ -1,0 +1,125 @@
+name: Send Teams Notification
+
+# Posts one card to the build notifications channel in Teams, the channel Velixo-NextGen's CI posts to.
+# Mirrors .github/workflows/send-teams-notification.yml in Velixo-NextGen, so cards from both repositories
+# look alike.
+
+on:
+  workflow_call:
+    inputs:
+      title:
+        required: true
+        type: string
+      branch-name:
+        required: true
+        type: string
+      style:
+        description: 'The card colour, as an Adaptive Card container style: good, attention, warning or accent.'
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+        default: ''
+      include-error-annotations:
+        required: false
+        type: boolean
+        default: false
+      link-title:
+        required: false
+        type: string
+        default: ''
+      link-url:
+        description: 'Optional URL. When set together with link-title, adds a button titled link-title that opens it.'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      webhook-uri:
+        required: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Initialize annotations file
+        run: echo '[]' > /tmp/annotations.json
+
+      - name: Fetch error annotations
+        if: inputs.include-error-annotations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for job_id in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" --paginate --jq '.jobs[].id'); do
+            gh api "repos/${{ github.repository }}/check-runs/${job_id}/annotations" --paginate \
+              --jq '.[] | select(.annotation_level == "failure") | (if (.title | length) > 0 then .title else (.message | split("\n")[0]) end)'
+          done | jq -Rsc '[split("\n")[] | select(length > 0)] | unique | .[:10]' | tee /tmp/annotations.json
+
+      - name: Send Teams notification
+        env:
+          WEBHOOK_URL: ${{ secrets.webhook-uri }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          TITLE: ${{ inputs.title }}
+          BRANCH: ${{ inputs.branch-name }}
+          STYLE: ${{ inputs.style }}
+          VERSION: ${{ inputs.version }}
+          LINK_TITLE: ${{ inputs.link-title }}
+          LINK_URL: ${{ inputs.link-url }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI is not set, so no card was posted to Teams."
+            exit 0
+          fi
+          jq -n \
+            --slurpfile annotations /tmp/annotations.json \
+            --arg title "$TITLE" \
+            --arg branch "$BRANCH" \
+            --arg style "$STYLE" \
+            --arg version "$VERSION" \
+            --arg commit "${GITHUB_SHA::7}" \
+            --arg author "${{ github.actor }}" \
+            --arg message "$(echo "$COMMIT_MESSAGE" | head -1)" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --arg commit_url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
+            --arg link_title "$LINK_TITLE" \
+            --arg link_url "$LINK_URL" \
+            '([
+                { type: "TextRun", text: ($title + " — "), size: "Medium" },
+                { type: "TextRun", text: $branch, weight: "Bolder", size: "Medium" }
+              ] + (if $version != "" then [
+                { type: "TextRun", text: (" (" + $version + ")"), size: "Medium" }
+              ] else [] end)) as $inlines |
+            ([
+                { title: "Commit:", value: $commit },
+                { title: "Author:", value: $author }
+              ] + (if $message != "" then [{ title: "Message:", value: $message }] else [] end)
+            ) as $facts |
+            (if $style == "attention" or $style == "warning" then ($annotations[0] // []) else [] end) as $error_list |
+            ($error_list | if length > 0 then
+              [{ type: "TextBlock", text: "Errors:", weight: "Bolder", size: "Small", spacing: "Medium" }] +
+              [.[] | { type: "TextBlock", text: ("• " + .), wrap: true, size: "Small", color: "Attention", spacing: "None" }]
+            else [] end) as $error_items |
+            {
+              type: "message",
+              attachments: [{
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: {
+                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  type: "AdaptiveCard",
+                  version: "1.4",
+                  body: ([
+                    { type: "Container", style: $style, items: [{ type: "RichTextBlock", inlines: $inlines }] },
+                    { type: "FactSet", facts: $facts }
+                  ] + $error_items),
+                  actions: ([
+                      { type: "Action.OpenUrl", title: "View Run", url: $run_url },
+                      { type: "Action.OpenUrl", title: "View Commit", url: $commit_url }
+                  ] + (if $link_url != "" and $link_title != "" then [
+                      { type: "Action.OpenUrl", title: $link_title, url: $link_url }
+                  ] else [] end))
+                }
+              }]
+            }' | curl -sS --fail --retry 3 --retry-delay 5 \
+                    -H "Content-Type: application/json" \
+                    -d @- "$WEBHOOK_URL"

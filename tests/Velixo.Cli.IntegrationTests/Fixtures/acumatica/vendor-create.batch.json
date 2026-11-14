@@ -1,0 +1,85 @@
+{
+  "target": "AP303000",
+  "screenName": "Vendors",
+  "commands": [
+    {
+      "type": "Clear",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "BAccount.AcctCD",
+      "value": "{{VendorID}}",
+      "commit": null,
+      "fileIds": null,
+      "expect": "new"
+    },
+    {
+      "type": "Set",
+      "name": "BAccount.VendorClassID",
+      "value": "{{VendorClassID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "CurrentVendor.AcctName",
+      "value": "{{VendorName}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "BAccount.AcctCD",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "BAccount.VendorClassID",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "CurrentVendor.AcctName",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorID",
+      "type": "string",
+      "description": "Vendor account code"
+    },
+    {
+      "name": "VendorClassID",
+      "type": "string",
+      "description": "Vendor class code"
+    },
+    {
+      "name": "VendorName",
+      "type": "string",
+      "description": "Vendor account name"
+    }
+  ],
+  "keyNumbering": {
+    "field": "AcctCD",
+    "autonumbered": false
+  },
+  "writes": true
+}

@@ -50,15 +50,77 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 - Files move through `Files/FileTransfer.cs`: staging, uploading and downloading. A download into a
   directory never replaces a file; a download to an exact path does.
 
+## Help Center documentation
+
+The customer documentation lives in Confluence, in the Help Center space (HC), under
+[Velixo CLI documentation](https://velixo.atlassian.net/wiki/spaces/HC/pages/1447329855/Velixo+CLI+documentation).
+Scroll Sites publishes it at [help.velixo.com](https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation).
+It is written from this repository's `README.md`, `docs/commands.md` and `docs/guide/`, so a change to a
+command, a flag or an output means a page to update there as well.
+
+- **Label every page `cli`.** Scroll Sites publishes only the pages that carry the label. A page
+  without it stays in Confluence and never reaches help.velixo.com.
+- **Build the hierarchy from pages and subpages, never folders.** Scroll Sites builds the site's
+  navigation from the page tree: put a page under its parent page, not in a Confluence folder.
+- **Write macros in ADF, not storage HTML or Markdown.** Info and warning panels, the excerpt and the
+  table of contents only render when they are native ADF nodes. When Claude writes a page through the
+  Atlassian MCP, its HTML body format converts to ADF (`<div data-type="panel-warning">` for a panel);
+  Confluence storage XML (`<ac:structured-macro>`) shows up as raw text.
+- **Follow the Help Center's house style.** Open each page with a hidden excerpt macro named `Summary`
+  holding one sentence, then an `Overview` heading that ends with "The article covers:" and a list of
+  the sections. Use gerund titles and headings ("Querying ERP data with the Velixo CLI") and end with
+  `Related articles`. Call the server the Velixo AI Gateway, not the MCP server.
+- **Use the serial comma** in every list of three or more ("macOS, Linux, and Windows"), as the rest
+  of the Help Center does, and make list items parallel: capitalized, with the same ending. Name the
+  Velixo Portal with a capital P, link "Velixo support" to [the support desk](https://hd.velixo.com/tickets/new),
+  and link an exit code to the exit codes article.
+- **Test every example before you publish it.** Readers and agents copy code blocks as written. A query
+  parameter takes the display label the build prints in its note (`{{AsOfDate}}` becomes `As Of Date`),
+  not the placeholder name, so run the build and check the label rather than guessing it.
+- **Write for customers.** Leave out the internal environments (`nx-staging`, `nx-stage-zero`,
+  `nx-dev`, `local`) and `--env`, ticket numbers and internal connection names, and use neutral
+  examples such as `acumatica-prod`.
+- **Add the label last.** Create or fill a page first and label it once its content is final, so an
+  empty or half-written page is never published.
+
 ## Live tests
 
-`tests/Velixo.Cli.IntegrationTests` runs the real binary against a live environment and an ERP
-connection, and covers every command: each test names the commands it runs in `[Covers(...)]`, and
-`Every_command_has_a_live_test` fails when a command has none. Nothing writes to the ERP: a write
-batch runs only with `--dry-run` and without `--yes`, an import only with `--validate-only`. `notify`
+`tests/Velixo.Cli.IntegrationTests` runs the real binary against a live environment and three ERP
+connections, and covers every command and every flag. Each test names the commands it runs in
+`[Covers(...)]` and the flags it passes in `[CoversFlags("command", "--flag", ...)]` (the shared flags
+under `CoversFlagsAttribute.Shared`). Two offline tests in `CoverageTests.cs`, `Every_command_has_a_live_test`
+and `Every_flag_has_a_live_test_or_a_reason_it_has_none`, read the command tree and fail when a command
+or a flag has no live test. A flag that cannot run live goes in `CoverageTests.Untestable`, with the
+reason.
+
+The query and screen-read tests run on each ERP, as theories over `Erp`: Acumatica, Sage Intacct and
+Business Central. The imports are Acumatica's. Only two classes write to the ERP, and only documents for
+the vendor `VELIXOIT`, which the first run creates on each ERP, once:
+
+- `ErpWriteTests.cs`, on the Acumatica connection, `VELIXO_IT_CONNECTION` (`acu-2026r2-admin-company`):
+  AP bills on hold. That tenant, Company on the 2026R2 test site, also serves Velixo-NextGen's CI tests,
+  so no test may release or post there; the one Release a test runs is on a bill on hold, which
+  Acumatica refuses. `VELIXOIT` already exists there, created by hand on 2026-11-14, so a run never
+  adds a vendor while NextGen's tests list them.
+- `DocumentWriteTests.cs`, on Sage Intacct (`skyline`) and Business Central (`bc-dev`): a draft AP bill
+  that is never posted, and an unposted purchase invoice, each with two lines and two files.
+
+Each test deletes its documents at the end, even when it fails, and Sage Intacct's attachment record
+with them. `ERP_ACTION_REFUSED` is tested on Acumatica only: on the other two ERPs, an action that should
+be refused, such as a post, could instead succeed, and a posted document cannot be deleted. Every other write batch
+runs only with `--dry-run` or without `--yes`, and every import only with `--validate-only`. `notify`
 sends one message, to the signed-in user. `connections switch` puts the profile's default back, and
-`config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV`
-the live tests skip, so `dotnet test` stays offline.
+`config`, `login` and `logout` run in a configuration folder of their own. Without `VELIXO_IT_ENV` the
+live tests skip, so `dotnet test` stays offline.
+
+The tests run checked-in queries and batches from `Fixtures/<erp>/` (`acumatica`, `sage-intacct`,
+`business-central`), not builder calls, which are slow, paid and give a different answer each time.
+Only the tests of `query build` and `command build` call the builders. To add a fixture, build it once
+with `velixo query build --save FILE.vql` or `velixo command build --save FILE.batch.json` on a profile
+of your own, run it to check it works, and commit it. The class that uses a folder's files says what
+each holds. Use dates where each company has data: Sage Intacct's `skyline` is 2017 to 2019, and
+Business Central's CRONUS International Ltd. (`bc-dev`) is mostly 2023; a G/L entry query on it needs
+a posting-date window.
 
 On your machine, keep a profile for the tests, sign it in once, and run them:
 
@@ -67,14 +129,20 @@ velixo login --profile it --env nx-dev
 VELIXO_IT_ENV=nx-dev dotnet test tests/Velixo.Cli.IntegrationTests -c Release
 ```
 
-`VELIXO_IT_PROFILE` names another profile, `VELIXO_IT_CONNECTION` another connection (default
-`gab-dev`), and `VELIXO_IT_BINARY` another binary, such as a NativeAOT publish. The tests run one at a
+`VELIXO_IT_PROFILE` names another profile and `VELIXO_IT_BINARY` another binary, such as a NativeAOT
+publish. The connections are `VELIXO_IT_CONNECTION` (Acumatica, default `acu-2026r2-admin-company`),
+`VELIXO_IT_SAGE_CONNECTION` (Sage Intacct, default `skyline`) and `VELIXO_IT_BC_CONNECTION` (Business
+Central, default `bc-dev`); all three are shared with the organization on `nx-dev`. The tests run one at a
 time: each run of the binary can rotate the refresh token, and two rotations of one token at once end
 the session.
 
 In CI, `.github/workflows/integration.yml` runs them nightly and on demand against the NativeAOT
 binary, signed in with the refresh token in `secrets.VELIXO_IT_TOKEN`, and saves the rotated token
-back into the secret. Its header says how to seed the token and which settings it needs.
+back into the secret. Before the tests, it checks the sign-in: when the session has ended, no test runs,
+and the card in Teams says to seed the token again. `scripts/live-tests.sh` runs the tests, then runs once
+more each test that failed on a timeout, such as HTTP 524 from a slow ERP. A test that fails for any
+other reason, or times out twice, fails the run. The workflow's header says how to seed the token and
+which settings it needs.
 
 ## Releases
 

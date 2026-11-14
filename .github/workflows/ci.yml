@@ -48,3 +48,35 @@ jobs:
         run: |
           ./out/velixo --version
           ./out/velixo help --all --output json | jq -e . > /dev/null
+
+  # Only pushes to main post to Teams, as in Velixo-NextGen: a pull request's checks already show on the pull request.
+  notify-ci-passed:
+    needs: build-and-test
+    if: github.event_name == 'push' && needs.build-and-test.result == 'success'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "✅ Velixo CLI: CI passed"
+      branch-name: ${{ github.ref_name }}
+      style: good
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}
+
+  notify-build-failed:
+    needs: build-and-test
+    if: always() && github.event_name == 'push' && needs.build-and-test.result == 'failure'
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    uses: ./.github/workflows/send-teams-notification.yml
+    with:
+      title: "❌ Velixo CLI: build failed"
+      branch-name: ${{ github.ref_name }}
+      style: attention
+      include-error-annotations: true
+    secrets:
+      webhook-uri: ${{ secrets.TEAMS_BUILD_NOTIFICATIONS_WEBHOOK_URI }}

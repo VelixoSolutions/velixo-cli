@@ -1,0 +1,46 @@
+{
+  "target": "accounts-payable/vendor",
+  "commands": [
+    {
+      "type": "Set",
+      "name": "id",
+      "value": "{{VendorID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "name",
+      "value": "{{VendorName}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "id",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorID",
+      "type": "string",
+      "description": "Vendor account ID"
+    },
+    {
+      "name": "VendorName",
+      "type": "string",
+      "description": "Vendor name"
+    }
+  ],
+  "writes": true
+}

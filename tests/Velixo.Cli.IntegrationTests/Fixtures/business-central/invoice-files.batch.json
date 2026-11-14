@@ -1,0 +1,27 @@
+{
+  "target": "purchaseInvoices",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "number",
+      "value": "{{InvoiceNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "DownloadAttachments",
+      "name": null,
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "InvoiceNo",
+      "type": "string",
+      "description": "Purchase invoice number"
+    }
+  ],
+  "writes": false
+}

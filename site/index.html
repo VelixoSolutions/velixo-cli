@@ -17,6 +17,11 @@
   pre { background: var(--code); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
   code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   a { color: inherit; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+  .top nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .95rem; }
+  .top nav a { text-decoration: none; color: var(--muted); }
+  .top nav a:hover { color: var(--ink); text-decoration: underline; }
+  .docs { margin: 8px 0; padding-left: 20px; }
   .sample { margin: 24px 0 0; }
   .sample h3 { color: var(--ink); font-size: 1rem; margin: 0 0 4px; }
   .sample img { display: block; width: 100%; height: auto; margin: 12px 0 8px; border: 1px solid var(--code); border-radius: 8px; }
@@ -33,7 +38,14 @@
 </head>
 <body>
 <main>
-  <img src="https://secure.velixo.com/logos/logo-full-gradient-navy.svg" alt="Velixo" width="180">
+  <header class="top">
+    <img src="https://secure.velixo.com/logos/logo-full-gradient-navy.svg" alt="Velixo" width="180">
+    <nav aria-label="Links">
+      <a href="https://github.com/VelixoSolutions/velixo-cli">GitHub</a>
+      <a href="https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation">Documentation</a>
+      <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a>
+    </nav>
+  </header>
   <h1>Velixo CLI</h1>
   <p>One binary, <code>velixo</code>, that runs the tools of the Velixo MCP server from the command line, for AI coding agents, scripts and people.</p>
   <button type="button" class="agent-prompt" data-copy-text="Set me up on Velixo.com: https://cli.velixo.com/agent-ready.md" aria-label="Copy a prompt to onboard your agent">
@@ -60,6 +72,11 @@ velixo connections list
 velixo guide</code></pre>
   <p class="muted">An AI agent should read <a href="agent-ready.md">agent-ready.md</a> first.</p>
   <p class="muted">Every channel installs the same signed binary from the latest GitHub release. Update with <code>brew upgrade velixo</code>, <code>winget upgrade Velixo.CLI</code>, <code>npm install -g @velixo/cli@latest</code>, or by running the install script again; <code>velixo version --check</code> prints the command for your install. The install scripts verify the checksum, and take a version to pin one: <code>sh -s -- 1.0.0</code>.</p>
+  <h2>Documentation</h2>
+  <ul class="docs">
+    <li><a href="https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation">Velixo CLI documentation</a> on the Velixo Help Center</li>
+    <li><a href="https://github.com/VelixoSolutions/velixo-cli/blob/main/docs/commands.md">Command reference</a>: every command with its flags and output</li>
+  </ul>
   <h2>Samples</h2>
   <p>Two sample apps use the CLI as their ERP back end, to show that an app in any language can read from and write to an ERP through it. Claude Code built both with the CLI signed in on demo companies. Each sample's <code>PROMPT.md</code> holds the prompt that built it, so you can read how it was made or build it again.</p>
   <section class="sample">
@@ -74,7 +91,6 @@ velixo guide</code></pre>
     <img src="samples/expense-receipts.jpg" alt="The Telegram bot on Sage Intacct: a receipt photo in, a tip added, and the expense report created" width="900" height="1957" loading="lazy" class="phone">
     <p><a href="https://github.com/VelixoSolutions/velixo-cli/tree/main/samples/expensereceipts#readme">README</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/blob/main/samples/expensereceipts/PROMPT.md">The prompt that built it</a></p>
   </section>
-  <p><a href="https://github.com/VelixoSolutions/velixo-cli#readme">Documentation</a> · <a href="agent-ready.md">For AI agents</a> · <a href="https://github.com/VelixoSolutions/velixo-cli/releases">Releases</a></p>
 </main>
 <script>
   document.querySelectorAll('.agent-prompt').forEach(function (button) {

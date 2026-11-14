@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Queries and batches the live tests run instead of calling a builder; see CONTRIBUTING.md. -->
+    <Content Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
     <Using Include="Xunit" />
   </ItemGroup>
 

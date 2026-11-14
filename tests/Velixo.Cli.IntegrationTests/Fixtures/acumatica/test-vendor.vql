@@ -1,0 +1,3 @@
+FROM [PX.Objects.AP.Vendor] AS Vendor
+WHERE Vendor.AcctCD = 'VELIXOIT'
+SELECT Vendor.AcctCD AS 'Vendor ID', Vendor.AcctName AS 'Vendor Name'

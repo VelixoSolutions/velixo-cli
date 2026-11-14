@@ -1,0 +1,3 @@
+FROM [accounts-payable/vendor] AS Vendor
+WHERE Vendor.id = 'VELIXOIT'
+SELECT Vendor.id AS 'Vendor ID', Vendor.name AS 'Vendor Name'

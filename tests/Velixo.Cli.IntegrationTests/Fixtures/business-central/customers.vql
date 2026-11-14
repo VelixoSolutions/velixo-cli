@@ -1,0 +1,3 @@
+FROM [Customer] AS Customer
+ORDER BY Customer.[No.]
+SELECT Customer.[No.] AS 'Customer ID', Customer.Name AS 'Customer Name'

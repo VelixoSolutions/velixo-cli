@@ -1,0 +1,13 @@
+{
+  "queries": [
+    {
+      "purpose": "List customer IDs and names, sorted by customer ID.",
+      "query": "FROM [Customer] AS Customer\nORDER BY Customer.[No.]\nSELECT Customer.[No.] AS 'Customer ID', Customer.Name AS 'Customer Name'"
+    },
+    {
+      "purpose": "List posted general ledger lines within the required date range, sorted by posting date and unique entry number.",
+      "query": "DECLARE [FromDate] TYPE date AS 'From Date' REQUIRED\nDECLARE [ToDate] TYPE date AS 'To Date' REQUIRED\nFROM [G/L Entry] AS Entry\nWHERE Entry.[Posting Date] BETWEEN [FromDate] AND [ToDate]\nORDER BY Entry.[Posting Date], Entry.[Entry No.]\nSELECT Entry.[Posting Date] AS 'Posting Date', Entry.[G/L Account No.] AS 'G/L Account', Entry.Description AS 'Description', Entry.Amount AS 'Amount'"
+    }
+  ],
+  "note": "Pass 'From Date' from {{FromDate}} and 'To Date' from {{ToDate}}, both required ISO dates (YYYY-MM-DD). Both endpoints are included. Amount is signed: positive for debits and negative for credits."
+}

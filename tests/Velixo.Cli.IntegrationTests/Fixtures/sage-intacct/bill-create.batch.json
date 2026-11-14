@@ -1,0 +1,169 @@
+{
+  "target": "accounts-payable/bill",
+  "commands": [
+    {
+      "type": "Set",
+      "name": "vendor.id",
+      "value": "{{VendorID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "createdDate",
+      "value": "{{BillDate}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "dueDate",
+      "value": "{{DueDate}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "currency.txnCurrency",
+      "value": "{{Currency}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "currency.baseCurrency",
+      "value": "{{BaseCurrency}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "billNumber",
+      "value": "{{VendorRef}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "description",
+      "value": "{{Description}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "state",
+      "value": "draft",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "VendorID",
+      "type": "string",
+      "description": "Vendor account ID"
+    },
+    {
+      "name": "BillDate",
+      "type": "date",
+      "description": "Bill date, YYYY-MM-DD"
+    },
+    {
+      "name": "DueDate",
+      "type": "date",
+      "description": "Bill due date, YYYY-MM-DD"
+    },
+    {
+      "name": "Currency",
+      "type": "string",
+      "description": "Transaction currency code"
+    },
+    {
+      "name": "BaseCurrency",
+      "type": "string",
+      "description": "Company base currency code"
+    },
+    {
+      "name": "VendorRef",
+      "type": "string",
+      "description": "Vendor document number"
+    },
+    {
+      "name": "Description",
+      "type": "string",
+      "description": "Bill description"
+    }
+  ],
+  "writes": true,
+  "lineCommands": [
+    {
+      "type": "Set",
+      "name": "lines.glAccount.id",
+      "value": "{{AccountNo}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.dimensions.location.id",
+      "value": "{{LocationID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.txnAmount",
+      "value": "{{Amount}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Set",
+      "name": "lines.memo",
+      "value": "{{LineMemo}}",
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "lineVariables": [
+    {
+      "name": "AccountNo",
+      "type": "string",
+      "description": "GL account number"
+    },
+    {
+      "name": "LocationID",
+      "type": "string",
+      "description": "Line location ID"
+    },
+    {
+      "name": "Amount",
+      "type": "number",
+      "description": "Line amount in transaction currency"
+    },
+    {
+      "name": "LineMemo",
+      "type": "string",
+      "description": "Bill line memo"
+    }
+  ],
+  "finishCommands": [
+    {
+      "type": "Action",
+      "name": "Save",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "key",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "finishVariables": [],
+  "commandSets": "`commands` is the header. Run it with every row in one execute_commands call: pass `lineCommands` and one entry per detail row in `rows`, each with that row's values; pass `splitCommands` with each line's own `rows` when there is a sub-detail set; and pass `finishCommands` to save. Or split the work across calls: `leaveOpen` on one call, then its `continuation` on the next, with no header. `variables` bind the header and the finish set."
+}

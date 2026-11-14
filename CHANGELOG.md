@@ -9,6 +9,11 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 - Links to ERP records. At a terminal, the cells of a `query run` table that name a record open it on a click (a terminal hyperlink), in the table and in the full-screen viewer, as the Velixo Intelligence chat does. A `command run` table that saved a record ends with its link, as `Saved SO SO005396: https://…`; on Sage Intacct it names the record by its ID, such as the vendor ID, not by its internal record number. Acumatica and Sage Intacct; Business Central has no links. (RD-14754)
 - `--links` asks a query for the links in JSON (`result.data.recordLinks`, as the server sends them) and CSV (a `URL` column beside each linked column) too. An agent or a pipe gets no links unless it passes `--links`, since they cost the server time. `--all` keeps the links of every window. With `--links`, a table that cannot show a hyperlink (not at a terminal, `TERM=dumb`, or a legacy Windows console) shows the URLs in a column instead; without it, such a table asks for no links.
 
+### Fixed
+
+- `login --complete` stops when `--timeout` runs out, with exit 124 and the command that goes on waiting. It used to wait until the code expired, whatever `--timeout` said. The pending sign-in stays, so running `login --complete` again can still finish it.
+- `query run` and `query workbook` no longer say that a query with a required parameter left out "matches nothing". Depending on the query, it can also ignore that filter and return too many rows, so the warning now says the query either ignores the filter or returns no rows.
+
 ## [1.0.5] - 2026-11-10
 
 ### Fixed

@@ -1,0 +1,27 @@
+{
+  "target": "accounts-receivable/customer",
+  "commands": [
+    {
+      "type": "Key",
+      "name": "id",
+      "value": "{{CustomerID}}",
+      "commit": null,
+      "fileIds": null
+    },
+    {
+      "type": "Get",
+      "name": "name",
+      "value": null,
+      "commit": null,
+      "fileIds": null
+    }
+  ],
+  "variables": [
+    {
+      "name": "CustomerID",
+      "type": "string",
+      "description": "Customer account ID"
+    }
+  ],
+  "writes": false
+}

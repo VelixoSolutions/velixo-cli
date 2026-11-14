@@ -1,0 +1,3 @@
+FROM [Purchase Header] AS Invoice
+WHERE Invoice.[Buy-from Vendor No.] = 'VELIXOIT'
+SELECT Invoice.[Document Type] AS 'Type', Invoice.[No.] AS 'No.', Invoice.[Vendor Invoice No.] AS 'Vendor invoice'
