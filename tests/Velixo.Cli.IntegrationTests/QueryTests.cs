@@ -19,7 +19,7 @@ public sealed class QueryTests
     /// <summary>A month of GL activity on each ERP's test company, for the <c>From Date</c> and <c>To Date</c> of <c>gl-lines.vql</c>.</summary>
     public static (string From, string To) GlMonth(Erp erp) => erp switch
     {
-        Erp.Acumatica => ("2024-01-01", "2024-01-31"),
+        Erp.Acumatica => ("2019-01-01", "2019-01-31"),
         Erp.SageIntacct => ("2018-01-01", "2018-01-31"),
         Erp.BusinessCentral => ("2023-01-01", "2023-01-31"),
         _ => throw new ArgumentOutOfRangeException(nameof(erp), erp, null),
@@ -200,7 +200,7 @@ public sealed class QueryTests
     }
 
     /// <summary>A generic inquiry that needs no parameter, on the Acumatica test company.</summary>
-    private const string AcumaticaInquiry = "AP-Vendors";
+    private const string AcumaticaInquiry = "AP-Vendor Classes";
 
     /// <summary>The posting date of a <c>gl-lines.vql</c> row, its first column, as <c>YYYY-MM-DD…</c>.</summary>
     private static string DateOf(JsonNode? row) => (string?)row?[0] ?? string.Empty;
