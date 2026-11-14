@@ -56,10 +56,12 @@ public static class LiveCli
     public static string? Environment => Variable("VELIXO_IT_ENV");
 
     /// <summary>
-    /// The Acumatica connection: every test that is not about a particular ERP reads it, the imports validate on
-    /// it, and the tests that write create and delete on-hold AP bills for the vendor VELIXOIT on it.
+    /// The Acumatica connection, by default the 2026R2 test site's tenant Company: every test that is not about a
+    /// particular ERP reads it, the imports validate on it, and the tests that write create and delete on-hold AP
+    /// bills for the vendor VELIXOIT on it. Velixo-NextGen's CI tests share that tenant, so the tests never release
+    /// or post anything there.
     /// </summary>
-    public static string Connection => Variable("VELIXO_IT_CONNECTION") ?? "gab-dev";
+    public static string Connection => Variable("VELIXO_IT_CONNECTION") ?? "acu-2026r2-admin-company";
 
     /// <summary>The Sage Intacct connection. Its data is from 2017 to 2019.</summary>
     public static string SageConnection => Variable("VELIXO_IT_SAGE_CONNECTION") ?? "skyline";

@@ -6,8 +6,8 @@ using static Velixo.Cli.IntegrationTests.LiveHelpers;
 namespace Velixo.Cli.IntegrationTests;
 
 /// <summary>
-/// The tests that write to the ERP, on <see cref="LiveCli.Connection"/> only (gab-dev), and only AP bills (AP301000) for the
-/// test vendor <see cref="LiveHelpers.TestVendor"/>. A bill is created on hold, which gab-dev gives a new
+/// The tests that write to the ERP, on <see cref="LiveCli.Connection"/> only, and only AP bills (AP301000) for the
+/// test vendor <see cref="LiveHelpers.TestVendor"/>. A bill is created on hold, which the tenant's AP preferences give a new
 /// bill, and each test deletes the bills it saved in a <c>finally</c>, then checks that the vendor has
 /// none left. When the vendor is missing, the first test creates it once, in the class GNA; it stays.
 /// The batches are under <c>Fixtures/acumatica/</c>:
@@ -26,7 +26,7 @@ public sealed class ErpWriteTests
     /// <summary>Whether a test of this run has already found or created the vendor. Not cached on failure, so one timeout fails one test.</summary>
     private static bool _vendorReady;
 
-    /// <summary>A vendor ID the tests never save: creating it without a vendor class fails on gab-dev.</summary>
+    /// <summary>A vendor ID the tests never save: creating it without a vendor class fails.</summary>
     private const string UnsavedVendor = "VELIXOITNS";
 
     [LiveFact]
@@ -132,7 +132,7 @@ public sealed class ErpWriteTests
         var file = LiveCli.TempFile("bill-never-saved.txt");
         await File.WriteAllTextAsync(file, "Velixo CLI integration test, never attached.\n", TestContext.Current.CancellationToken);
 
-        // gab-dev requires a vendor reference, so the Save fails, and the bill and its file never reach the ERP.
+        // The AP preferences require a vendor reference, so the Save fails, and the bill and its file never reach the ERP.
         CliRun run = await LiveCli.RunAsync(
             "command", "run", "--batch", Batch("ap-bill-create"), "--param", $"VendorID={TestVendor}", "--param-null", "VendorRef",
             "--param", "Description=Velixo CLI integration test, never saved", "--rows", RowsFile("never-saved.json", 1),
@@ -140,7 +140,7 @@ public sealed class ErpWriteTests
 
         run.ExpectError(ExitCodes.TaskFailed, ErrorCodes.TaskFailed);
         var message = (string?)run.Json!["error"]!["message"];
-        Assert.Contains("NOTHING was saved", message, StringComparison.Ordinal);
+        Assert.True(message?.Contains("NOTHING was saved", StringComparison.Ordinal) == true, $"Expected the message to say NOTHING was saved.\n{run}");
         Assert.Contains(Path.GetFileName(file), message, StringComparison.Ordinal);
         Assert.DoesNotContain("the document exists", message, StringComparison.Ordinal);
         Assert.Empty(await BillsAsync());
@@ -150,7 +150,7 @@ public sealed class ErpWriteTests
     [Covers("command run")]
     public async Task A_vendor_whose_save_fails_is_reported_unsaved()
     {
-        // gab-dev requires a vendor class, and the batch sets it blank, so the Save fails and no vendor is created. The
+        // Acumatica requires a vendor class, and the batch sets it blank, so the Save fails and no vendor is created. The
         // vendor's key is the ID typed here, so only the screen's record state shows that it was never saved.
         CliRun run = await LiveCli.RunAsync(
             "command", "run", "--batch", Batch("vendor-create"), "--param", $"VendorID={UnsavedVendor}", "--param", "VendorName=Velixo CLI integration test, never saved",
@@ -184,7 +184,7 @@ public sealed class ErpWriteTests
 
     private static string Batch(string name) => LiveCli.Fixture(Erp.Acumatica, $"{name}.batch.json");
 
-    /// <summary>A vendor reference no other bill has: gab-dev requires one, and may refuse one the vendor already used.</summary>
+    /// <summary>A vendor reference no other bill has: the AP preferences require one, and may refuse one the vendor already used.</summary>
     private static string VendorReference() => "IT-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
 
     /// <summary>A <c>--rows</c> file with one detail row per number, its unit cost that number.</summary>

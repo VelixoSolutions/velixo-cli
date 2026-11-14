@@ -22,8 +22,9 @@ name: Integration
 #   secrets.VELIXO_IT_SECRETS_TOKEN  a fine-grained token with "Secrets: read and write" on this repository,
 #                                    to save the rotated token
 #   vars.VELIXO_IT_ENV               the environment, such as nx-dev
-#   vars.VELIXO_IT_CONNECTION        the Acumatica connection, gab-dev: the reads, the imports, and on-hold
-#                                    AP bills for the vendor VELIXOIT that the tests create and delete
+#   vars.VELIXO_IT_CONNECTION        the Acumatica connection, acu-2026r2-admin-company: the reads, the imports,
+#                                    and on-hold AP bills for the vendor VELIXOIT that the tests create and
+#                                    delete. Velixo-NextGen's CI tests share its tenant: never release there.
 #   vars.VELIXO_IT_SAGE_CONNECTION   the Sage Intacct connection (default skyline): the tests also create
 #                                    and delete a draft AP bill for the vendor VELIXOIT on it
 #   vars.VELIXO_IT_BC_CONNECTION     the Business Central connection (default bc-dev): the tests also create

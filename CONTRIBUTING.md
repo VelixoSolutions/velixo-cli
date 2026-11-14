@@ -97,7 +97,11 @@ The query and screen-read tests run on each ERP, as theories over `Erp`: Acumati
 Business Central. The imports are Acumatica's. Only two classes write to the ERP, and only documents for
 the vendor `VELIXOIT`, which the first run creates on each ERP, once:
 
-- `ErpWriteTests.cs`, on the Acumatica connection, `VELIXO_IT_CONNECTION` (`gab-dev`): AP bills on hold.
+- `ErpWriteTests.cs`, on the Acumatica connection, `VELIXO_IT_CONNECTION` (`acu-2026r2-admin-company`):
+  AP bills on hold. That tenant, Company on the 2026R2 test site, also serves Velixo-NextGen's CI tests,
+  so no test may release or post there; the one Release a test runs is on a bill on hold, which
+  Acumatica refuses. `VELIXOIT` already exists there, created by hand on 2026-11-14, so a run never
+  adds a vendor while NextGen's tests list them.
 - `DocumentWriteTests.cs`, on Sage Intacct (`skyline`) and Business Central (`bc-dev`): a draft AP bill
   that is never posted, and an unposted purchase invoice, each with two lines and two files.
 
@@ -126,7 +130,7 @@ VELIXO_IT_ENV=nx-dev dotnet test tests/Velixo.Cli.IntegrationTests -c Release
 ```
 
 `VELIXO_IT_PROFILE` names another profile and `VELIXO_IT_BINARY` another binary, such as a NativeAOT
-publish. The connections are `VELIXO_IT_CONNECTION` (Acumatica, default `gab-dev`),
+publish. The connections are `VELIXO_IT_CONNECTION` (Acumatica, default `acu-2026r2-admin-company`),
 `VELIXO_IT_SAGE_CONNECTION` (Sage Intacct, default `skyline`) and `VELIXO_IT_BC_CONNECTION` (Business
 Central, default `bc-dev`); all three are shared with the organization on `nx-dev`. The tests run one at a
 time: each run of the binary can rotate the refresh token, and two rotations of one token at once end
