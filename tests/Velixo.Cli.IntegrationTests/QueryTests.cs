@@ -50,6 +50,31 @@ public sealed class QueryTests
         Assert.Equal(first[0]!.ToJsonString(), Assert.Single(piped)!.ToJsonString());
     }
 
+    /// <summary>
+    /// With <c>--links</c>, a query asks the server for the record each customer row opens: JSON carries them as
+    /// <c>recordLinks</c>, and CSV puts each one in a URL column beside its cell. Business Central has no links.
+    /// </summary>
+    [LiveTheory]
+    [InlineData(Erp.Acumatica)]
+    [InlineData(Erp.SageIntacct)]
+    [Covers("query run")]
+    [CoversFlags(CoversFlagsAttribute.Shared, "--links")]
+    public async Task Links_name_the_record_each_row_opens_in_json_and_in_csv(Erp erp)
+    {
+        var query = LiveCli.Fixture(erp, "customers.vql");
+        var connection = LiveCli.ConnectionOf(erp);
+
+        JsonObject data = QueryData((await LiveCli.RunAsync("query", "run", "--query", query, "--top", "2", "--links", "--connection", connection)).Expect());
+        JsonObject links = Assert.IsType<JsonObject>(data["recordLinks"]);
+        Assert.NotEmpty(Assert.IsType<JsonArray>(links["columns"]));
+        Assert.Contains(Assert.IsType<JsonArray>(links["rows"]), row => row is not null);
+
+        CliRun csv = (await LiveCli.RunAsync(
+            "query", "run", "--query", query, "--top", "2", "--links", "--output", "csv", "--connection", connection)).Expect();
+        Assert.Contains(RecordLinks.ColumnSuffix + ",", csv.StdOut.Split('\n')[0] + ",", StringComparison.Ordinal);
+        Assert.Contains("https://", csv.StdOut, StringComparison.Ordinal);
+    }
+
     [LiveTheory]
     [InlineData(Erp.Acumatica)]
     [InlineData(Erp.SageIntacct)]
