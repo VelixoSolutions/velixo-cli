@@ -74,7 +74,7 @@ A plan of one query prints the same document as `--query`: `{ taskId, status, re
 
 A table at a terminal gets them without `--links`, and its cells open the record on a click (a terminal hyperlink). With `--links`, CSV, and a table that cannot show a hyperlink (not at a terminal, `TERM=dumb`, or a legacy Windows console), get a `URL` column beside each linked column instead.
 
-A cell opens on a click only in a terminal that supports OSC 8 hyperlinks: iTerm2, Windows Terminal, the Visual Studio Code terminal, GNOME Terminal, Konsole, kitty, WezTerm, Alacritty, and Ghostty do. The macOS Terminal app, the legacy Windows console, and tmux unless it is set up for hyperlinks print the text with no link, and the CLI cannot tell. When the user runs one of those, pass `--links` with `--output csv` or `--output json`, which carry the URLs themselves.
+A cell opens on a click only in a terminal that supports OSC 8 hyperlinks, such as Windows Terminal, the Visual Studio Code terminal, iTerm2, and Ghostty. The default macOS Terminal app prints the text with no link, and the CLI cannot tell. When the user runs it, pass `--links` with `--output csv` or `--output json`, which carry the URLs themselves.
 
 ### Empty and all-zero results
 
