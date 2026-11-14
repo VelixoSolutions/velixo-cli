@@ -68,6 +68,12 @@ A plan of one query prints the same document as `--query`: `{ taskId, status, re
 - `truncated: true` and a `warning` mean the ERP matched more rows than the call returned. The CLI repeats the warning on stderr. Never analyse or present those rows as the whole answer. Their absence is what makes a result complete: the last window of a paged walk carries neither.
 - With `--output table`, a footer names the window: `rows 1 to 250 of 1,204; add --skip 250 or --all for the rest`. With `--output csv`, a plan of more than one item is refused.
 
+### Links to the records
+
+`--links` asks the ERP for the record each cell opens, and `result.data.recordLinks` then says which cells open one: on a column with `keys`, the link is `baseUrl` + `ScreenId=` + the screen, then `&` + name + `=` + the URL-encoded value of each key column; on a column with `rest: true`, it is `baseUrl` + the string. They cover the first rows of each window only, and only records of the table the query selects FROM. Saved inquiries and Business Central have none. A record is linked whatever the query selects: on Acumatica, a key field the query neither returns nor filters on, such as the `OrderType` of a sales order or the `DocType` of each invoice and credit memo, is read from the record itself. On an Acumatica instance with an older Velixo customization, a row is linked only when the query selects every key field of its record. When the user wants links, pass `--links`; never ask the build for a link column: the server builds the links. Ask for them only when the user wants links: they cost time and room.
+
+A table at a terminal gets them without `--links`, and its cells open the record on a click (a terminal hyperlink). With `--links`, CSV, and a table that cannot show a hyperlink (not at a terminal, `TERM=dumb`, or a legacy Windows console), get a `URL` column beside each linked column instead.
+
 ### Empty and all-zero results
 
 - Zero rows is a valid answer, but on a parameterized query first rule out a dropped value: a mis-keyed `--param` on Acumatica leaves exactly this result. Read the stderr warnings.

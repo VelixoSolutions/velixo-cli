@@ -19,6 +19,7 @@ internal sealed class QueryRunner
     private readonly CliServices _services;
     private readonly string _intent;
     private readonly QueryRunOptions _options;
+    private bool _warnedInquiryLinks;
 
     public QueryRunner(CliServices services, string intent, QueryRunOptions options)
     {
@@ -40,8 +41,16 @@ internal sealed class QueryRunner
             : RunQueryAsync(item.Query!, parameters, cancellationToken);
     }
 
-    public Task<JsonObject> RunInquiryAsync(string name, JsonObject parameters, CancellationToken cancellationToken) =>
-        RunAsync(InquiryArgument, name, parameters, cancellationToken);
+    public Task<JsonObject> RunInquiryAsync(string name, JsonObject parameters, CancellationToken cancellationToken)
+    {
+        if (_services.Settings.Output.RecordLinks && !_warnedInquiryLinks)
+        {
+            _warnedInquiryLinks = true;
+            _services.Output.Warn($"A saved inquiry has no record links, so --links gives '{name}' none.");
+        }
+
+        return RunAsync(InquiryArgument, name, parameters, cancellationToken);
+    }
 
     private async Task<JsonObject> RunAsync(string sourceArgument, string source, JsonObject parameters, CancellationToken cancellationToken)
     {
@@ -53,6 +62,7 @@ internal sealed class QueryRunner
         JsonObject? first = null;
         JsonObject? firstData = null;
         var rows = new JsonArray();
+        var links = new RecordLinksMerge();
         var warnings = new List<string>();
         var skip = _options.Skip;
         long? totalCount = null;
@@ -78,6 +88,7 @@ internal sealed class QueryRunner
 
             first ??= page.Document;
             firstData ??= data;
+            links.Add(data["recordLinks"], pageRows.Count);
             foreach (JsonNode? row in pageRows)
             {
                 rows.Add(row?.DeepClone());
@@ -94,7 +105,13 @@ internal sealed class QueryRunner
         }
 
         var merged = (JsonObject)first.DeepClone();
-        merged["result"]!["data"] = Merge(firstData!, rows, totalCount, warnings);
+        JsonObject mergedData = Merge(firstData!, rows, totalCount, warnings);
+        if (links.Result is { } recordLinks)
+        {
+            mergedData["recordLinks"] = recordLinks;
+        }
+
+        merged["result"]!["data"] = mergedData;
         return merged;
     }
 
@@ -117,6 +134,12 @@ internal sealed class QueryRunner
         if (parameters.Count > 0)
         {
             arguments["parameters"] = parameters.DeepClone();
+        }
+
+        // Record links exist for query text only; the server refuses them for a saved inquiry.
+        if (sourceArgument == QueryTextArgument && _services.Settings.Output.WantsRecordLinks)
+        {
+            arguments["includeRecordLinks"] = true;
         }
 
         if (_services.Settings.Connection is { } connection)
@@ -146,7 +169,7 @@ internal sealed class QueryRunner
 
         foreach ((var key, JsonNode? value) in firstData)
         {
-            if (key is not ("warning" or "truncated" or "rows" or "totalCount" or "warnings"))
+            if (key is not ("warning" or "truncated" or "rows" or "totalCount" or "warnings" or "recordLinks"))
             {
                 data[key] = value?.DeepClone();
             }
@@ -184,4 +207,41 @@ internal sealed class QueryRunner
     }
 
     private static string Grouped(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The <c>recordLinks</c> of every window as one: the first window's <c>baseUrl</c> and <c>columns</c>, and each
+    /// window's <c>rows</c>, padded to the window's row count, in the order the windows came. A window's links cover its first rows only, so the rows
+    /// after them link nothing; a window whose links describe other columns links nothing either.
+    /// </summary>
+    private sealed class RecordLinksMerge
+    {
+        private JsonObject? _result;
+        private readonly JsonArray _rows = [];
+
+        public JsonObject? Result => _result is null || _rows.All(row => row is null) ? null : _result;
+
+        public void Add(JsonNode? pageLinks, int pageRowCount)
+        {
+            var links = pageLinks as JsonObject;
+            if (links is not null && _result is null)
+            {
+                _result = new JsonObject
+                {
+                    ["baseUrl"] = links["baseUrl"]?.DeepClone(),
+                    ["columns"] = links["columns"]?.DeepClone(),
+                    ["rows"] = _rows,
+                };
+            }
+
+            var same = links is not null
+                && JsonNode.DeepEquals(links["baseUrl"], _result!["baseUrl"])
+                && JsonNode.DeepEquals(links["columns"], _result["columns"]);
+            var pageRows = same ? links!["rows"] as JsonArray : null;
+
+            for (var index = 0; index < pageRowCount; index++)
+            {
+                _rows.Add(pageRows is not null && index < pageRows.Count ? pageRows[index]?.DeepClone() : null);
+            }
+        }
+    }
 }

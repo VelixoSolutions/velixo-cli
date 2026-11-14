@@ -123,7 +123,66 @@ internal static class ScreenRunner
 
         CommandText.RelayWarnings(services.Output, result.Document);
         services.Output.WriteResult(result.Document);
+        if (services.Output.Format == OutputFormat.Table
+            && SavedRecordLine(result.Document["result"], batch, variables) is { } saved)
+        {
+            services.Output.WriteText(saved);
+        }
+
         return ExitCodes.Success;
+    }
+
+    /// <summary>
+    /// The line a table prints under a batch that saved a record: its key and the link that opens it, as
+    /// <c>Saved SO SO005396: https://…</c>. It is a plain URL, so every terminal shows it and most open it on a click.
+    /// Null when the result carries no <c>recordUrl</c>.
+    /// </summary>
+    /// <remarks>
+    /// Acumatica's <c>savedKey</c> holds the record's key fields, which people know. Sage Intacct's holds only the
+    /// internal record number (<c>{ "key": "300" }</c>), so the line names the record by the ID its batch positioned
+    /// on instead: the value of the batch's <c>Key</c> field as the batch read it back, else as the run passed it.
+    /// </remarks>
+    internal static string? SavedRecordLine(JsonNode? result, ScreenBatch batch, JsonObject variables)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(variables);
+
+        JsonNode? feedback = result?["feedback"];
+        if (CommandText.String(feedback?["recordUrl"]) is not { } url || !Hyperlink.IsSafe(url))
+        {
+            return null;
+        }
+
+        var savedKey = feedback?["savedKey"] as JsonObject;
+        var key = savedKey is { Count: 1 } && savedKey.ContainsKey("key") && RecordId(result?["data"]?["fields"] as JsonObject, batch, variables) is { } id
+            ? id
+            : string.Join(' ', (savedKey ?? []).Select(pair => TabularView.CellText(pair.Value).Trim()).Where(value => value.Length > 0));
+        return key.Length > 0 ? $"Saved {key}: {url}" : $"Saved: {url}";
+    }
+
+    /// <summary>The value of each field a <c>Key</c> command of the batch positions on: as read back in <paramref name="fields"/>, else as bound.</summary>
+    private static string? RecordId(JsonObject? fields, ScreenBatch batch, JsonObject variables)
+    {
+        var values = (batch.Commands ?? [])
+            .OfType<JsonObject>()
+            .Where(command => CommandText.String(command["type"]) == "Key" && CommandText.String(command["name"]) is { Length: > 0 })
+            .Select(command =>
+            {
+                var name = CommandText.String(command["name"])!;
+                if (fields?[name] is JsonValue readBack && TabularView.CellText(readBack).Trim() is { Length: > 0 } read)
+                {
+                    return read;
+                }
+
+                var value = CommandText.String(command["value"]);
+                return value is ['{', '{', .., '}', '}'] && variables[value[2..^2]] is JsonValue bound
+                    ? TabularView.CellText(bound).Trim()
+                    : value?.Trim();
+            })
+            .Where(value => !string.IsNullOrEmpty(value))
+            .ToList();
+
+        return values.Count > 0 ? string.Join(' ', values) : null;
     }
 
     /// <summary>Stages each <c>--attach</c> file and returns the <c>attachments</c> argument of <c>execute_commands</c>.</summary>

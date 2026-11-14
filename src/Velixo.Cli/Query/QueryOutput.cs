@@ -81,13 +81,13 @@ internal static partial class QueryOutput
         TabularView view = TabularView.From(document)!;
         if (output.Format == OutputFormat.Csv)
         {
-            output.WriteCsv(view.Columns, view.Rows);
+            output.WriteCsv(view.Columns, view.Rows, view.Links);
         }
         else
         {
             JsonObject data = (JsonObject)document["result"]!["data"]!;
             (IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<bool> rightAligned) = ForReading(data["columns"] as JsonArray, view.Rows);
-            output.WriteTable(view.Columns, rows, Footer(data, view.Rows.Count, skip), rightAligned);
+            output.WriteTable(view.Columns, rows, Footer(data, view.Rows.Count, skip), rightAligned, view.Links);
         }
     }
 

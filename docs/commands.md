@@ -17,6 +17,7 @@ Each command that talks to the server calls one tool of the Velixo server with t
 | `--compact` | Print the JSON document on one line. |
 | `--quiet` | Print no progress on stderr; warnings and errors still print. Also turns the spinner off. |
 | `--no-color` | Turn colors off. `NO_COLOR` does the same. |
+| `--links` | Ask `query run` for the record each cell opens in JSON and CSV too: `result.data.recordLinks`, and a URL column beside each linked column in CSV. A table at a terminal that shows hyperlinks gets them without it; with `--links`, a table that cannot shows a URL column. |
 | `--non-interactive` | Never prompt or open a browser. Turns on by itself when stdin is not a terminal or an agent is detected. |
 | `--yes` | Confirm a write. |
 | `--timeout SECONDS` | Stop waiting after this many seconds (exit code 124). It is one budget for the whole command, however many calls the command makes. |

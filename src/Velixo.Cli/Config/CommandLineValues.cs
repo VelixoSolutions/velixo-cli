@@ -19,6 +19,8 @@ public sealed record CommandLineValues
 
     public bool NoColor { get; init; }
 
+    public bool Links { get; init; }
+
     public bool NonInteractive { get; init; }
 
     public bool Yes { get; init; }

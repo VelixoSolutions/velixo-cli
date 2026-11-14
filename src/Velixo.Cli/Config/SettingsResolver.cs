@@ -124,8 +124,22 @@ public static class SettingsResolver
                 && agent is null
                 && !sources.IsErrorRedirected
                 && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal),
+            Hyperlinks = !sources.IsOutputRedirected
+                && agent is null
+                && !string.Equals(sources.GetVariable("TERM"), "dumb", StringComparison.Ordinal)
+                && !IsLegacyWindowsConsole(sources.GetVariable),
+            RecordLinks = flags.Links,
         };
     }
+
+    /// <summary>
+    /// Returns whether the CLI runs in a Windows console that may print a terminal hyperlink as text: any Windows
+    /// console but Windows Terminal (<c>WT_SESSION</c>) or a terminal that names itself (<c>TERM_PROGRAM</c>, as VS Code does).
+    /// </summary>
+    private static bool IsLegacyWindowsConsole(Func<string, string?> variable) =>
+        OperatingSystem.IsWindows()
+        && string.IsNullOrEmpty(variable("WT_SESSION"))
+        && string.IsNullOrEmpty(variable("TERM_PROGRAM"));
 
     private static TimeSpan? ResolveTimeout(int? seconds) => seconds switch
     {
