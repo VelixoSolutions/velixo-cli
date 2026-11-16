@@ -54,7 +54,7 @@ VELIXO_CONFIG_DIR=/tmp/velixo-cfg dotnet run --project src/Velixo.Cli -- login -
 
 The customer documentation lives in Confluence, in the Help Center space (HC), under
 [Velixo CLI documentation](https://velixo.atlassian.net/wiki/spaces/HC/pages/1447329855/Velixo+CLI+documentation).
-Scroll Sites publishes it at [help.velixo.com](https://help.velixo.com/doc/main/velixo-cli/velixo-cli-documentation).
+Scroll Sites publishes it at [help.velixo.com](https://help.velixo.com/doc/main/velixo-cli/).
 It is written from this repository's `README.md`, `docs/commands.md` and `docs/guide/`, so a change to a
 command, a flag or an output means a page to update there as well.
 
