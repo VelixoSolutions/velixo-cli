@@ -136,6 +136,10 @@ class Store:
                     file.unlink(missing_ok=True)
 
 
+class ExpenseNotSaved(VelixoError):
+    """The CLI failed while it created the expense, so the ERP may already hold it or a part of it."""
+
+
 class Conversation:
     def __init__(self, erp: Erp, reader: ReceiptReader, store: Store, base_currency: str = "USD", today: Callable[[], date] = date.today):
         self.erp = erp
@@ -153,6 +157,7 @@ class Conversation:
             try:
                 self._handle(phone, text.strip(), photos, reply)
             except VelixoError as error:
+                logging.warning("The Velixo CLI failed with %s (exit code %s): %s", error.code, error.exit_code, error)
                 self.store.save_draft(phone, None)
                 reply(_velixo_failure(error))
             except Exception:
@@ -389,18 +394,20 @@ class Conversation:
 
     def _create(self, phone: str, draft: Draft, reading: ReceiptReading, reply: Out) -> None:
         employee = self._employee(draft)
-        created: CreatedExpense = self.erp.create_expense(
-            Expense(
-                employee=employee,
-                date=self._date(reading),
-                amount=f"{reading.total:.2f}",
-                expense_item=reading.expense_item,
-                description=reading.description,
-                project=reading.project,
-                receipt=Path(draft.scan_path or draft.receipt_path),
-                project_task=draft.project_task or next((p.task for p in self.erp.projects(employee) if p.id == reading.project), None),
-            )
+        expense = Expense(
+            employee=employee,
+            date=self._date(reading),
+            amount=f"{reading.total:.2f}",
+            expense_item=reading.expense_item,
+            description=reading.description,
+            project=reading.project,
+            receipt=Path(draft.scan_path or draft.receipt_path),
+            project_task=draft.project_task or next((p.task for p in self.erp.projects(employee) if p.id == reading.project), None),
         )
+        try:
+            created: CreatedExpense = self.erp.create_expense(expense)
+        except VelixoError as error:
+            raise ExpenseNotSaved(error.code, str(error), error.exit_code) from error
         self.store.save_draft(phone, None)
 
         project = f", project {reading.project}" if reading.project else ""
@@ -532,4 +539,6 @@ def _amount(text: str) -> float | None:
 def _velixo_failure(error: VelixoError) -> str:
     if error.code in {"NOT_SIGNED_IN", "SESSION_ENDED", "ACCESS_DENIED", "CLI_NOT_FOUND"}:
         return "The expense system is offline right now. Please try again later."
-    return "I couldn't save the expense in the ERP. A manager can check the receipt in the system before you send it again."
+    if isinstance(error, ExpenseNotSaved):
+        return "I couldn't save the expense in the ERP. A manager can check the receipt in the system before you send it again."
+    return "I couldn't reach the ERP just now, so nothing was saved. Please send the receipt again in a minute."
