@@ -236,6 +236,26 @@ def test_does_not_invite_a_resend_when_the_erp_refuses_the_expense(erp, tmp_path
     assert "A manager can check the receipt" in send(KNOWN_PHONE, photo=True)
 
 
+def test_invites_a_resend_when_a_read_fails_before_anything_is_saved(erp, tmp_path):
+    erp._read_projects = lambda employee: (_ for _ in ()).throw(VelixoError("TOOL_FAILED", "Velixo could not verify your access.", 1))
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    answer = send(KNOWN_PHONE, photo=True)
+
+    assert "nothing was saved" in answer
+    assert "A manager can check the receipt" not in answer
+    assert erp.created == []
+
+
+def test_logs_the_cli_error_code_and_message_when_the_cli_fails(erp, tmp_path, caplog):
+    erp.failure = VelixoError("TASK_FAILED", "The expense item is inactive.", 6)
+    send, _ = talk(erp, FakeReader(), tmp_path)
+
+    send(KNOWN_PHONE, photo=True)
+
+    assert "TASK_FAILED (exit code 6): The expense item is inactive." in caplog.text
+
+
 def test_says_the_system_is_offline_when_the_cli_is_signed_out(erp, tmp_path):
     erp.failure = VelixoError("NOT_SIGNED_IN", "Run velixo login.", 4)
     send, _ = talk(erp, FakeReader(), tmp_path)
