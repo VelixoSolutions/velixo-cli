@@ -69,9 +69,13 @@ internal static class QueryPager
         await viewer.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Returns whether this window prints without scrolling the headers off the screen.</summary>
+    /// <summary>Returns whether this window prints without scrolling the headers off the screen: it has fewer rows than the viewer's body.</summary>
     private static bool FitsOnScreen(CliServices services, int rows, string? title) =>
-        (title is null ? 0 : 1) + 2 + rows + 1 < services.Console.WindowHeight;
+        rows < BodyHeight(services.Console, title);
+
+    /// <summary>Gets the lines left for rows once the title, the two header lines and the bar (or the footer) are drawn.</summary>
+    private static int BodyHeight(ICliConsole console, string? title) =>
+        Math.Max(1, console.WindowHeight - (title is null ? 0 : 1) - 2 - 1);
 
     private static void WriteTitle(CliServices services, string? title)
     {
@@ -121,8 +125,7 @@ internal static class QueryPager
 
         private int Width => _console.WindowWidth > 0 ? _console.WindowWidth : 80;
 
-        /// <summary>Gets the lines left for rows once the title, the two header lines and the bar are drawn.</summary>
-        private int BodyHeight => Math.Max(1, _console.WindowHeight - (title is null ? 0 : 1) - 2 - 1);
+        private int BodyHeight => QueryPager.BodyHeight(_console, title);
 
         private int LastFirstRow => (int)Math.Max(0, Math.Min(_total, int.MaxValue) - BodyHeight);
 

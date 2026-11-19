@@ -158,7 +158,7 @@ public sealed class QueryPagerTests
         Assert.Equal(ExitCodes.Success, exit);
         Assert.Single(mcp.Calls);
         Assert.DoesNotContain("\u001b[?1049h", test.Console.StdOut, StringComparison.Ordinal);
-        Assert.Contains("rows 301 to 305 of 600", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("rows 301 to 305 of 600; add --skip 305 or --all for the rest", test.Console.StdOut, StringComparison.Ordinal);
     }
 
     [Fact]
