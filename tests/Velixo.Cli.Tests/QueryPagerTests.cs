@@ -134,6 +134,34 @@ public sealed class QueryPagerTests
     }
 
     [Fact]
+    public async Task A_short_window_of_a_larger_result_prints_as_a_table_without_fetching_more()
+    {
+        using var test = new TestServices(redirected: false);
+        var mcp = Mcp(test, Page(1, 9098, 1));
+
+        var exit = await test.RunAsync("query", "run", "--query", Query(test), "--top", "1", "--intent", "Test the pager");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Single(mcp.Calls);
+        Assert.DoesNotContain("\u001b[?1049h", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("rows 1 to 1 of 9,098; add --skip 1 or --all for the rest", test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_short_window_after_skip_prints_as_a_table_without_fetching_the_rows_before_it()
+    {
+        using var test = new TestServices(redirected: false);
+        var mcp = Mcp(test, Page(5, 600, 301));
+
+        var exit = await test.RunAsync("query", "run", "--query", Query(test), "--skip", "300", "--top", "5", "--intent", "Test the pager");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Single(mcp.Calls);
+        Assert.DoesNotContain("\u001b[?1049h", test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("rows 301 to 305 of 600", test.Console.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_whole_result_taller_than_the_screen_opens_the_viewer()
     {
         using var test = new TestServices(redirected: false);

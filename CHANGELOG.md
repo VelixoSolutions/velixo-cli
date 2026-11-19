@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- At a terminal, `query run` prints a window that fits on the screen as a table, with the footer that names the rest, even when the query matches more rows. It used to open the full-screen viewer for any partial result, so `--top 1` fetched one more row per call to fill the screen, rows the user had not asked for. The viewer now opens only for a window taller than the screen. (RD-15733)
+
 ## [1.1.0] - 2026-11-14
 
 ### Added
