@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- A `query run` table at a terminal asks for links to the records only with `--links`, as JSON and CSV already did. On an Acumatica instance, the Velixo customization looks up each linked row's screen while the query runs, so a table of 250 AR invoices took 9 seconds with links and 0.3 seconds without. Pass `--links` to get the clickable cells back. (RD-15799)
+
 ## [1.1.1] - 2026-11-20
 
 ### Fixed

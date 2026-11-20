@@ -61,7 +61,7 @@ public sealed class GlobalOptions
 
     public Option<bool> Links { get; } = new("--links")
     {
-        Description = "Ask a query for the record each cell opens, in JSON and CSV too. A table at a terminal that shows hyperlinks gets them without it.",
+        Description = "Ask a query for the record each cell opens: hyperlinks in a table at a terminal, a URL column in CSV, recordLinks in JSON.",
         Recursive = true,
     };
 
