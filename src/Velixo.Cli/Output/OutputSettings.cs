@@ -29,8 +29,9 @@ public sealed record OutputSettings
     public bool RecordLinks { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether a query asks the server for the record its cells open: with <c>--links</c>, or
-    /// for a table that can show them as hyperlinks. An agent gets JSON, so it gets links only when it asks.
+    /// Gets a value indicating whether a query asks the server for the record its cells open: only with
+    /// <c>--links</c>, even for a table that could show them as hyperlinks, because on an Acumatica instance with an
+    /// older Velixo customization, links make a page of rows take many times as long.
     /// </summary>
-    public bool WantsRecordLinks => RecordLinks || (Format == OutputFormat.Table && Hyperlinks);
+    public bool WantsRecordLinks => RecordLinks;
 }

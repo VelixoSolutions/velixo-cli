@@ -91,12 +91,24 @@ public sealed class RecordLinksTests
     }
 
     [Fact]
-    public async Task A_table_at_a_terminal_asks_for_links_and_makes_the_cells_clickable()
+    public async Task A_table_at_a_terminal_asks_for_no_links_unless_links_were_asked_for()
     {
         using var test = new TestServices(redirected: false);
         FakeMcpClient mcp = Mcp(test, OrderResult());
 
         var exit = await test.RunAsync("query", "run", "--query", Query(test), "--intent", Intent);
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.False(mcp.Calls[0].Arguments.ContainsKey("includeRecordLinks"));
+    }
+
+    [Fact]
+    public async Task A_table_at_a_terminal_with_links_makes_the_cells_clickable()
+    {
+        using var test = new TestServices(redirected: false);
+        FakeMcpClient mcp = Mcp(test, OrderResult());
+
+        var exit = await test.RunAsync("query", "run", "--query", Query(test), "--intent", Intent, "--links");
 
         Assert.Equal(ExitCodes.Success, exit);
         Assert.True((bool?)mcp.Calls[0].Arguments["includeRecordLinks"]);
