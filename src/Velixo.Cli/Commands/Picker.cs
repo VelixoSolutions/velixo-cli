@@ -27,7 +27,9 @@ internal static class Picker
         var top = 0;
         var drawn = 0;
 
-        screen.Write("\u001b[?25l");
+        // Wrapping off: a row wider than the terminal clips instead of spilling onto a second line,
+        // which would make the cursor-up redraw undercount and leave the title behind.
+        screen.Write("\u001b[?25l\u001b[?7l");
         try
         {
             while (true)
@@ -62,7 +64,7 @@ internal static class Picker
         finally
         {
             Erase(screen, drawn);
-            screen.Write("\u001b[?25h");
+            screen.Write("\u001b[?7h\u001b[?25h");
             screen.Flush();
         }
     }
