@@ -30,7 +30,7 @@ velixo feedback --tool "query run" --category missing-filter --severity worked-a
 
 | Flag | Meaning |
 |---|---|
-| `--tool COMMAND\|TOOL` | The command the problem is about, such as `"query run"`, or a server tool name. `none` when no command does it. The CLI sends a command as the tool it calls. |
+| `--tool COMMAND\|TOOL` | The command the problem is about, such as `"query run"`, or a server tool name. `none` when no command does it. The CLI sends a command as the tool it calls, and drops everything from the first flag on. |
 | `--category CATEGORY` | `missing-capability`, `missing-filter`, `misleading-description`, `wrong-result`, `unclear-error`, `slow` or `other`. |
 | `--severity LEVEL` | `blocked` (you could not do what the user asked), `worked-around` (you got there another way) or `minor`. |
 | `--attempted TEXT` | What the user wanted, and what you tried, in a few sentences. |

@@ -70,7 +70,10 @@ public sealed class FeedbackCommandTests : IDisposable
     [InlineData("notify", "send_notification")]
     [InlineData("execute_import_scenario", "execute_import_scenario")]
     [InlineData("none", "none")]
-    [InlineData("files stage", "files stage")]
+    [InlineData("files stage", "get_upload_url")]
+    [InlineData("Query Run", "execute_query")]
+    [InlineData("velixo query run --inquiry 'ACME Corp open invoices'", "execute_query")]
+    [InlineData("config set", "config set")]
     public void A_command_names_the_tool_it_calls(string value, string expected)
     {
         Assert.Equal(expected, FeedbackCommand.ToToolName(value));
@@ -85,6 +88,17 @@ public sealed class FeedbackCommandTests : IDisposable
         arguments[arguments.IndexOf(option) + 1] = value;
 
         var exit = await _test.RunAsync([.. arguments]);
+
+        Assert.Equal(ExitCodes.Usage, exit);
+        Assert.Empty(_mcp.Calls);
+    }
+
+    [Theory]
+    [InlineData("  ")]
+    [InlineData("--inquiry x")]
+    public async Task A_tool_that_names_no_command_is_exit_2_before_any_call(string tool)
+    {
+        var exit = await _test.RunAsync(Feedback(tool));
 
         Assert.Equal(ExitCodes.Usage, exit);
         Assert.Empty(_mcp.Calls);

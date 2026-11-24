@@ -18,7 +18,7 @@ public sealed partial class GuideCommandTests
         McpToolNames.ListConnections, McpToolNames.ToolGuidance, McpToolNames.PrepareQuery, McpToolNames.ExecuteQuery,
         McpToolNames.CreateWorkbookFromQuery, McpToolNames.PrepareCommands, McpToolNames.ExecuteCommands, McpToolNames.GetStatus,
         McpToolNames.GetUploadUrl, McpToolNames.ListStagedFiles, McpToolNames.ListImportScenarios, McpToolNames.ExecuteImportScenario,
-        McpToolNames.SendNotification, McpToolNames.SignOut,
+        McpToolNames.SendNotification, McpToolNames.SubmitFeedback, McpToolNames.SignOut,
     ];
 
     [Fact]

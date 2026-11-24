@@ -451,7 +451,7 @@ Tool: `submit_feedback`. Reports to Velixo R&D what kept a command from doing wh
 
 | Flag | Meaning |
 |---|---|
-| `--tool COMMAND\|TOOL` | The command the problem is about, such as `"query run"`, sent as the tool it calls (`execute_query`). A tool name or anything else is sent as given; `none` when no command does it. |
+| `--tool COMMAND\|TOOL` | The command the problem is about, such as `"query run"`, sent as the tool it calls (`execute_query`). A leading `velixo` and everything from the first flag on are dropped, so a pasted command line sends no flag values. A tool name or anything else is sent as given, lower-cased; `none` when no command does it. |
 | `--category CATEGORY` | `missing-capability`, `missing-filter`, `misleading-description`, `wrong-result`, `unclear-error`, `slow` or `other`. |
 | `--severity LEVEL` | `blocked`, `worked-around` or `minor`. |
 | `--attempted TEXT` | What the user wanted, and what you tried. |

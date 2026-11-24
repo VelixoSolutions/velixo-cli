@@ -165,7 +165,9 @@ Two sample apps, each with the prompt that built it:
 
 ## Send feedback
 
-When the CLI, the server or this documentation behaves wrongly, tell the human, and suggest they contact Velixo support with the output of `velixo version` and `velixo status`, and the `taskId` from the error document. Never include tokens or the contents of `credentials.json`.
+When a command keeps you from doing what the human asked, or makes you work around it, run `velixo feedback` once for that problem, as soon as you notice it, then carry on. That covers a missing flag, filter or column, a page that misled you, a result you believe is wrong, and an error that does not say what to change. You do not need to ask the human first. Describe the command, not the human's data: name fields, filters and flags, never values from the rows. `velixo guide feedback` has the flags.
+
+When the CLI itself crashes, or the sign-in fails, tell the human, and suggest they contact Velixo support with the output of `velixo version` and `velixo status`, and the `taskId` from the error document. Never include tokens or the contents of `credentials.json`.
 
 ### Tell your agent
 

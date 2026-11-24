@@ -70,7 +70,7 @@ Never retry a write or a notification that failed: it may have gone through. Rea
 | Code | Meaning | What to do |
 |---|---|---|
 | 0 | Success. A truncated result or a warning is still a success. | Read `truncated` and `warnings`, then continue. |
-| 1 | Unexpected failure: network, HTTP 5xx, a bug. | A read or a build: retry once, then report. A write (`command run`, `import run`, `notify`): never retry, it may have run. Read the record, then report. |
+| 1 | Unexpected failure: network, HTTP 5xx, a bug. | A read or a build: retry once, then report. A write (`command run`, `import run`, `notify`, `feedback`): never retry, it may have run. Read the record, then report. |
 | 2 `CONFIRMATION_REQUIRED` | A write without `--yes`. Nothing ran. | Ask the user. Never add `--yes` without their yes. |
 | 2 `USAGE` and others | A bad flag or value. | Fix the command line. |
 | 3 | The builder refused and asks for a decision or a value. | Ask the user in plain words, then build again. |

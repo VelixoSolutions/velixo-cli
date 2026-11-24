@@ -101,25 +101,34 @@ public static class FeedbackCommand
 
     /// <summary>
     /// Returns the server's tool name for <paramref name="value"/>: a command such as <c>query run</c> as the
-    /// tool it calls, anything else (a tool name, <c>none</c>) as given.
+    /// tool it calls, anything else (a tool name, <c>none</c>) as given, lower-cased. A leading <c>velixo</c> and
+    /// everything from the first flag on are dropped, so a command line pasted whole sends no flag values,
+    /// which can be the user's data.
     /// </summary>
     public static string ToToolName(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        var trimmed = value.Trim();
-        if (trimmed.Length == 0)
+        List<string> words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .TakeWhile(word => !word.StartsWith('-'))
+            .Select(word => word.ToLowerInvariant())
+            .ToList();
+        if (words.Count > 0 && words[0] == "velixo")
         {
-            throw CliException.Usage($"--tool is empty. Name the command, such as 'query run', or '{NoTool}' when no command does it.");
+            words.RemoveAt(0);
         }
 
-        var words = string.Join(' ', trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        if (words.StartsWith("velixo ", StringComparison.Ordinal))
+        if (words.Count == 0)
         {
-            words = words["velixo ".Length..];
+            throw CliException.Usage($"--tool names no command. Name the command, such as 'query run', or '{NoTool}' when no command does it.");
         }
 
-        return CommandMap.ToolByCommand.TryGetValue(words, out var mapped) ? mapped : trimmed;
+        if (words.Count >= 2 && CommandMap.ToolByCommand.TryGetValue($"{words[0]} {words[1]}", out var pair))
+        {
+            return pair;
+        }
+
+        return CommandMap.ToolByCommand.TryGetValue(words[0], out var single) ? single : string.Join(' ', words);
     }
 
     private static string Required(string? value, string option) =>
