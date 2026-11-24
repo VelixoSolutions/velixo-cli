@@ -6,7 +6,7 @@ namespace Velixo.Cli.IntegrationTests;
 
 /// <summary>
 /// The commands that read no ERP data: sign-in, connections, the server's tools, notifications, the
-/// configuration, the guide and the version, with the shared flags. The ERP commands are in
+/// feedback to R&amp;D, the configuration, the guide and the version, with the shared flags. The ERP commands are in
 /// <see cref="QueryTests"/>, <see cref="ScreenTests"/>, <see cref="FileAndImportTests"/> and the classes
 /// they name. The one message sent goes to the signed-in user. The tests run one at a time
 /// (<c>xunit.runner.json</c>), because each run of the binary may rotate the refresh token, and two
@@ -202,7 +202,7 @@ public sealed class LiveTests
             McpToolNames.ListConnections, McpToolNames.ToolGuidance, McpToolNames.PrepareQuery, McpToolNames.ExecuteQuery,
             McpToolNames.CreateWorkbookFromQuery, McpToolNames.PrepareCommands, McpToolNames.ExecuteCommands, McpToolNames.GetStatus,
             McpToolNames.GetUploadUrl, McpToolNames.ListImportScenarios, McpToolNames.ExecuteImportScenario,
-            McpToolNames.SendNotification, McpToolNames.SignOut,
+            McpToolNames.SendNotification, McpToolNames.SubmitFeedback, McpToolNames.SignOut,
         ];
         var missing = called.Where(tool => !offered.Contains(tool)).ToList();
         Assert.Empty(missing);
@@ -240,6 +240,22 @@ public sealed class LiveTests
             "--source-name", "velixo-cli-integration-tests")).Expect();
 
         Assert.True((bool?)run.Json!["accepted"], run.ToString());
+    }
+
+    [LiveFact]
+    [Covers("feedback")]
+    [CoversFlags("feedback", "--tool", "--category", "--severity", "--attempted", "--problem", "--proposed-change", "--workaround")]
+    public async Task A_feedback_report_reaches_velixo_rnd()
+    {
+        // One report per run, named as a test so R&D can filter it out; it carries no ERP data.
+        CliRun run = (await LiveCli.RunAsync(
+            "feedback", "--tool", "query run", "--category", "other", "--severity", "minor",
+            "--attempted", "Velixo CLI integration test of velixo feedback. Nothing to do.",
+            "--problem", "None: this report checks that the command reaches submit_feedback.",
+            "--proposed-change", "None: ignore this report.",
+            "--workaround", "None needed.")).Expect();
+
+        Assert.StartsWith("Thank you.", (string?)run.Json!["result"]!["text"], StringComparison.Ordinal);
     }
 
     // Commands that need no sign-in, in a configuration folder of their own
