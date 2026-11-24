@@ -45,6 +45,14 @@ public sealed class GlobalOptions
         Recursive = true,
     };
 
+    public Option<string?> Conversation { get; } = new("--conversation")
+    {
+        Description = "A short title for the chat or job this call belongs to, the same on every call of it. "
+            + "Velixo groups the calls with one title into one conversation in its audit.",
+        HelpName = "title",
+        Recursive = true,
+    };
+
     public Option<string?> Output { get; } = CreateOutputOption();
 
     public Option<bool> Quiet { get; } = new("--quiet", "-q")
@@ -97,7 +105,7 @@ public sealed class GlobalOptions
     };
 
     public IReadOnlyList<Option> All =>
-        [Profile, Environment, Url, Connection, Intent, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
+        [Profile, Environment, Url, Connection, Intent, Conversation, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
 
     /// <summary>Reads the options from a parse, leaving out any value that failed to parse.</summary>
     public CommandLineValues Read(ParseResult parse)
@@ -123,6 +131,7 @@ public sealed class GlobalOptions
             Url = Value(Url),
             Connection = Value(Connection),
             Intent = Value(Intent),
+            Conversation = Value(Conversation),
             Output = Value(Output),
             Quiet = Value(Quiet),
             NoColor = Value(NoColor),

@@ -191,14 +191,19 @@ public sealed class CliServices
 
     private static IMcpClient CreateMcpClient(CliServices services) =>
         new ActivityMcpClient(
-            new StreamableHttpMcpClient(
-                services.Http,
-                services.Settings.McpUrl,
-                services.AccessTokens,
+            new ConversationMcpClient(
+                new StreamableHttpMcpClient(
+                    services.Http,
+                    services.Settings.McpUrl,
+                    services.AccessTokens,
+                    services.Profiles,
+                    services.Settings.ProfileName,
+                    services.Settings.Agent,
+                    CliInfo.Version),
                 services.Profiles,
                 services.Settings.ProfileName,
-                services.Settings.Agent,
-                CliInfo.Version),
+                services.Settings.Conversation,
+                services.Clock),
             services.Output);
 
     private static IAccessTokenProvider CreateAccessTokenProvider(CliServices services) =>

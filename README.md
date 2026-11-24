@@ -182,6 +182,8 @@ velixo [command] --help
 
 Every command that calls a Velixo Intelligence tool sends an intent, a short sentence that says why you make the call. The server records it, so that an administrator can see why each call was made. Give it with `--intent`, or set `VELIXO_INTENT` to give one intent to a whole script. Without either, the CLI sends the command name, for example `Run from the Velixo CLI: velixo query run`. It never sends the values of your arguments there, because they can be customer data.
 
+Give the calls of one chat or job the same `--conversation "<short title>"`, or set `VELIXO_CONVERSATION`, and the server's audit shows them as one conversation under that title. Without it, each call stands alone.
+
 ### Sign in and check the setup
 
 ```sh
@@ -452,6 +454,7 @@ The codes you meet most often:
 | `VELIXO_URL` | The address of the Velixo server to use, as `--url` gives it. |
 | `VELIXO_CONNECTION` | The default ERP connection. |
 | `VELIXO_INTENT` | The intent for every call of a script. |
+| `VELIXO_CONVERSATION` | The conversation title for every call of a script, as `--conversation` gives it. |
 | `VELIXO_TOKEN` | A refresh token for jobs that cannot sign in. |
 | `VELIXO_OUTPUT` | The default output format. |
 | `VELIXO_CONFIG_DIR` | Moves the configuration folder. |
@@ -481,7 +484,7 @@ If you are an AI agent, read this section and follow it.
 1. Run `velixo guide` for the workflow, the rules for writes and the exit codes.
 2. Run `velixo guide <command>` before you use a command for the first time, for example `velixo guide command run`. `velixo guide command` prints every page of the group.
 3. Run `velixo help --all --output json` to read the whole command tree with its flags in one call.
-4. Pass `--intent` with the user's goal on every command that calls a working tool. It is optional and defaults to the command name, but an administrator reads it to see why each call was made.
+4. Pass `--intent` with the user's goal on every command that calls a working tool. It is optional and defaults to the command name, but an administrator reads it to see why each call was made. Pass `--conversation "<a short title for this chat>"` too, the same title on every call of the chat, so the audit shows the chat as one conversation.
 5. Every change to the ERP needs `--yes`. Check it first (`--dry-run`, `--validate-only`), describe the change to the user in business words, and wait for their yes before you add `--yes`. The CLI never assumes consent. `notify` sends at once, with no check: send only what the user asked for.
 6. Read the exit code. On a non-zero code, read `error.code` and `error.nextStep` in the JSON on stdout.
 7. When a command keeps you from doing what the user asked, or makes you work around it, run `velixo feedback` once for that problem, then carry on. Describe the command, not the user's data.

@@ -16,6 +16,9 @@ public sealed record ResolvedSettings
 
     public string? Intent { get; init; }
 
+    /// <summary>Gets the short title of the chat the call belongs to, which the server's audit groups calls by, or null.</summary>
+    public string? Conversation { get; init; }
+
     required public OutputSettings Output { get; init; }
 
     /// <summary>Gets the AI agent the CLI runs under, from its environment variables, or null.</summary>
