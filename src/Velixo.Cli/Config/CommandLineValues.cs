@@ -13,6 +13,8 @@ public sealed record CommandLineValues
 
     public string? Intent { get; init; }
 
+    public string? Conversation { get; init; }
+
     public string? Output { get; init; }
 
     public bool Quiet { get; init; }

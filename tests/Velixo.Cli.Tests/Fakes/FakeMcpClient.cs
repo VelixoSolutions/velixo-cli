@@ -23,6 +23,18 @@ internal sealed class FakeMcpClient : IMcpClient
         return this;
     }
 
+    public FakeMcpClient Then(McpToolResult result)
+    {
+        _results.Enqueue(_ => Task.FromResult(result));
+        return this;
+    }
+
+    public FakeMcpClient ThenThrow(Exception exception)
+    {
+        _results.Enqueue(_ => Task.FromException<McpToolResult>(exception));
+        return this;
+    }
+
     public FakeMcpClient ThenHang()
     {
         _results.Enqueue(async cancellationToken =>

@@ -6,12 +6,17 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
+- `--conversation TITLE` (or `VELIXO_CONVERSATION`) names the chat or job a call belongs to. The server's audit groups the calls with one title into one conversation: the CLI sends the title as `conversationName`, keeps the `conversationKey` the server gives the first call, and sends it back on every later call with that title. `velixo guide` asks agents to pass it on every command. (RD-16013)
 - `feedback` reports to Velixo R&D what kept a command from doing what the user needed, and the change you propose, through the server's `submit_feedback` tool (`--tool`, `--category`, `--severity`, `--attempted`, `--problem`, `--proposed-change`, `--workaround`). `--tool` takes a command such as `"query run"` and sends the tool it calls. `velixo guide` tells an agent to send one report per problem, without asking the user first. (RD-16013)
 
 ### Changed
 
 - A `query run` table at a terminal asks for links to the records only with `--links`, as JSON and CSV already did. On an Acumatica instance, the Velixo customization looks up each linked row's screen while the query runs, so a table of 250 AR invoices took 9 seconds with links and 0.3 seconds without. Pass `--links` to get the clickable cells back. (RD-15799)
 - On Acumatica, with a Velixo customization that opens records when they are clicked, links cover every row of a window instead of its first 1,000, and cost the query no time. A table without a NoteID, such as `Branch` or `SOOrderShipment`, has no links; query FROM the document it belongs to instead. (RD-15799)
+
+### Fixed
+
+- Every call no longer prints a warning that starts with `conversationKey:`. The server adds the key to each call that sends none, for the caller to send back; the CLI now takes it out of the output. (RD-16013)
 
 ## [1.1.1] - 2026-11-20
 

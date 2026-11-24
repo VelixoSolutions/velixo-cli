@@ -24,4 +24,18 @@ public sealed class ProfileState
 
     [JsonPropertyName("pendingLogin")]
     public PendingLogin? PendingLogin { get; set; }
+
+    /// <summary>Gets or sets the conversation key the server minted for each conversation name, by that name.</summary>
+    [JsonPropertyName("conversations")]
+    public Dictionary<string, StoredConversation>? Conversations { get; set; }
+}
+
+/// <summary>The key the server minted for one conversation name, sent back on every later call with that name.</summary>
+public sealed class StoredConversation
+{
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("startedAt")]
+    public DateTimeOffset StartedAt { get; set; }
 }

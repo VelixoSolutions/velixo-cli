@@ -245,17 +245,23 @@ public sealed class LiveTests
     [LiveFact]
     [Covers("feedback")]
     [CoversFlags("feedback", "--tool", "--category", "--severity", "--attempted", "--problem", "--proposed-change", "--workaround")]
-    public async Task A_feedback_report_reaches_velixo_rnd()
+    [CoversFlags(CoversFlagsAttribute.Shared, "--conversation")]
+    public async Task A_feedback_report_reaches_velixo_rnd_in_a_conversation_whose_key_prints_nowhere()
     {
+        // A call that names the conversation first, so the report then sends back the key the server gave it.
+        const string conversation = "Velixo CLI integration tests";
+        (await LiveCli.RunAsync("connections", "list", "--conversation", conversation)).Expect();
+
         // One report per run, named as a test so R&D can filter it out; it carries no ERP data.
         CliRun run = (await LiveCli.RunAsync(
-            "feedback", "--tool", "query run", "--category", "other", "--severity", "minor",
+            "feedback", "--conversation", conversation, "--tool", "query run", "--category", "other", "--severity", "minor",
             "--attempted", "Velixo CLI integration test of velixo feedback. Nothing to do.",
             "--problem", "None: this report checks that the command reaches submit_feedback.",
             "--proposed-change", "None: ignore this report.",
             "--workaround", "None needed.")).Expect();
 
         Assert.StartsWith("Thank you.", (string?)run.Json!["result"]!["text"], StringComparison.Ordinal);
+        Assert.DoesNotContain("conversationKey", run.StdOut + run.StdErr, StringComparison.Ordinal);
     }
 
     // Commands that need no sign-in, in a configuration folder of their own

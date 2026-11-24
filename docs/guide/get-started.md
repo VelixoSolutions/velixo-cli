@@ -45,6 +45,7 @@ Break one of these and the failure is usually silent: a plausible wrong figure, 
 ## Rules for every command
 
 - Pass `--intent "<the user's goal>"` on every command that works in the ERP. It is optional: without it the CLI sends the command name, such as `Run from the Velixo CLI: velixo query run`. Pass the goal anyway, because an administrator reads it to see why each call was made. `VELIXO_INTENT` sets it once for a script.
+- Pass `--conversation "<a short title for this chat>"` on every command, such as `--conversation "Overdue invoices before month-end"`. Keep the same title on every call of the chat, even when the topic shifts, and pick a new one for a new chat. The audit shows the calls with one title as one conversation. `VELIXO_CONVERSATION` sets it once for a script.
 - stdout holds the result: one JSON document when stdout is not a terminal or an agent is detected, a table otherwise. stderr holds progress and warnings. Parse stdout only.
 - On failure, JSON mode prints `{ "error": { "code", "exitCode", "message", "taskId", "detail", "nextStep" } }`. `message` is the server's text, `detail` the ERP's own message when there is one, and `nextStep` the recovery. Read them all.
 - `--compact` prints JSON on one line and `--quiet` silences progress on stderr: both save context. Warnings still print on stderr with `--quiet`, and you must read them: a `--param` label that matches nothing is only a warning.

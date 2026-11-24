@@ -35,6 +35,10 @@ public sealed class CliException : Exception
     /// <summary>Gets the failure detail a task or the ERP reported, beside the message.</summary>
     public string? Detail { get; init; }
 
+    /// <summary>Returns a copy with <paramref name="message"/> in place of this one's, and everything else kept.</summary>
+    public CliException WithMessage(string message) =>
+        new(ExitCode, Code, message, NextStep, this) { TaskId = TaskId, Detail = Detail };
+
     public static CliException Usage(string message, string? nextStep = null) =>
         new(ExitCodes.Usage, ErrorCodes.Usage, message, nextStep);
 
