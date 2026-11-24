@@ -51,6 +51,7 @@ public static class WelcomeScreen
         ]),
         ("Miscellaneous", [
             ("notify", "Send a notification to the portal, email, Teams or Slack"),
+            ("feedback", "Tell Velixo R&D what a command lacked or got wrong"),
         ]),
         ("Setup and reference", [
             ("guide", "How to use the commands"),

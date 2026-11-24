@@ -19,6 +19,7 @@ public static class McpToolNames
     public const string ListImportScenarios = "list_import_scenarios";
     public const string ExecuteImportScenario = "execute_import_scenario";
     public const string SendNotification = "send_notification";
+    public const string SubmitFeedback = "submit_feedback";
     public const string SignOut = "sign_out";
 
     /// <summary>The argument that carries the caller's reason for a call.</summary>

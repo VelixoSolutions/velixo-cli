@@ -443,6 +443,24 @@ Tool: `send_notification`.
 
 Prints the server's answer: `{ accepted, reachedNobody, recipients: [{ name, channels }], note }`. When `reachedNobody` is true, the notification is recorded but nothing pushed it to anyone, and the CLI prints a warning on stderr. Do not report the recipient as notified.
 
+## Feedback
+
+### `velixo feedback --tool COMMAND|TOOL --category CATEGORY --severity LEVEL --attempted TEXT --problem TEXT --proposed-change TEXT [--workaround TEXT]`
+
+Tool: `submit_feedback`. Reports to Velixo R&D what kept a command from doing what the user needed, and the change you propose.
+
+| Flag | Meaning |
+|---|---|
+| `--tool COMMAND\|TOOL` | The command the problem is about, such as `"query run"`, sent as the tool it calls (`execute_query`). A tool name or anything else is sent as given; `none` when no command does it. |
+| `--category CATEGORY` | `missing-capability`, `missing-filter`, `misleading-description`, `wrong-result`, `unclear-error`, `slow` or `other`. |
+| `--severity LEVEL` | `blocked`, `worked-around` or `minor`. |
+| `--attempted TEXT` | What the user wanted, and what you tried. |
+| `--problem TEXT` | What the command did or lacked, with the error text. |
+| `--proposed-change TEXT` | The flag, filter or wording to add or change, and what you would then have run. |
+| `--workaround TEXT` | How you got the answer anyway. Optional. |
+
+Each text holds at most 4,096 characters; the server refuses a longer one with exit 5. Prints `{ "result": { "text" } }`, the server's thanks with the report's ID. Send each report once.
+
 ## Discovery
 
 | Command | Meaning |

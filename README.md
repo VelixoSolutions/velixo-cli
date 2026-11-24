@@ -371,6 +371,7 @@ An employee texts a photo of a receipt, by SMS or in a Telegram bot. The app fin
 | Files | `files stage`, `files download` |
 | Import scenarios (Acumatica) | `import scenarios`, `import run` |
 | Notifications | `notify` |
+| Feedback to Velixo R&D | `feedback` |
 | Discovery | `tools list`, `tools guidance`, `help --all` |
 | Configuration | `config get`, `config set`, `config list`, `config path`, `version` |
 
@@ -483,6 +484,7 @@ If you are an AI agent, read this section and follow it.
 4. Pass `--intent` with the user's goal on every command that calls a working tool. It is optional and defaults to the command name, but an administrator reads it to see why each call was made.
 5. Every change to the ERP needs `--yes`. Check it first (`--dry-run`, `--validate-only`), describe the change to the user in business words, and wait for their yes before you add `--yes`. The CLI never assumes consent. `notify` sends at once, with no check: send only what the user asked for.
 6. Read the exit code. On a non-zero code, read `error.code` and `error.nextStep` in the JSON on stdout.
+7. When a command keeps you from doing what the user asked, or makes you work around it, run `velixo feedback` once for that problem, then carry on. Describe the command, not the user's data.
 
 When the CLI detects an agent (`CLAUDECODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `GEMINI_CLI`, `CLINE_ACTIVE`, `OPENCODE`, `KIRO_SESSION_ID` or `AI_AGENT`), it turns on non-interactive mode: it never prompts and never opens a browser.
 

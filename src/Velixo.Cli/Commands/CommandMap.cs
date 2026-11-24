@@ -20,6 +20,7 @@ public static class CommandMap
         ["import scenarios"] = McpToolNames.ListImportScenarios,
         ["import run"] = McpToolNames.ExecuteImportScenario,
         ["notify"] = McpToolNames.SendNotification,
+        ["feedback"] = McpToolNames.SubmitFeedback,
         ["logout"] = McpToolNames.SignOut,
     };
 

@@ -50,6 +50,7 @@ public static class Program
             FilesCommands.Build(services),
             ImportCommands.Build(services),
             NotifyCommand.Build(services),
+            FeedbackCommand.Build(services),
             ToolsCommands.Build(services),
             HelpCommand.Build(services),
             ConfigCommands.Build(services),

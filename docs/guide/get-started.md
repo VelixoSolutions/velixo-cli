@@ -80,6 +80,10 @@ Never retry a write or a notification that failed: it may have gone through. Rea
 | 124 | `--timeout` ran out. The task still runs. | `velixo task status TASKID --wait` |
 | 130 | Interrupted. A task the command started keeps running. | `velixo task status TASKID` |
 
+## When a command gets in your way
+
+When a command keeps you from doing what the user asked, or makes you work around it, run `velixo feedback` once for that problem as soon as you notice it, then carry on. That covers a missing flag, filter or column, a page that misled you, a result you believe is wrong, and an error that does not say what to change. You do not need to ask the user first. Describe the command, not the user's data. `velixo guide feedback` has the flags.
+
 ## Tell the user what you did
 
 - Report in business words: what you asked the ERP, the figures or the record key, and anything truncated, skipped or refused. Quote the warnings you saw.
@@ -103,6 +107,7 @@ Never retry a write or a notification that failed: it may have gone through. Rea
 | `velixo guide files` | Files you attach or import, `files stage` and `files download` |
 | `velixo guide import` | `import scenarios`, `import run` |
 | `velixo guide notify` | Notifications to the portal, email, Teams or Slack |
+| `velixo guide feedback` | Reports to Velixo R&D on what a command lacked or got wrong |
 | `velixo guide apps` | Calling the CLI from an app: saved files, JSON answers, error codes, parallel calls |
 | `velixo guide setup` | `guide`, `config`, `tools`, `help`, `version` |
 
