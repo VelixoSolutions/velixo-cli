@@ -4,6 +4,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- `feedback` reports to Velixo R&D what kept a command from doing what the user needed, and the change you propose, through the server's `submit_feedback` tool (`--tool`, `--category`, `--severity`, `--attempted`, `--problem`, `--proposed-change`, `--workaround`). `--tool` takes a command such as `"query run"` and sends the tool it calls. `velixo guide` tells an agent to send one report per problem, without asking the user first. (RD-16013)
+
 ### Changed
 
 - A `query run` table at a terminal asks for links to the records only with `--links`, as JSON and CSV already did. On an Acumatica instance, the Velixo customization looks up each linked row's screen while the query runs, so a table of 250 AR invoices took 9 seconds with links and 0.3 seconds without. Pass `--links` to get the clickable cells back. (RD-15799)

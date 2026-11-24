@@ -17,9 +17,11 @@ public static class CommandMap
         ["command build"] = McpToolNames.PrepareCommands,
         ["command run"] = McpToolNames.ExecuteCommands,
         ["task status"] = McpToolNames.GetStatus,
+        ["files stage"] = McpToolNames.GetUploadUrl,
         ["import scenarios"] = McpToolNames.ListImportScenarios,
         ["import run"] = McpToolNames.ExecuteImportScenario,
         ["notify"] = McpToolNames.SendNotification,
+        ["feedback"] = McpToolNames.SubmitFeedback,
         ["logout"] = McpToolNames.SignOut,
     };
 
