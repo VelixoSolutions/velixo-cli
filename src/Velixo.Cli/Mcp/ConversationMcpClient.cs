@@ -18,7 +18,7 @@ public sealed class ConversationMcpClient(
     TimeProvider clock) : IMcpClient
 {
     /// <summary>How many conversations a profile keeps a key for; the least recently used go first.</summary>
-    public const int MaxStoredConversations = 20;
+    public const int MaxStoredConversations = 500;
 
     /// <summary>How stale a key's last use may be before sending it writes the state again.</summary>
     public static readonly TimeSpan UseRefresh = TimeSpan.FromHours(1);
