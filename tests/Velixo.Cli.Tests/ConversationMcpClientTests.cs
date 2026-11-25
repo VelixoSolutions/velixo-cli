@@ -10,6 +10,7 @@ namespace Velixo.Cli.Tests;
 public sealed class ConversationMcpClientTests : IDisposable
 {
     private const string Profile = "prod";
+    private static readonly Uri Prod = new("https://ai.velixo.com/mcp");
     private const string KeyBlock = "conversationKey: ck_abc.def\nSend this `conversationKey` on every later call in this chat.";
 
     private readonly TestServices _test = new();
@@ -90,6 +91,7 @@ public sealed class ConversationMcpClientTests : IDisposable
     [Theory]
     [InlineData(KeyBlock, true)]
     [InlineData("conversationKey: ck_1", true)]
+    [InlineData("conversationKey: ck_1\nSend this key back on every later call.\n\nThanks.", true)]
     [InlineData("A warning that names conversationKey: ck_1 in passing.", false)]
     [InlineData("{\"conversationKey\":\"ck_1\"}", false)]
     public void Only_a_whole_key_block_reads_as_a_key(string text, bool isKey)
@@ -101,7 +103,7 @@ public sealed class ConversationMcpClientTests : IDisposable
     public async Task A_command_in_a_conversation_prints_no_key_warning()
     {
         _test.Services.McpClientFactory = services =>
-            new ConversationMcpClient(_inner, services.Profiles, services.Settings.ProfileName, services.Settings.Conversation, TimeProvider.System);
+            new ConversationMcpClient(_inner, services.Profiles, services.Settings.ProfileName, services.Settings.McpUrl, services.Settings.Conversation, TimeProvider.System);
         _inner.Then(McpResult("Thank you. Velixo R&D received the report (1). Do not submit it again.", KeyBlock));
 
         var exit = await _test.RunAsync(
@@ -113,8 +115,86 @@ public sealed class ConversationMcpClientTests : IDisposable
         Assert.DoesNotContain("conversationKey", _test.Console.StdErr + _test.Console.StdOut, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_key_that_cannot_be_saved_never_fails_the_call()
+    {
+        _inner.Then(McpResult("written", KeyBlock));
+        var client = new ConversationMcpClient(_inner, new LockedStore(_test.Services.Profiles), Profile, Prod, "Month-end", TimeProvider.System);
+
+        McpToolResult result = await client.CallToolAsync("execute_commands", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["written"], result.Texts);
+    }
+
+    [Fact]
+    public async Task The_key_of_a_failed_first_call_is_kept_for_the_next()
+    {
+        _inner.ThenThrow(new CliException(ExitCodes.Failure, ErrorCodes.Protocol, "Server error -32603: boom\n" + KeyBlock)).Then(McpResult("ok"));
+        ConversationMcpClient client = Client("Month-end");
+
+        await Assert.ThrowsAsync<CliException>(() => client.CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
+        await client.CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal("ck_abc.def", (string?)_inner.Calls[1].Arguments[ConversationKey.KeyArgument]);
+    }
+
+    [Fact]
+    public async Task A_key_is_never_sent_to_another_server()
+    {
+        _inner.Then(McpResult("a", KeyBlock)).Then(McpResult("b"));
+
+        await Client("Month-end").CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+        await new ConversationMcpClient(_inner, _test.Services.Profiles, Profile, new Uri("https://nx-dev.velixo.com/mcp"), "Month-end", TimeProvider.System)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.False(_inner.Calls[1].Arguments.ContainsKey(ConversationKey.KeyArgument));
+    }
+
+    [Fact]
+    public async Task A_conversation_in_use_outlives_newer_ones()
+    {
+        var clock = new ManualClock(DateTimeOffset.UnixEpoch);
+        _inner.Then(McpResult("ok", "conversationKey: ck_long"));
+        await Client("Nightly AR sync", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
+
+        for (var index = 0; index < ConversationMcpClient.MaxStoredConversations; index++)
+        {
+            clock.Advance(ConversationMcpClient.UseRefresh);
+            _inner.Then(McpResult("ok")).Then(McpResult("ok", $"conversationKey: ck_{index}"));
+            await Client("Nightly AR sync", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
+            await Client($"chat {index}", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal("ck_long", _test.Services.Profiles.LoadState(Profile).Conversations!["Nightly AR sync"].Key);
+    }
+
     private ConversationMcpClient Client(string? conversation, TimeProvider? clock = null) =>
-        new(_inner, _test.Services.Profiles, Profile, conversation, clock ?? TimeProvider.System);
+        new(_inner, _test.Services.Profiles, Profile, Prod, conversation, clock ?? TimeProvider.System);
+
+    /// <summary>A store whose state file is locked by another process: every write fails as <c>FileLock</c> fails it.</summary>
+    private sealed class LockedStore(IProfileStore inner) : IProfileStore
+    {
+        public ConfigPaths Paths => inner.Paths;
+
+        public CliConfig LoadConfig() => inner.LoadConfig();
+
+        public CliConfig UpdateConfig(Action<CliConfig> change) => inner.UpdateConfig(change);
+
+        public ProfileState LoadState(string profile) => inner.LoadState(profile);
+
+        public void UpdateState(string profile, Action<ProfileState> change) =>
+            throw new CliException(ExitCodes.Failure, "FILE_LOCKED", "Another velixo process holds the state file.");
+
+        public void DeleteState(string profile) => inner.DeleteState(profile);
+
+        public StagedFilesFile LoadStagedFiles(string profile) => inner.LoadStagedFiles(profile);
+
+        public void UpdateStagedFiles(string profile, Action<StagedFilesFile> change) => inner.UpdateStagedFiles(profile, change);
+
+        public LibraryFile LoadLibrary(string profile) => inner.LoadLibrary(profile);
+
+        public T UpdateLibrary<T>(string profile, Func<LibraryFile, T> change) => inner.UpdateLibrary(profile, change);
+    }
 
     private static McpToolResult McpResult(params string[] texts) => McpToolResult.From(new JsonObject
     {

@@ -36,6 +36,11 @@ public sealed class StoredConversation
     [JsonPropertyName("key")]
     public string Key { get; set; } = string.Empty;
 
-    [JsonPropertyName("startedAt")]
-    public DateTimeOffset StartedAt { get; set; }
+    /// <summary>Gets or sets the server endpoint that minted the key; the key is never sent to another.</summary>
+    [JsonPropertyName("mcpUrl")]
+    public string? McpUrl { get; set; }
+
+    /// <summary>Gets or sets when the key was last sent or minted, refreshed at most hourly; the least recent is pruned first.</summary>
+    [JsonPropertyName("usedAt")]
+    public DateTimeOffset UsedAt { get; set; }
 }

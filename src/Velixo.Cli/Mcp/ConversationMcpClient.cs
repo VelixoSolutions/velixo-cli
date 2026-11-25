@@ -13,11 +13,15 @@ public sealed class ConversationMcpClient(
     IMcpClient inner,
     IProfileStore profiles,
     string profile,
+    Uri mcpUrl,
     string? conversation,
     TimeProvider clock) : IMcpClient
 {
-    /// <summary>How many conversations a profile keeps a key for; the least recently started go first.</summary>
+    /// <summary>How many conversations a profile keeps a key for; the least recently used go first.</summary>
     public const int MaxStoredConversations = 20;
+
+    /// <summary>How stale a key's last use may be before sending it writes the state again.</summary>
+    public static readonly TimeSpan UseRefresh = TimeSpan.FromHours(1);
 
     public string? SessionId => inner.SessionId;
 
@@ -35,9 +39,13 @@ public sealed class ConversationMcpClient(
         {
             sent = (JsonObject)arguments.DeepClone();
             sent[ConversationKey.NameArgument] = named;
-            if (StoredKey(named) is { } key)
+            if (StoredKey(named) is { } stored)
             {
-                sent[ConversationKey.KeyArgument] = key;
+                sent[ConversationKey.KeyArgument] = stored.Key;
+                if (clock.GetUtcNow() - stored.UsedAt >= UseRefresh)
+                {
+                    Store(named, stored.Key);
+                }
             }
         }
 
@@ -46,9 +54,14 @@ public sealed class ConversationMcpClient(
         {
             result = await inner.CallToolAsync(name, sent, cancellationToken).ConfigureAwait(false);
         }
-        catch (Output.CliException exception) when (exception.Message.Contains(ConversationKey.KeyArgument, StringComparison.Ordinal))
+        catch (Output.CliException exception) when (ConversationKey.StripFrom(exception.Message) is { Key: { } errorKey } withoutKey)
         {
-            throw exception.WithMessage(ConversationKey.StripFrom(exception.Message));
+            if (named is not null)
+            {
+                Store(named, errorKey);
+            }
+
+            throw exception.WithMessage(withoutKey.Message);
         }
 
         (McpToolResult stripped, string? minted) = Strip(result);
@@ -91,11 +104,13 @@ public sealed class ConversationMcpClient(
         }, key);
     }
 
-    private string? StoredKey(string named)
+    private StoredConversation? StoredKey(string named)
     {
         ProfileState state = profiles.LoadState(profile);
-        return state.Conversations is { } conversations && conversations.TryGetValue(named, out StoredConversation? stored)
-            ? stored.Key
+        return state.Conversations is { } conversations
+            && conversations.TryGetValue(named, out StoredConversation? stored)
+            && stored.McpUrl == mcpUrl.ToString()
+            ? stored
             : null;
     }
 
@@ -106,9 +121,9 @@ public sealed class ConversationMcpClient(
             profiles.UpdateState(profile, state =>
             {
                 Dictionary<string, StoredConversation> conversations = state.Conversations ??= new(StringComparer.Ordinal);
-                conversations[named] = new StoredConversation { Key = key, StartedAt = clock.GetUtcNow() };
+                conversations[named] = new StoredConversation { Key = key, McpUrl = mcpUrl.ToString(), UsedAt = clock.GetUtcNow() };
                 foreach (var oldest in conversations
-                    .OrderByDescending(pair => pair.Value.StartedAt)
+                    .OrderByDescending(pair => pair.Value.UsedAt)
                     .Skip(MaxStoredConversations)
                     .Select(pair => pair.Key)
                     .ToList())
@@ -117,12 +132,10 @@ public sealed class ConversationMcpClient(
                 }
             });
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // Losing the key costs the audit one link between two calls, never the call itself.
-        }
-        catch (UnauthorizedAccessException)
-        {
+            // Losing the key costs the audit one link between two calls, never the call itself: a call that wrote
+            // to the ERP must not end in an error that invites a retry. A locked or read-only state file lands here.
         }
     }
 }

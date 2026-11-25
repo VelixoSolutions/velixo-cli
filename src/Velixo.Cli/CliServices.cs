@@ -202,6 +202,7 @@ public sealed class CliServices
                     CliInfo.Version),
                 services.Profiles,
                 services.Settings.ProfileName,
+                services.Settings.McpUrl,
                 services.Settings.Conversation,
                 services.Clock),
             services.Output);

@@ -25,17 +25,25 @@ public static partial class ConversationKey
         return match.Success;
     }
 
-    /// <summary>Returns <paramref name="message"/> without the key lines the server adds to an error message.</summary>
-    public static string StripFrom(string message)
+    /// <summary>
+    /// Returns <paramref name="message"/> without the key the server adds to the end of an error message, and the
+    /// key, or null when it carries none.
+    /// </summary>
+    public static (string Message, string? Key) StripFrom(string message)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        return Lines().Replace(message, string.Empty).TrimEnd();
+        Match match = Tail().Match(message);
+        return match.Success
+            ? (message[..match.Index].TrimEnd(), match.Groups["key"].Value)
+            : (message, null);
     }
 
-    [GeneratedRegex(@"\A\s*conversationKey:[ \t]*(?<key>\S+)[ \t]*(\r?\n[^\r\n]*conversationKey[^\r\n]*)?\s*\z")]
+    // A block is the server's whenever its first line is the key, whatever the instruction after it says.
+    [GeneratedRegex(@"\A\s*conversationKey:[ \t]*(?<key>\S+)[ \t]*(\r?\n|\z)")]
     private static partial Regex Block();
 
-    [GeneratedRegex(@"(\r?\n)?^conversationKey:[ \t]*\S+[ \t]*(\r?\n[^\r\n]*conversationKey[^\r\n]*)?", RegexOptions.Multiline)]
-    private static partial Regex Lines();
+    // The server appends the key to an error message as its last lines.
+    [GeneratedRegex(@"(\r?\n|\A)conversationKey:[ \t]*(?<key>\S+)[^\r\n]*(\r?\n[\s\S]*)?\z")]
+    private static partial Regex Tail();
 }
