@@ -51,15 +51,48 @@ public sealed class ConversationMcpClientTests : IDisposable
         Assert.Equal("retry", thrown.NextStep);
     }
 
-    [Theory]
-    [InlineData(KeyBlock, true)]
-    [InlineData("conversationKey: ck_1", true)]
-    [InlineData("conversationKey: ck_1\nSend this key back on every later call.\n\nThanks.", true)]
-    [InlineData("A warning that names conversationKey: ck_1 in passing.", false)]
-    [InlineData("{\"conversationKey\":\"ck_1\"}", false)]
-    public void Only_a_block_that_opens_with_the_key_reads_as_one(string text, bool isKey)
+    [Fact]
+    public async Task An_error_result_with_the_key_in_its_text_keeps_the_error_alone()
     {
-        Assert.Equal(isKey, ConversationKey.TryRead(text, out _));
+        _inner.Then(McpToolResult.FromText("Several ERP connections are usable.\n" + KeyBlock, isError: true));
+
+        McpToolResult result = await new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsError);
+        Assert.Equal(["Several ERP connections are usable."], result.Texts);
+    }
+
+    [Fact]
+    public async Task What_follows_the_key_in_the_same_block_is_kept()
+    {
+        _inner.Then(McpResult(KeyBlock + "\n\nYou have 3 credits left."));
+
+        McpToolResult result = await new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["You have 3 credits left."], result.Texts);
+    }
+
+    [Fact]
+    public async Task An_error_that_was_only_the_key_still_says_something()
+    {
+        _inner.ThenThrow(new CliException(ExitCodes.Usage, ErrorCodes.Usage, KeyBlock));
+
+        CliException thrown = await Assert.ThrowsAsync<CliException>(
+            () => new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
+
+        Assert.Equal(ConversationMcpClient.EmptyErrorMessage, thrown.Message);
+    }
+
+    [Theory]
+    [InlineData(KeyBlock, "")]
+    [InlineData("conversationKey: ck_1", "")]
+    [InlineData("conversationKey: ck_1 (send it back on every call)", "")]
+    [InlineData("conversationKey: ck_1\nSend this key back on every later call.", "Send this key back on every later call.")]
+    [InlineData("A warning that names conversationKey: ck_1 in passing.", "A warning that names conversationKey: ck_1 in passing.")]
+    [InlineData("{\"conversationKey\":\"ck_1\"}", "{\"conversationKey\":\"ck_1\"}")]
+    public void Only_a_line_that_opens_with_the_key_is_removed(string text, string expected)
+    {
+        Assert.Equal(expected, ConversationKey.Strip(text).Text);
     }
 
     [Fact]
