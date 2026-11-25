@@ -201,6 +201,9 @@ public sealed class OutputWriter(ICliConsole console, OutputSettings settings, T
         }
     }
 
+    /// <summary>Writes a note to stderr, even with <c>--quiet</c>: something the caller must act on that is not a warning.</summary>
+    public void Note(string message) => WriteError(message);
+
     /// <summary>Writes a warning to stderr, even with <c>--quiet</c>: a warning, such as a parameter that matched nothing, is never noise.</summary>
     public void Warn(string message) =>
         WriteError(Settings.UseColor ? $"{Yellow}warning:{Reset} {message}" : $"warning: {message}");

@@ -200,11 +200,10 @@ public sealed class CliServices
                     services.Settings.ProfileName,
                     services.Settings.Agent,
                     CliInfo.Version),
-                services.Profiles,
-                services.Settings.ProfileName,
-                services.Settings.McpUrl,
-                services.Settings.Conversation,
-                services.Clock),
+                services.Settings.ConversationName,
+                services.Settings.ConversationKey,
+                key => services.Output.Note(
+                    $"Conversation key: {key}. Pass --conversation-key {key} on every later call of this conversation.")),
             services.Output);
 
     private static IAccessTokenProvider CreateAccessTokenProvider(CliServices services) =>

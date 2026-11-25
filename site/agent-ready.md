@@ -153,7 +153,7 @@ Two sample apps, each with the prompt that built it:
 ## Always
 
 - Pass `--intent "<the human's goal>"` on every command that works in the ERP. An administrator reads it to see why each call was made. `VELIXO_INTENT` sets it once for a script.
-- Pass `--conversation "<a short title for this chat>"` on every command, the same title for the whole chat. The audit shows the calls with one title as one conversation.
+- On the first command of a chat, pass `--conversation-name "<a short title for this chat>"`. It prints a conversation key on stderr: pass it with `--conversation-key`, and the same name, on every later command of the chat. The audit then shows the chat as one conversation.
 - Never invent a customer, vendor, record key or connection. Ask.
 - Report in business words: the figures, the record key the ERP assigned, and anything truncated, skipped or refused. Never report a write as done until the output shows its key.
 

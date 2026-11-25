@@ -1,16 +1,12 @@
 using System.Text.Json.Nodes;
-using Velixo.Cli.Config;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
 using Velixo.Cli.Tests.Fakes;
-using Velixo.Cli.Tests.Screen;
 
 namespace Velixo.Cli.Tests;
 
 public sealed class ConversationMcpClientTests : IDisposable
 {
-    private const string Profile = "prod";
-    private static readonly Uri Prod = new("https://ai.velixo.com/mcp");
     private const string KeyBlock = "conversationKey: ck_abc.def\nSend this `conversationKey` on every later call in this chat.";
 
     private readonly TestServices _test = new();
@@ -19,61 +15,27 @@ public sealed class ConversationMcpClientTests : IDisposable
     public void Dispose() => _test.Dispose();
 
     [Fact]
-    public async Task Without_a_conversation_it_sends_neither_argument_and_drops_the_key_block()
+    public async Task The_key_block_leaves_the_result_and_the_arguments_go_through_unchanged()
     {
         _inner.Then(McpResult("""{"ok":true}""", KeyBlock));
 
-        McpToolResult result = await Client(conversation: null).CallToolAsync("list_connections", new JsonObject { ["intent"] = "x" }, TestContext.Current.CancellationToken);
+        McpToolResult result = await new ConversationMcpClient(_inner)
+            .CallToolAsync("list_connections", new JsonObject { ["intent"] = "x" }, TestContext.Current.CancellationToken);
 
         Assert.Equal(["intent"], _inner.Calls[0].Arguments.Select(argument => argument.Key));
         Assert.Equal(["""{"ok":true}"""], result.Texts);
         Assert.Single(result.Content);
-        Assert.Null(_test.Services.Profiles.LoadState(Profile).Conversations);
     }
 
     [Fact]
-    public async Task A_conversation_sends_its_name_then_the_key_the_server_minted_for_it()
+    public async Task A_result_without_a_key_is_returned_as_it_came()
     {
-        _inner.Then(McpResult("first", KeyBlock)).Then(McpResult("second"));
-        ConversationMcpClient client = Client("Overdue invoices");
-        var arguments = new JsonObject { ["intent"] = "x" };
+        McpToolResult sent = McpResult("data", "A real warning.");
+        _inner.Then(sent);
 
-        McpToolResult first = await client.CallToolAsync("execute_query", arguments, TestContext.Current.CancellationToken);
-        McpToolResult second = await client.CallToolAsync("execute_query", arguments, TestContext.Current.CancellationToken);
+        McpToolResult result = await new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
 
-        Assert.Equal("Overdue invoices", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
-        Assert.False(_inner.Calls[0].Arguments.ContainsKey(ConversationKey.KeyArgument));
-        Assert.Equal("ck_abc.def", (string?)_inner.Calls[1].Arguments[ConversationKey.KeyArgument]);
-        Assert.Equal("Overdue invoices", (string?)_inner.Calls[1].Arguments[ConversationKey.NameArgument]);
-        Assert.Equal(["first"], first.Texts);
-        Assert.Equal(["second"], second.Texts);
-        Assert.Equal(["intent"], arguments.Select(argument => argument.Key));
-    }
-
-    [Fact]
-    public async Task Another_conversation_gets_its_own_key()
-    {
-        _inner.Then(McpResult("a", KeyBlock)).Then(McpResult("b"));
-
-        await Client("Month-end close").CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
-        await Client("Vendor cleanup").CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
-
-        Assert.False(_inner.Calls[1].Arguments.ContainsKey(ConversationKey.KeyArgument));
-    }
-
-    [Fact]
-    public async Task A_profile_keeps_the_keys_of_its_latest_conversations_only()
-    {
-        for (var index = 0; index <= ConversationMcpClient.MaxStoredConversations; index++)
-        {
-            _inner.Then(McpResult("ok", $"conversationKey: ck_{index}\nSend this `conversationKey` on every later call in this chat."));
-            await Client($"chat {index}", new ManualClock(DateTimeOffset.UnixEpoch.AddMinutes(index))).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
-        }
-
-        Dictionary<string, StoredConversation> stored = _test.Services.Profiles.LoadState(Profile).Conversations!;
-        Assert.Equal(ConversationMcpClient.MaxStoredConversations, stored.Count);
-        Assert.DoesNotContain("chat 0", stored.Keys);
-        Assert.Equal($"ck_{ConversationMcpClient.MaxStoredConversations}", stored[$"chat {ConversationMcpClient.MaxStoredConversations}"].Key);
+        Assert.Same(sent, result);
     }
 
     [Fact]
@@ -81,119 +43,158 @@ public sealed class ConversationMcpClientTests : IDisposable
     {
         _inner.ThenThrow(new CliException(ExitCodes.Failure, ErrorCodes.Protocol, "Server error -32603: boom\n" + KeyBlock, "retry"));
 
-        CliException thrown = await Assert.ThrowsAsync<CliException>(() => Client("x").CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
+        CliException thrown = await Assert.ThrowsAsync<CliException>(
+            () => new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
 
         Assert.Equal("Server error -32603: boom", thrown.Message);
         Assert.Equal(ExitCodes.Failure, thrown.ExitCode);
         Assert.Equal("retry", thrown.NextStep);
     }
 
-    [Theory]
-    [InlineData(KeyBlock, true)]
-    [InlineData("conversationKey: ck_1", true)]
-    [InlineData("conversationKey: ck_1\nSend this key back on every later call.\n\nThanks.", true)]
-    [InlineData("A warning that names conversationKey: ck_1 in passing.", false)]
-    [InlineData("{\"conversationKey\":\"ck_1\"}", false)]
-    public void Only_a_whole_key_block_reads_as_a_key(string text, bool isKey)
+    [Fact]
+    public async Task An_error_result_with_the_key_in_its_text_keeps_the_error_alone()
     {
-        Assert.Equal(isKey, ConversationKey.TryRead(text, out _));
+        _inner.Then(McpToolResult.FromText("Several ERP connections are usable.\n" + KeyBlock, isError: true));
+
+        McpToolResult result = await new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsError);
+        Assert.Equal(["Several ERP connections are usable."], result.Texts);
     }
 
     [Fact]
-    public async Task A_command_in_a_conversation_prints_no_key_warning()
+    public async Task What_follows_the_key_in_the_same_block_is_kept()
     {
-        _test.Services.McpClientFactory = services =>
-            new ConversationMcpClient(_inner, services.Profiles, services.Settings.ProfileName, services.Settings.McpUrl, services.Settings.Conversation, TimeProvider.System);
+        _inner.Then(McpResult(KeyBlock + "\n\nYou have 3 credits left."));
+
+        McpToolResult result = await new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["You have 3 credits left."], result.Texts);
+    }
+
+    [Fact]
+    public async Task An_error_that_was_only_the_key_still_says_something()
+    {
+        _inner.ThenThrow(new CliException(ExitCodes.Usage, ErrorCodes.Usage, KeyBlock));
+
+        CliException thrown = await Assert.ThrowsAsync<CliException>(
+            () => new ConversationMcpClient(_inner).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
+
+        Assert.Equal(ConversationMcpClient.EmptyErrorMessage, thrown.Message);
+    }
+
+    [Theory]
+    [InlineData(KeyBlock, "")]
+    [InlineData("conversationKey: ck_1", "")]
+    [InlineData("conversationKey: ck_1 (send it back on every call)", "")]
+    [InlineData("conversationKey: ck_1\nSend this key back on every later call.", "Send this key back on every later call.")]
+    [InlineData("A warning that names conversationKey: ck_1 in passing.", "A warning that names conversationKey: ck_1 in passing.")]
+    [InlineData("{\"conversationKey\":\"ck_1\"}", "{\"conversationKey\":\"ck_1\"}")]
+    public void Only_a_line_that_opens_with_the_key_is_removed(string text, string expected)
+    {
+        Assert.Equal(expected, ConversationKey.Strip(text).Text);
+    }
+
+    [Fact]
+    public async Task A_command_prints_no_key_warning()
+    {
+        _test.Services.McpClientFactory = _ => new ConversationMcpClient(_inner);
         _inner.Then(McpResult("Thank you. Velixo R&D received the report (1). Do not submit it again.", KeyBlock));
 
         var exit = await _test.RunAsync(
             "feedback", "--tool", "none", "--category", "other", "--severity", "minor",
-            "--attempted", "a", "--problem", "p", "--proposed-change", "c", "--conversation", "Feedback test");
+            "--attempted", "a", "--problem", "p", "--proposed-change", "c");
 
         Assert.Equal(ExitCodes.Success, exit);
-        Assert.Equal("Feedback test", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
         Assert.DoesNotContain("conversationKey", _test.Console.StdErr + _test.Console.StdOut, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task A_key_that_cannot_be_saved_never_fails_the_call()
+    public async Task A_name_without_a_key_is_sent_and_the_key_the_server_gives_is_announced_once()
     {
-        _inner.Then(McpResult("written", KeyBlock));
-        var client = new ConversationMcpClient(_inner, new LockedStore(_test.Services.Profiles), Profile, Prod, "Month-end", TimeProvider.System);
+        var announced = new List<string>();
+        _inner.Then(McpResult("first", KeyBlock)).Then(McpResult("second", KeyBlock));
+        var client = new ConversationMcpClient(_inner, "Overdue invoices", null, announced.Add);
+        var arguments = new JsonObject { ["intent"] = "x" };
 
-        McpToolResult result = await client.CallToolAsync("execute_commands", [], TestContext.Current.CancellationToken);
+        McpToolResult first = await client.CallToolAsync("execute_query", arguments, TestContext.Current.CancellationToken);
+        await client.CallToolAsync("get_status", arguments, TestContext.Current.CancellationToken);
 
-        Assert.Equal(["written"], result.Texts);
+        Assert.Equal("Overdue invoices", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
+        Assert.False(_inner.Calls[0].Arguments.ContainsKey(ConversationKey.KeyArgument));
+        Assert.Equal(["ck_abc.def"], announced);
+        Assert.Equal(["first"], first.Texts);
+        Assert.Equal(["intent"], arguments.Select(argument => argument.Key));
     }
 
     [Fact]
-    public async Task The_key_of_a_failed_first_call_is_kept_for_the_next()
+    public async Task A_key_the_server_accepts_is_sent_and_nothing_is_announced()
     {
-        _inner.ThenThrow(new CliException(ExitCodes.Failure, ErrorCodes.Protocol, "Server error -32603: boom\n" + KeyBlock)).Then(McpResult("ok"));
-        ConversationMcpClient client = Client("Month-end");
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok"));
 
-        await Assert.ThrowsAsync<CliException>(() => client.CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
-        await client.CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
-
-        Assert.Equal("ck_abc.def", (string?)_inner.Calls[1].Arguments[ConversationKey.KeyArgument]);
-    }
-
-    [Fact]
-    public async Task A_key_is_never_sent_to_another_server()
-    {
-        _inner.Then(McpResult("a", KeyBlock)).Then(McpResult("b"));
-
-        await Client("Month-end").CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
-        await new ConversationMcpClient(_inner, _test.Services.Profiles, Profile, new Uri("https://nx-dev.velixo.com/mcp"), "Month-end", TimeProvider.System)
+        await new ConversationMcpClient(_inner, "Overdue invoices", "ck_abc.def", announced.Add)
             .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
 
-        Assert.False(_inner.Calls[1].Arguments.ContainsKey(ConversationKey.KeyArgument));
+        Assert.Equal("ck_abc.def", (string?)_inner.Calls[0].Arguments[ConversationKey.KeyArgument]);
+        Assert.Equal("Overdue invoices", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
+        Assert.Empty(announced);
     }
 
     [Fact]
-    public async Task A_conversation_in_use_outlives_newer_ones()
+    public async Task A_key_the_server_refuses_is_replaced_by_the_one_it_announces()
     {
-        var clock = new ManualClock(DateTimeOffset.UnixEpoch);
-        _inner.Then(McpResult("ok", "conversationKey: ck_long"));
-        await Client("Nightly AR sync", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok", "conversationKey: ck_new\nSend this `conversationKey` on every later call in this chat."));
 
-        for (var index = 0; index < ConversationMcpClient.MaxStoredConversations; index++)
-        {
-            clock.Advance(ConversationMcpClient.UseRefresh);
-            _inner.Then(McpResult("ok")).Then(McpResult("ok", $"conversationKey: ck_{index}"));
-            await Client("Nightly AR sync", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
-            await Client($"chat {index}", clock).CallToolAsync("get_status", [], TestContext.Current.CancellationToken);
-        }
+        await new ConversationMcpClient(_inner, null, "ck_stale", announced.Add)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
 
-        Assert.Equal("ck_long", _test.Services.Profiles.LoadState(Profile).Conversations!["Nightly AR sync"].Key);
+        Assert.Equal(["ck_new"], announced);
     }
 
-    private ConversationMcpClient Client(string? conversation, TimeProvider? clock = null) =>
-        new(_inner, _test.Services.Profiles, Profile, Prod, conversation, clock ?? TimeProvider.System);
-
-    /// <summary>A store whose state file is locked by another process: every write fails as <c>FileLock</c> fails it.</summary>
-    private sealed class LockedStore(IProfileStore inner) : IProfileStore
+    [Fact]
+    public async Task The_key_of_a_failed_call_is_announced_too()
     {
-        public ConfigPaths Paths => inner.Paths;
+        var announced = new List<string>();
+        _inner.ThenThrow(new CliException(ExitCodes.Failure, ErrorCodes.Protocol, "Server error -32603: boom\n" + KeyBlock));
 
-        public CliConfig LoadConfig() => inner.LoadConfig();
+        await Assert.ThrowsAsync<CliException>(() => new ConversationMcpClient(_inner, "Overdue invoices", null, announced.Add)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
 
-        public CliConfig UpdateConfig(Action<CliConfig> change) => inner.UpdateConfig(change);
+        Assert.Equal(["ck_abc.def"], announced);
+    }
 
-        public ProfileState LoadState(string profile) => inner.LoadState(profile);
+    [Fact]
+    public async Task Without_a_conversation_nothing_is_sent_or_announced()
+    {
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok", KeyBlock));
 
-        public void UpdateState(string profile, Action<ProfileState> change) =>
-            throw new CliException(ExitCodes.Failure, "FILE_LOCKED", "Another velixo process holds the state file.");
+        await new ConversationMcpClient(_inner, null, null, announced.Add).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
 
-        public void DeleteState(string profile) => inner.DeleteState(profile);
+        Assert.Empty(_inner.Calls[0].Arguments);
+        Assert.Empty(announced);
+    }
 
-        public StagedFilesFile LoadStagedFiles(string profile) => inner.LoadStagedFiles(profile);
+    [Fact]
+    public async Task A_command_with_a_conversation_name_prints_the_key_on_stderr_even_when_quiet()
+    {
+        _test.Services.McpClientFactory = services => new ConversationMcpClient(
+            _inner,
+            services.Settings.ConversationName,
+            services.Settings.ConversationKey,
+            key => services.Output.Note($"Conversation key: {key}. Pass --conversation-key {key} on every later call of this conversation."));
+        _inner.Then(McpResult("Thank you. Velixo R&D received the report (1). Do not submit it again.", KeyBlock));
 
-        public void UpdateStagedFiles(string profile, Action<StagedFilesFile> change) => inner.UpdateStagedFiles(profile, change);
+        var exit = await _test.RunAsync(
+            "feedback", "--tool", "none", "--category", "other", "--severity", "minor",
+            "--attempted", "a", "--problem", "p", "--proposed-change", "c", "--conversation-name", "Feedback test", "--quiet");
 
-        public LibraryFile LoadLibrary(string profile) => inner.LoadLibrary(profile);
-
-        public T UpdateLibrary<T>(string profile, Func<LibraryFile, T> change) => inner.UpdateLibrary(profile, change);
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.DoesNotContain("ck_abc.def", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("Pass --conversation-key ck_abc.def", _test.Console.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("warning", _test.Console.StdErr, StringComparison.Ordinal);
     }
 
     private static McpToolResult McpResult(params string[] texts) => McpToolResult.From(new JsonObject

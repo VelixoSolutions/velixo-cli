@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
 using Velixo.Cli.Mcp;
 using Velixo.Cli.Output;
@@ -245,23 +246,29 @@ public sealed class LiveTests
     [LiveFact]
     [Covers("feedback")]
     [CoversFlags("feedback", "--tool", "--category", "--severity", "--attempted", "--problem", "--proposed-change", "--workaround")]
-    [CoversFlags(CoversFlagsAttribute.Shared, "--conversation")]
-    public async Task A_feedback_report_reaches_velixo_rnd_in_a_conversation_whose_key_prints_nowhere()
+    [CoversFlags(CoversFlagsAttribute.Shared, "--conversation-name", "--conversation-key")]
+    public async Task A_feedback_report_reaches_velixo_rnd_in_the_conversation_an_earlier_call_started()
     {
-        // A call that names the conversation first, so the report then sends back the key the server gave it.
+        // The first call names the conversation and gets its key on stderr; the report sends the key back.
         const string conversation = "Velixo CLI integration tests";
-        (await LiveCli.RunAsync("connections", "list", "--conversation", conversation)).Expect();
+        CliRun first = (await LiveCli.RunAsync("connections", "list", "--conversation-name", conversation)).Expect();
+        Match announced = Regex.Match(first.StdErr, @"--conversation-key (?<key>\S+) on every later call");
+        Assert.True(announced.Success, first.ToString());
+        Assert.DoesNotContain("conversationKey", first.StdOut + first.StdErr, StringComparison.Ordinal);
 
         // One report per run, named as a test so R&D can filter it out; it carries no ERP data.
         CliRun run = (await LiveCli.RunAsync(
-            "feedback", "--conversation", conversation, "--tool", "query run", "--category", "other", "--severity", "minor",
+            "feedback", "--conversation-name", conversation, "--conversation-key", announced.Groups["key"].Value,
+            "--tool", "query run", "--category", "other", "--severity", "minor",
             "--attempted", "Velixo CLI integration test of velixo feedback. Nothing to do.",
             "--problem", "None: this report checks that the command reaches submit_feedback.",
             "--proposed-change", "None: ignore this report.",
             "--workaround", "None needed.")).Expect();
 
         Assert.StartsWith("Thank you.", (string?)run.Json!["result"]!["text"], StringComparison.Ordinal);
-        Assert.DoesNotContain("conversationKey", run.StdOut + run.StdErr, StringComparison.Ordinal);
+
+        // The server took the key: it gave no new one.
+        Assert.DoesNotContain("Conversation key:", run.StdErr, StringComparison.Ordinal);
     }
 
     // Commands that need no sign-in, in a configuration folder of their own

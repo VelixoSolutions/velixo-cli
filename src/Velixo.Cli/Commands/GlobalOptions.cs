@@ -45,11 +45,18 @@ public sealed class GlobalOptions
         Recursive = true,
     };
 
-    public Option<string?> Conversation { get; } = new("--conversation")
+    public Option<string?> ConversationName { get; } = new("--conversation-name")
     {
-        Description = "A short title for the chat or job this call belongs to, the same on every call of it. "
-            + "Velixo groups the calls with one title into one conversation in its audit.",
+        Description = "A short title for the agent's chat, the same on every call of it, which Velixo's audit shows. "
+            + "Without --conversation-key, the call prints the key the server gives the conversation on stderr.",
         HelpName = "title",
+        Recursive = true,
+    };
+
+    public Option<string?> ConversationKey { get; } = new("--conversation-key")
+    {
+        Description = "The key an earlier call of the same chat printed, which ties this call to that conversation in Velixo's audit.",
+        HelpName = "key",
         Recursive = true,
     };
 
@@ -105,7 +112,7 @@ public sealed class GlobalOptions
     };
 
     public IReadOnlyList<Option> All =>
-        [Profile, Environment, Url, Connection, Intent, Conversation, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
+        [Profile, Environment, Url, Connection, Intent, ConversationName, ConversationKey, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
 
     /// <summary>Reads the options from a parse, leaving out any value that failed to parse.</summary>
     public CommandLineValues Read(ParseResult parse)
@@ -131,7 +138,8 @@ public sealed class GlobalOptions
             Url = Value(Url),
             Connection = Value(Connection),
             Intent = Value(Intent),
-            Conversation = Value(Conversation),
+            ConversationName = Value(ConversationName),
+            ConversationKey = Value(ConversationKey),
             Output = Value(Output),
             Quiet = Value(Quiet),
             NoColor = Value(NoColor),

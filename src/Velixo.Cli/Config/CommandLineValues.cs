@@ -13,7 +13,9 @@ public sealed record CommandLineValues
 
     public string? Intent { get; init; }
 
-    public string? Conversation { get; init; }
+    public string? ConversationName { get; init; }
+
+    public string? ConversationKey { get; init; }
 
     public string? Output { get; init; }
 

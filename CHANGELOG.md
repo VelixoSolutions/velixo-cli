@@ -6,7 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
-- `--conversation TITLE` (or `VELIXO_CONVERSATION`) names the chat or job a call belongs to. The server's audit groups the calls with one title into one conversation: the CLI sends the title as `conversationName`, keeps the `conversationKey` the server gives the first call, and sends it back on every later call with that title. `velixo guide` asks agents to pass it on every command. (RD-16013)
+- `--conversation-name TITLE` and `--conversation-key KEY` (or `VELIXO_CONVERSATION_NAME` and `VELIXO_CONVERSATION_KEY`) let an agent group its calls into one conversation in the server's audit, as an MCP chat client does. The CLI sends them as `conversationName` and `conversationKey`. A call with a name and no key prints the key the server gives it on stderr, for the agent to pass on every later call. (RD-16013)
 - `feedback` reports to Velixo R&D what kept a command from doing what the user needed, and the change you propose, through the server's `submit_feedback` tool (`--tool`, `--category`, `--severity`, `--attempted`, `--problem`, `--proposed-change`, `--workaround`). `--tool` takes a command such as `"query run"` and sends the tool it calls. `velixo guide` tells an agent to send one report per problem, without asking the user first. (RD-16013)
 
 ### Changed
@@ -16,7 +16,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Fixed
 
-- Every call no longer prints a warning that starts with `conversationKey:`. The server adds the key to each call that sends none, for the caller to send back; the CLI now takes it out of the output. (RD-16013)
+- Every command no longer prints a warning that starts with `conversationKey:`. The server adds a conversation key to each call that sends none, for a chat client to send back; the CLI now takes it out of the output and the error messages. (RD-16013)
 
 ## [1.1.1] - 2026-11-20
 
