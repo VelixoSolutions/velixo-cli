@@ -13,6 +13,10 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 - A `query run` table at a terminal asks for links to the records only with `--links`, as JSON and CSV already did. On an Acumatica instance, the Velixo customization looks up each linked row's screen while the query runs, so a table of 250 AR invoices took 9 seconds with links and 0.3 seconds without. Pass `--links` to get the clickable cells back. (RD-15799)
 - On Acumatica, with a Velixo customization that opens records when they are clicked, links cover every row of a window instead of its first 1,000, and cost the query no time. A table without a NoteID, such as `Branch` or `SOOrderShipment`, has no links; query FROM the document it belongs to instead. (RD-15799)
 
+### Fixed
+
+- Every command no longer prints a warning that starts with `conversationKey:`. The server adds a conversation key to each call that sends none, for a chat client to send back; the CLI now takes it out of the output and the error messages. (RD-16013)
+
 ## [1.1.1] - 2026-11-20
 
 ### Fixed
