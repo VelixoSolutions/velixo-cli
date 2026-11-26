@@ -6,6 +6,7 @@ All notable changes to the Velixo CLI are listed here. The format follows [Keep 
 
 ### Added
 
+- `--conversation-name TITLE` and `--conversation-key KEY` (or `VELIXO_CONVERSATION_NAME` and `VELIXO_CONVERSATION_KEY`) let an agent group its calls into one conversation in the server's audit, as an MCP chat client does. The CLI sends them as `conversationName` and `conversationKey`. A call with a name and no key prints the key the server gives it on stderr, for the agent to pass on every later call. (RD-16013)
 - `feedback` reports to Velixo R&D what kept a command from doing what the user needed, and the change you propose, through the server's `submit_feedback` tool (`--tool`, `--category`, `--severity`, `--attempted`, `--problem`, `--proposed-change`, `--workaround`). `--tool` takes a command such as `"query run"` and sends the tool it calls. `velixo guide` tells an agent to send one report per problem, without asking the user first. (RD-16013)
 
 ### Changed

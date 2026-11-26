@@ -10,17 +10,26 @@ namespace Velixo.Cli.Mcp;
 /// </summary>
 public static partial class ConversationKey
 {
-    /// <summary>Returns <paramref name="text"/> without the key lines, trimmed, and whether it had any.</summary>
-    public static (string Text, bool HadKey) Strip(string text)
+    /// <summary>The argument that names the conversation in the server's audit.</summary>
+    public const string NameArgument = "conversationName";
+
+    /// <summary>The argument that ties the calls of one conversation together in the server's audit.</summary>
+    public const string KeyArgument = "conversationKey";
+
+    /// <summary>Returns <paramref name="text"/> without the key lines, trimmed, whether it had any, and the last key it held.</summary>
+    public static (string Text, bool HadKey, string? Key) Strip(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        var stripped = KeyLines().Replace(text, string.Empty);
-        return ReferenceEquals(stripped, text) || stripped == text
-            ? (text, false)
-            : (stripped.Trim(), true);
+        string? key = null;
+        var stripped = KeyLines().Replace(text, match =>
+        {
+            key = match.Groups["key"].Value;
+            return string.Empty;
+        });
+        return key is null ? (text, false, null) : (stripped.Trim(), true, key);
     }
 
-    [GeneratedRegex(@"^[ \t]*conversationKey:[ \t]*\S+[^\r\n]*(\r?\n[^\r\n]*conversationKey[^\r\n]*)?(\r?\n|\z)", RegexOptions.Multiline)]
+    [GeneratedRegex(@"^[ \t]*conversationKey:[ \t]*(?<key>\S+)[^\r\n]*(\r?\n[^\r\n]*conversationKey[^\r\n]*)?(\r?\n|\z)", RegexOptions.Multiline)]
     private static partial Regex KeyLines();
 }

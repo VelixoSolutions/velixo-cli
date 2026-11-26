@@ -109,6 +109,94 @@ public sealed class ConversationMcpClientTests : IDisposable
         Assert.DoesNotContain("conversationKey", _test.Console.StdErr + _test.Console.StdOut, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_name_without_a_key_is_sent_and_the_key_the_server_gives_is_announced_once()
+    {
+        var announced = new List<string>();
+        _inner.Then(McpResult("first", KeyBlock)).Then(McpResult("second", KeyBlock));
+        var client = new ConversationMcpClient(_inner, "Overdue invoices", null, announced.Add);
+        var arguments = new JsonObject { ["intent"] = "x" };
+
+        McpToolResult first = await client.CallToolAsync("execute_query", arguments, TestContext.Current.CancellationToken);
+        await client.CallToolAsync("get_status", arguments, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Overdue invoices", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
+        Assert.False(_inner.Calls[0].Arguments.ContainsKey(ConversationKey.KeyArgument));
+        Assert.Equal(["ck_abc.def"], announced);
+        Assert.Equal(["first"], first.Texts);
+        Assert.Equal(["intent"], arguments.Select(argument => argument.Key));
+    }
+
+    [Fact]
+    public async Task A_key_the_server_accepts_is_sent_and_nothing_is_announced()
+    {
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok"));
+
+        await new ConversationMcpClient(_inner, "Overdue invoices", "ck_abc.def", announced.Add)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal("ck_abc.def", (string?)_inner.Calls[0].Arguments[ConversationKey.KeyArgument]);
+        Assert.Equal("Overdue invoices", (string?)_inner.Calls[0].Arguments[ConversationKey.NameArgument]);
+        Assert.Empty(announced);
+    }
+
+    [Fact]
+    public async Task A_key_the_server_refuses_is_replaced_by_the_one_it_announces()
+    {
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok", "conversationKey: ck_new\nSend this `conversationKey` on every later call in this chat."));
+
+        await new ConversationMcpClient(_inner, null, "ck_stale", announced.Add)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["ck_new"], announced);
+    }
+
+    [Fact]
+    public async Task The_key_of_a_failed_call_is_announced_too()
+    {
+        var announced = new List<string>();
+        _inner.ThenThrow(new CliException(ExitCodes.Failure, ErrorCodes.Protocol, "Server error -32603: boom\n" + KeyBlock));
+
+        await Assert.ThrowsAsync<CliException>(() => new ConversationMcpClient(_inner, "Overdue invoices", null, announced.Add)
+            .CallToolAsync("execute_query", [], TestContext.Current.CancellationToken));
+
+        Assert.Equal(["ck_abc.def"], announced);
+    }
+
+    [Fact]
+    public async Task Without_a_conversation_nothing_is_sent_or_announced()
+    {
+        var announced = new List<string>();
+        _inner.Then(McpResult("ok", KeyBlock));
+
+        await new ConversationMcpClient(_inner, null, null, announced.Add).CallToolAsync("execute_query", [], TestContext.Current.CancellationToken);
+
+        Assert.Empty(_inner.Calls[0].Arguments);
+        Assert.Empty(announced);
+    }
+
+    [Fact]
+    public async Task A_command_with_a_conversation_name_prints_the_key_on_stderr_even_when_quiet()
+    {
+        _test.Services.McpClientFactory = services => new ConversationMcpClient(
+            _inner,
+            services.Settings.ConversationName,
+            services.Settings.ConversationKey,
+            key => services.Output.Note($"Conversation key: {key}. Pass --conversation-key {key} on every later call of this conversation."));
+        _inner.Then(McpResult("Thank you. Velixo R&D received the report (1). Do not submit it again.", KeyBlock));
+
+        var exit = await _test.RunAsync(
+            "feedback", "--tool", "none", "--category", "other", "--severity", "minor",
+            "--attempted", "a", "--problem", "p", "--proposed-change", "c", "--conversation-name", "Feedback test", "--quiet");
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.DoesNotContain("ck_abc.def", _test.Console.StdOut, StringComparison.Ordinal);
+        Assert.Contains("Pass --conversation-key ck_abc.def", _test.Console.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("warning", _test.Console.StdErr, StringComparison.Ordinal);
+    }
+
     private static McpToolResult McpResult(params string[] texts) => McpToolResult.From(new JsonObject
     {
         ["content"] = new JsonArray(texts.Select(text => (JsonNode?)new JsonObject { ["type"] = "text", ["text"] = text }).ToArray()),

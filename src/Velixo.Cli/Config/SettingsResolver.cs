@@ -44,6 +44,8 @@ public static class SettingsResolver
             McpUrl = mcpUrl,
             Connection = FirstOf(flags.Connection, Variable(EnvironmentVariables.Connection), project.Connection, profile.Connection),
             Intent = FirstOf(flags.Intent, Variable(EnvironmentVariables.Intent)),
+            ConversationName = FirstOf(flags.ConversationName, Variable(EnvironmentVariables.ConversationName)),
+            ConversationKey = FirstOf(flags.ConversationKey, Variable(EnvironmentVariables.ConversationKey)),
             Output = ResolveOutput(sources, flags, Variable, agent),
             Agent = agent,
             IsInteractive = !flags.NonInteractive && agent is null && !sources.IsInputRedirected,

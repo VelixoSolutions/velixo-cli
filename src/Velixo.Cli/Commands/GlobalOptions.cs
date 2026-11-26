@@ -45,6 +45,21 @@ public sealed class GlobalOptions
         Recursive = true,
     };
 
+    public Option<string?> ConversationName { get; } = new("--conversation-name")
+    {
+        Description = "A short title for the agent's chat, the same on every call of it, which Velixo's audit shows. "
+            + "Without --conversation-key, the call prints the key the server gives the conversation on stderr.",
+        HelpName = "title",
+        Recursive = true,
+    };
+
+    public Option<string?> ConversationKey { get; } = new("--conversation-key")
+    {
+        Description = "The key an earlier call of the same chat printed, which ties this call to that conversation in Velixo's audit.",
+        HelpName = "key",
+        Recursive = true,
+    };
+
     public Option<string?> Output { get; } = CreateOutputOption();
 
     public Option<bool> Quiet { get; } = new("--quiet", "-q")
@@ -97,7 +112,7 @@ public sealed class GlobalOptions
     };
 
     public IReadOnlyList<Option> All =>
-        [Profile, Environment, Url, Connection, Intent, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
+        [Profile, Environment, Url, Connection, Intent, ConversationName, ConversationKey, Output, Quiet, NoColor, Links, NonInteractive, Yes, Timeout, NoWait, Compact];
 
     /// <summary>Reads the options from a parse, leaving out any value that failed to parse.</summary>
     public CommandLineValues Read(ParseResult parse)
@@ -123,6 +138,8 @@ public sealed class GlobalOptions
             Url = Value(Url),
             Connection = Value(Connection),
             Intent = Value(Intent),
+            ConversationName = Value(ConversationName),
+            ConversationKey = Value(ConversationKey),
             Output = Value(Output),
             Quiet = Value(Quiet),
             NoColor = Value(NoColor),

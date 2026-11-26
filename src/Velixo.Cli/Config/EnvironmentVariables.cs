@@ -12,6 +12,12 @@ public static class EnvironmentVariables
     public const string McpUrl = "VELIXO_MCP_URL";
     public const string Connection = "VELIXO_CONNECTION";
     public const string Intent = "VELIXO_INTENT";
+
+    /// <summary>The short title of the conversation, as <c>--conversation-name</c> gives it.</summary>
+    public const string ConversationName = "VELIXO_CONVERSATION_NAME";
+
+    /// <summary>The key the server gave the conversation, as <c>--conversation-key</c> gives it.</summary>
+    public const string ConversationKey = "VELIXO_CONVERSATION_KEY";
     public const string Token = "VELIXO_TOKEN";
     public const string Output = "VELIXO_OUTPUT";
     public const string ConfigDirectory = "VELIXO_CONFIG_DIR";

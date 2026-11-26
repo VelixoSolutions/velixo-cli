@@ -16,6 +16,12 @@ public sealed record ResolvedSettings
 
     public string? Intent { get; init; }
 
+    /// <summary>Gets the short title of the conversation the call belongs to, sent as <c>conversationName</c>, or null.</summary>
+    public string? ConversationName { get; init; }
+
+    /// <summary>Gets the key the server gave the conversation, sent as <c>conversationKey</c>, or null.</summary>
+    public string? ConversationKey { get; init; }
+
     required public OutputSettings Output { get; init; }
 
     /// <summary>Gets the AI agent the CLI runs under, from its environment variables, or null.</summary>
